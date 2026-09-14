@@ -103,6 +103,9 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
     });
   }
 
+  const headers = new Headers(response.headers);
+  headers.delete("content-length");
+
   return Response.json(
     {
       object: payload.object || "list",
@@ -110,7 +113,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
     },
     {
       status: response.status,
-      headers: response.headers,
+      headers,
     }
   );
 }

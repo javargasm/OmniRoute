@@ -16,6 +16,7 @@ const {
   checkPipelineGates,
   executeChatWithBreaker,
   handleNoCredentials,
+  recordLateKiroStreamProviderFailure,
   safeResolveProxy,
   safeLogEvents,
   withSessionHeader,
@@ -632,6 +633,112 @@ test("executeChatWithBreaker converts proxy fast-fail errors", async () => {
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("late Kiro stream 5xx records the provider breaker without replaying the request", () => {
+  const breaker = getCircuitBreaker("kiro-late-stream-test", { failureThreshold: 3 });
+
+  assert.equal(
+    recordLateKiroStreamProviderFailure({
+      provider: "kiro",
+      failure: {
+        status: 503,
+        code: "internal_server_error",
+        type: "api_error",
+        message: "Kiro EventStream service failure",
+      },
+      breaker,
+    }),
+    true
+  );
+  assert.equal(breaker.failureCount, 1);
+
+  const excludedFailures = [
+    { status: 499, code: "client_disconnected", type: "client_disconnected", message: "Client disconnected" },
+    {
+      status: 502,
+      code: "client_disconnected",
+      type: "client_disconnected",
+      message: "The downstream writer closed",
+    },
+    { status: 502, code: "context_length_exceeded", type: "invalid_request_error", message: "Input is too long" },
+    { status: 502, code: "stream_pipeline_error", type: "stream_error", message: "Controller is already closed" },
+    { status: 502, code: "stream_early_eof", type: "stream_error", message: "Overloaded" },
+  ];
+
+  for (const failure of excludedFailures) {
+    assert.equal(
+      recordLateKiroStreamProviderFailure({ provider: "kiro", failure, breaker }),
+      false,
+      failure.code
+    );
+  }
+  assert.equal(breaker.failureCount, 1);
+  assert.equal(
+    recordLateKiroStreamProviderFailure({
+      provider: "kiro",
+      failure: excludedFailures[0],
+      breaker,
+      isShadowTraffic: true,
+    }),
+    false
+  );
+  assert.equal(breaker.failureCount, 1);
+  assert.equal(
+    recordLateKiroStreamProviderFailure({
+      provider: "kiro",
+      failure: {
+        status: 503,
+        code: "internal_server_error",
+        type: "api_error",
+        message: "Kiro EventStream service failure",
+      },
+      breaker,
+      forceLiveComboTest: true,
+    }),
+    false
+  );
+  assert.equal(breaker.failureCount, 1, "live combo probes must not affect production health");
+
+  let openBreakerFailureCalls = 0;
+  assert.equal(
+    recordLateKiroStreamProviderFailure({
+      provider: "kiro",
+      failure: {
+        status: 503,
+        code: "internal_server_error",
+        type: "api_error",
+        message: "Kiro EventStream service failure",
+      },
+      breaker: {
+        getStatus: () => ({ state: "OPEN" }),
+        _onFailure: () => {
+          openBreakerFailureCalls += 1;
+        },
+      },
+    }),
+    false
+  );
+  assert.equal(openBreakerFailureCalls, 0, "late failures must not extend an OPEN cooldown");
+});
+
+test("late Amazon Q EventStream failures record the Amazon Q breaker", () => {
+  const breaker = getCircuitBreaker("amazon-q-late-stream-test", { failureThreshold: 3 });
+
+  assert.equal(
+    recordLateKiroStreamProviderFailure({
+      provider: "amazon-q",
+      failure: {
+        status: 503,
+        code: "internal_server_error",
+        type: "api_error",
+        message: "Amazon Q EventStream service failure",
+      },
+      breaker,
+    }),
+    true
+  );
+  assert.equal(breaker.failureCount, 1);
 });
 
 test("executeChatWithBreaker preserves account TLS scope when a proxy bypasses to direct", async () => {

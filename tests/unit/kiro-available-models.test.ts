@@ -35,9 +35,9 @@ test("parseKiroModels reads CodeWhisperer ListAvailableModels shape", () => {
 
   assert.deepEqual(
     models.map((m) => m.id),
-    ["auto", "claude-sonnet-4.6"]
+    ["claude-sonnet-4.6"]
   );
-  assert.equal(models[1].name, "Claude Sonnet 4.6");
+  assert.equal(models[0].name, "Claude Sonnet 4.6");
   assert.equal(models[0].owned_by, "kiro");
 });
 
@@ -152,7 +152,10 @@ test("fetchKiroAvailableModels: simple (Builder ID) account, us-east-1, origin-o
   });
 
   assert.equal(result.source, "api");
-  assert.deepEqual(result.models.map((m) => m.id).sort(), ["auto", "claude-sonnet-4.6"]);
+  assert.deepEqual(result.models.map((m) => m.id).sort(), [
+    "claude-sonnet-4.6",
+    "claude-sonnet-4.6-thinking",
+  ]);
   assert.deepEqual(calls, [
     "https://q.us-east-1.amazonaws.com/ListAvailableModels?origin=AI_EDITOR",
   ]);
@@ -176,7 +179,7 @@ test("fetchKiroAvailableModels: IAM Identity Center account, region-matched endp
   assert.equal(result.source, "api");
   assert.deepEqual(
     result.models.map((m) => m.id),
-    ["claude-opus-4.8"]
+    ["claude-opus-4.8", "claude-opus-4.8-thinking"]
   );
   assert.equal(
     calls[0],
@@ -207,7 +210,7 @@ test("fetchKiroAvailableModels: retries with profileArn when origin-only fails",
   assert.equal(result.source, "api");
   assert.deepEqual(
     result.models.map((m) => m.id),
-    ["claude-sonnet-4.6"]
+    ["claude-sonnet-4.6", "claude-sonnet-4.6-thinking"]
   );
   // origin-only attempted first, then profileArn retry.
   assert.equal(calls.length, 2);
@@ -238,6 +241,7 @@ test("fetchKiroAvailableModels only exposes a functional Thinking alias", async 
 });
 
 test("isObsoleteKiroModelAlias filters stale cached aliases", () => {
+  assert.equal(isObsoleteKiroModelAlias("auto"), true);
   assert.equal(isObsoleteKiroModelAlias("auto-kiro"), true);
   assert.equal(isObsoleteKiroModelAlias("claude-sonnet-5-agentic"), true);
   assert.equal(isObsoleteKiroModelAlias("claude-sonnet-4.5-thinking"), true);

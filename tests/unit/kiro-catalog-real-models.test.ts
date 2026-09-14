@@ -12,28 +12,27 @@ import { FREE_MODEL_BUDGETS } from "@omniroute/open-sse/config/freeModelCatalog.
 // cluster (#6112/#6113/#6099).
 const FABRICATED_KIRO_IDS = [
   "auto-kiro", // no "auto" model id on Kiro — was sent verbatim and 400'd
-  "claude-fable-5", // Kiro offers no Fable
-  "claude-opus-4.8", // Kiro offers no Opus
-  "claude-opus-4.7",
-  "claude-opus-4.6",
-  "claude-sonnet-4.6", // Kiro's Sonnet is 4.5, not 4.6
 ];
 
-// Ids proven to return 200 on the VPS (or a real, plan-gated Kiro model).
+// Ids proven on Kiro (including plan-gated models and models verified in opencode-kiro).
 const REAL_KIRO_IDS = [
-  "claude-sonnet-5", // real model, plan-gated per account (kept)
-  "claude-sonnet-4.5", // proven 200 (replaces the fabricated 4.6)
-  "claude-haiku-4.5", // proven 200
-  "deepseek-3.2", // proven 200
-  "glm-5", // proven 200
-  "minimax-m2.5", // proven 200
-  "minimax-m2.1", // proven 200
-  "qwen3-coder-next", // proven 200
-  // Kiro's first OpenAI-family models, per kiro.dev/changelog/models
-  // (2026-07-14) — not yet independently live-VPS-verified like the ids above.
+  "claude-fable-5",
+  "claude-haiku-4.5",
+  "claude-opus-4.6",
+  "claude-opus-4.7",
+  "claude-opus-4.8",
+  "claude-opus-5",
+  "claude-sonnet-4.5",
+  "claude-sonnet-4.6",
+  "claude-sonnet-5",
+  "deepseek-3.2",
+  "glm-5",
+  "gpt-5.6-luna",
   "gpt-5.6-sol",
   "gpt-5.6-terra",
-  "gpt-5.6-luna",
+  "minimax-m2.1",
+  "minimax-m2.5",
+  "qwen3-coder-next",
 ];
 
 test("kiro registry exposes no fabricated model ids", () => {

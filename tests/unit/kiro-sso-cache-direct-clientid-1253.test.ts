@@ -43,6 +43,7 @@ const core = await import("../../src/lib/db/core.ts");
 
 const { GET } = await import("../../src/app/api/oauth/kiro/auto-import/route.ts");
 const { KiroService } = await import("../../src/lib/oauth/services/kiro.ts");
+const providersDb = await import("../../src/lib/db/providers.ts");
 
 const ORIGINAL_HOME = process.env.HOME;
 const ORIGINAL_APPDATA = process.env.APPDATA;
@@ -161,6 +162,128 @@ test("auto-import: resolves clientId/clientSecret from a direct `clientId` field
     true,
     `expected OIDC refresh to be attempted with resolved client creds, fetched: ${JSON.stringify(fetchedUrls)}`
   );
+});
+
+test("auto-import: reuses a fresh canonical IdC cache token without a network refresh", async () => {
+  const cacheDir = cacheDirFor(tmpHome);
+  const cacheExpiry = "2099-01-01T00:00:00.000Z";
+
+  writeJson(cacheDir, "kiro-auth-token.json", {
+    accessToken: "cached-access-token",
+    refreshToken: "aorAAAAAGcached-refresh-token",
+    clientId: "cached-client-id",
+    region: "ap-southeast-1",
+    provider: "BuilderId",
+    authMethod: "IdC",
+    expiresAt: cacheExpiry,
+  });
+  writeJson(cacheDir, "cached-client-registration.json", {
+    clientId: "cached-client-id",
+    clientSecret: "cached-client-secret",
+    region: "ap-southeast-1",
+  });
+
+  globalThis.fetch = (async () => {
+    throw new Error("a fresh canonical cache token must not trigger network I/O");
+  }) as typeof fetch;
+
+  const { body } = await callGet();
+  assert.equal(body.found, true, `expected found:true, got: ${JSON.stringify(body)}`);
+
+  const rows = await providersDb.getProviderConnections({ provider: "kiro" });
+  assert.equal(rows.length, 1);
+  const connection = rows[0]!;
+  assert.equal(connection.accessToken, "cached-access-token");
+  assert.equal(connection.refreshToken, "aorAAAAAGcached-refresh-token");
+  assert.equal(
+    connection.expiresAt,
+    new Date(Date.parse(cacheExpiry) - 5 * 60 * 1000).toISOString(),
+    "persisted expiry must retain the five-minute refresh safety margin"
+  );
+  assert.deepEqual(connection.providerSpecificData, {
+    authMethod: "idc",
+    provider: "AWS SSO Cache",
+    clientId: "cached-client-id",
+    clientSecret: "cached-client-secret",
+    region: "ap-southeast-1",
+  });
+});
+
+for (const [label, expiresAt, authMethod] of [
+  ["malformed", "not-a-date", "IdC"],
+  [
+    "within the five-minute safety margin",
+    new Date(Date.now() + 5 * 60 * 1000).toISOString(),
+    "IdC",
+  ],
+  ["unknown-auth", "2099-01-01T00:00:00.000Z", "unrecognized"],
+] as const) {
+  test(`auto-import: refreshes instead of reusing a ${label} canonical cache entry`, async () => {
+    const cacheDir = cacheDirFor(tmpHome);
+    writeJson(cacheDir, "kiro-auth-token.json", {
+      accessToken: "stale-cached-access-token",
+      refreshToken: "aorAAAAAGcache-refresh-token",
+      clientId: "refresh-client-id",
+      region: "us-east-1",
+      provider: "BuilderId",
+      authMethod,
+      expiresAt,
+    });
+    writeJson(cacheDir, "refresh-client-registration.json", {
+      clientId: "refresh-client-id",
+      clientSecret: "refresh-client-secret",
+      region: "us-east-1",
+    });
+
+    const fetchedUrls: string[] = [];
+    globalThis.fetch = (async (input: RequestInfo | URL) => {
+      const url = String(input);
+      fetchedUrls.push(url);
+      if (url === "https://oidc.us-east-1.amazonaws.com/token") {
+        return new Response(
+          JSON.stringify({
+            accessToken: "refreshed-access-token",
+            refreshToken: "aorAAAAAGrefreshed-token",
+            expiresIn: 3600,
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        );
+      }
+      throw new Error(`[kiro-1253 test] unexpected fetch to ${url}`);
+    }) as typeof fetch;
+
+    const { body } = await callGet();
+    assert.equal(body.found, true, `expected found:true, got: ${JSON.stringify(body)}`);
+    assert.deepEqual(fetchedUrls, ["https://oidc.us-east-1.amazonaws.com/token"]);
+
+    const [connection] = await providersDb.getProviderConnections({ provider: "kiro" });
+    assert.equal(connection?.accessToken, "refreshed-access-token");
+  });
+}
+
+test("auto-import: does not import a noncanonical AWS SSO cache file as Kiro credentials", async () => {
+  const cacheDir = cacheDirFor(tmpHome);
+  writeJson(cacheDir, "amazon-q-auth-token.json", {
+    accessToken: "other-provider-access-token",
+    refreshToken: "aorAAAAAGother-provider-refresh-token",
+    clientId: "other-provider-client-id",
+    region: "us-east-1",
+    authMethod: "IdC",
+    expiresAt: "2099-01-01T00:00:00.000Z",
+  });
+  writeJson(cacheDir, "other-provider-client-registration.json", {
+    clientId: "other-provider-client-id",
+    clientSecret: "other-provider-client-secret",
+    region: "us-east-1",
+  });
+
+  globalThis.fetch = (async () => {
+    throw new Error("a noncanonical Kiro cache candidate must not trigger network I/O");
+  }) as typeof fetch;
+
+  const { body } = await callGet();
+  assert.equal(body.found, false, `expected found:false, got: ${JSON.stringify(body)}`);
+  assert.equal((await providersDb.getProviderConnections({ provider: "kiro" })).length, 0);
 });
 
 // ── KiroService.readCachedClientCredentials() (via validateImportToken) ─────

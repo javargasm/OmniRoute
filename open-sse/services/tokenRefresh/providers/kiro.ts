@@ -4,6 +4,7 @@
 import { PROVIDERS } from "../../../config/constants.ts";
 import { runWithProxyContext } from "../../../utils/proxyFetch.ts";
 import { buildExternalIdpRefreshParams, isExternalIdpAuthMethod } from "../../kiroExternalIdp.ts";
+import { AWS_REGION_PATTERN } from "../../kiroRegion.ts";
 
 /**
  * Specialized refresh for Kiro (AWS CodeWhisperer) tokens
@@ -90,7 +91,12 @@ export async function refreshKiroToken(
     // clientId/clientSecret but their refresh token is Kiro-social-issued — the isolated OIDC client
     // cannot refresh it, so they must fall through to the social auth path (#2467).
     if (clientId && clientSecret && authMethod !== "imported") {
-      const endpoint = `https://oidc.${region || "us-east-1"}.amazonaws.com/token`;
+      const resolvedRegion = region || "us-east-1";
+      if (typeof resolvedRegion !== "string" || !AWS_REGION_PATTERN.test(resolvedRegion)) {
+        log?.error?.("TOKEN_REFRESH", "Invalid Kiro AWS OIDC region");
+        return null;
+      }
+      const endpoint = `https://oidc.${resolvedRegion}.amazonaws.com/token`;
 
       const response = await runWithProxyContext(proxyConfig, () =>
         fetch(endpoint, {
@@ -143,7 +149,6 @@ export async function refreshKiroToken(
         );
 
         try {
-          const resolvedRegion = region || "us-east-1";
           const regEndpoint = `https://oidc.${resolvedRegion}.amazonaws.com/client/register`;
           const regRes = await runWithProxyContext(proxyConfig, () =>
             fetch(regEndpoint, {

@@ -46,6 +46,45 @@ export function shouldTripProviderBreakerForResult(
   );
 }
 
+/**
+ * A stream can fail only after `handleChatCore()` has returned a 200 response
+ * to the caller. At that point the request-level result classifier cannot see
+ * the failure and a combo cannot safely retry without duplicating client output.
+ * Account the late upstream failure directly, while retaining every local,
+ * request-scoped, capacity, and rate-limit exclusion from the normal path.
+ */
+export function shouldTripProviderBreakerForLateStreamFailure(failure: unknown): boolean {
+  if (!failure || typeof failure !== "object") return false;
+  const record = failure as Record<string, unknown>;
+  const status = Number(record.status);
+  if (!Number.isInteger(status) || status < 400 || status > 599) return false;
+  const errorCode = typeof record.code === "string" ? record.code : null;
+  const errorType = typeof record.type === "string" ? record.type : null;
+
+  // Most client aborts have status 499, but keep the explicit classification
+  // exclusion in case a lower stream layer has already defaulted its status to
+  // 502 before the finalizer can normalize it.
+  if (
+    errorCode?.toLowerCase() === "client_disconnected" ||
+    errorType?.toLowerCase() === "client_disconnected"
+  ) {
+    return false;
+  }
+
+  return shouldTripProviderBreakerForResult(
+    {
+      status,
+      errorCode,
+      errorType,
+      // Preserve the full failure object so local execution/lifecycle guards can
+      // inspect both its message and any structured code.
+      error: failure,
+    },
+    false,
+    false
+  );
+}
+
 export type ProviderBreakerResultOutcome = "success" | "failure" | "ignore";
 
 /**

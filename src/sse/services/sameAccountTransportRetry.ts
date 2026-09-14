@@ -43,9 +43,20 @@ export function isRetryablePreOutputTransportError(
 
   const text = String(errorText || "");
   const numericStatus = Number(status);
-  if (numericStatus === 429 || numericStatus === 401 || numericStatus === 400) return false;
+  // Kiro reports an oversized conversation as either HTTP 413 or, depending on
+  // the gateway path, a body marker such as CONTENT_LENGTH_EXCEEDS_THRESHOLD /
+  // "Input is too long". These are deterministic request-shape failures, never
+  // transient transport failures. Keep the guard ahead of the retryable-status
+  // check so a proxy-normalized 502/503 cannot replay the oversized request.
+  if (numericStatus === 429 || numericStatus === 413 || numericStatus === 401 || numericStatus === 400) {
+    return false;
+  }
   if (/quota (threshold|exhausted)|credits exhausted/i.test(text)) return false;
-  if (/invalid_request|prompt is too long|context.?length|unsupported model/i.test(text)) {
+  if (
+    /invalid_request|prompt is too long|input is too long|content_length_exceeds_threshold|context.?length|unsupported model/i.test(
+      text
+    )
+  ) {
     return false;
   }
 

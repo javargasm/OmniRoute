@@ -507,6 +507,39 @@ test("refreshKiroToken uses stored region for AWS OIDC refresh without authMetho
   });
 });
 
+test("refreshKiroToken rejects an invalid persisted AWS OIDC region before fetching", async () => {
+  const log = createLog();
+  let fetchCalls = 0;
+
+  await withMockedFetch(
+    async () => {
+      fetchCalls += 1;
+      return jsonResponse({ accessToken: "unexpected" });
+    },
+    async () => {
+      const result = await refreshKiroToken(
+        "kiro-refresh",
+        {
+          clientId: "aws-client",
+          clientSecret: "aws-secret",
+          region: "evil.example.com/path",
+        },
+        log
+      );
+
+      assert.equal(result, null);
+    }
+  );
+
+  assert.equal(fetchCalls, 0, "invalid region must not produce an outbound request");
+  assert.ok(
+    log.entries.some(
+      (entry) => entry.level === "error" && entry.message === "Invalid Kiro AWS OIDC region"
+    ),
+    `expected invalid-region log entry, got: ${JSON.stringify(log.entries)}`
+  );
+});
+
 test("refreshKiroToken falls back to the social-auth refresh endpoint", async () => {
   const log = createLog();
   const calls: any[] = [];

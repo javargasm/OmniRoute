@@ -68,8 +68,40 @@ export const QWEN_STAINLESS_LANG = "js";
 
 export const QODER_DEFAULT_USER_AGENT = "Qoder-Cli";
 
-export const KIRO_SDK_USER_AGENT = "AWS-SDK-JS/3.0.0 kiro-ide/1.0.0";
-export const KIRO_AMZ_USER_AGENT = "aws-sdk-js/3.0.0 kiro-ide/1.0.0";
+// Kiro CLI.app's signed public bundle metadata on the maintained macOS host.
+// Keep this pin aligned with the installed Amazon Q/Kiro CLI wire identity;
+// the surrounding SDK tokens remain separately captured rather than inferred
+// from the bundle version.
+export const KIRO_CLI_VERSION = "2.21.4";
+
+export function resolveKiroOS(): string {
+  if (typeof process === "undefined" || typeof process.platform !== "string") return "linux";
+  switch (process.platform) {
+    case "darwin":
+      return "macos";
+    case "win32":
+      return "windows";
+    default:
+      return process.platform;
+  }
+}
+
+export function getKiroUserAgent(): string {
+  const osName = resolveKiroOS();
+  return (
+    process.env.KIRO_CUSTOM_USER_AGENT ||
+    `aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/${osName} lang/rust/1.92.0 md/appVersion-${KIRO_CLI_VERSION} app/AmazonQ-For-CLI`
+  );
+}
+
+export function getKiroAmzUserAgent(): string {
+  return process.env.KIRO_CUSTOM_USER_AGENT
+    ? `${process.env.KIRO_CUSTOM_USER_AGENT} m/F,C`
+    : `aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/${resolveKiroOS()} lang/rust/1.92.0 m/F,C md/appVersion-${KIRO_CLI_VERSION} app/AmazonQ-For-CLI`;
+}
+
+export const KIRO_SDK_USER_AGENT = getKiroUserAgent();
+export const KIRO_AMZ_USER_AGENT = getKiroAmzUserAgent();
 export const KIRO_STREAMING_TARGET =
   "AmazonCodeWhispererStreamingService.GenerateAssistantResponse";
 
@@ -207,14 +239,18 @@ export function getAntigravityProviderHeaders(
 }
 
 export function getKiroServiceHeaders(
-  accept = "application/vnd.amazon.eventstream"
+  accept = "*/*"
 ): Record<string, string> {
   return {
-    "Content-Type": "application/json",
+    "Content-Type": "application/x-amz-json-1.0",
     Accept: accept,
+    "Accept-Encoding": "gzip",
     "X-Amz-Target": KIRO_STREAMING_TARGET,
-    "User-Agent": KIRO_SDK_USER_AGENT,
-    "X-Amz-User-Agent": KIRO_AMZ_USER_AGENT,
+    "x-amzn-codewhisperer-optout": "true",
+    "User-Agent": getKiroUserAgent(),
+    "X-Amz-User-Agent": getKiroAmzUserAgent(),
+    Pragma: "no-cache",
+    "Cache-Control": "no-cache",
   };
 }
 

@@ -46,6 +46,16 @@ const CACHE_TTL_MS = 5 * 60 * 1000;
 
 const catalogCache = new Map<string, { expiresAt: number; models: KiroModel[] }>();
 
+/**
+ * `ListAvailableModels` advertises this pseudo-model, but Kiro rejects it on
+ * GenerateAssistantResponse with INVALID_MODEL_ID. It also collides with
+ * OmniRoute's reserved `auto` routing namespace, so never expose or retain it
+ * as a selectable Kiro model.
+ */
+function isUnusableKiroCatalogModelId(modelId: string): boolean {
+  return modelId.toLowerCase() === "auto";
+}
+
 function asRecord(value: unknown): RawRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as RawRecord) : {};
 }
@@ -121,7 +131,7 @@ export function parseKiroModels(data: unknown): KiroModel[] {
   for (const value of items) {
     const item = asRecord(value);
     const id = toNonEmptyString(item.modelId) || toNonEmptyString(item.id);
-    if (!id || seen.has(id)) continue;
+    if (!id || isUnusableKiroCatalogModelId(id) || seen.has(id)) continue;
     seen.add(id);
     const name = toNonEmptyString(item.modelName) || toNonEmptyString(item.name) || id;
     const promptCaching = parsePromptCaching(item.promptCaching);
@@ -165,7 +175,9 @@ function buildVariants(upstream: string, displayName: string): KiroModel[] {
 
 export function isObsoleteKiroModelAlias(modelId: unknown): boolean {
   if (typeof modelId !== "string") return false;
-  if (modelId === "auto-kiro" || modelId.endsWith("-agentic")) return true;
+  if (isUnusableKiroCatalogModelId(modelId) || modelId === "auto-kiro" || modelId.endsWith("-agentic")) {
+    return true;
+  }
   if (!modelId.endsWith("-thinking")) return false;
   const upstream = modelId.slice(0, -"-thinking".length);
   return !supportsKiroAdaptiveThinking(upstream);
@@ -184,7 +196,7 @@ function expandKiroModels(data: unknown): KiroModel[] {
   for (const value of items) {
     const item = asRecord(value);
     const upstreamId = toNonEmptyString(item.modelId) || toNonEmptyString(item.id);
-    if (!upstreamId) continue;
+    if (!upstreamId || isUnusableKiroCatalogModelId(upstreamId)) continue;
     const display = formatDisplayName(item.modelName || item.name, upstreamId, item.rateMultiplier);
     const tokenLimits = asRecord(item.tokenLimits);
     const contextLength = Number(tokenLimits.maxInputTokens) || 200000;

@@ -10,6 +10,10 @@ import {
   parseToolInput,
   normalizeKiroToolSchema,
   serializeToolResultContent,
+  toKiroToolUseId,
+  KIRO_PLACEHOLDER_TOOL,
+  historyHasToolBlocks,
+  resolveKiroAssistantMessageId,
 } from "./openai-to-kiro/messageHelpers.ts";
 import {
   resolveKiroModelAlias,
@@ -49,6 +53,153 @@ function wrapSystemReminder(text: string): string {
 
 /** Kiro rejects a `toolSpecification.description` longer than ~10000 chars. */
 const KIRO_TOOL_DESC_MAX = 10000;
+
+/** Kiro accepts at most four image attachments on one emitted user message. */
+const KIRO_MAX_IMAGES = 4;
+
+/** Kiro's per-image decoded-size ceiling, in bytes. */
+const KIRO_MAX_IMAGE_BYTES = 3_750_000;
+
+const KIRO_IMAGE_FORMATS = new Set(["png", "jpeg", "gif", "webp"]);
+
+type KiroImageCandidate = { mimeType: string; data: string };
+type KiroImage = { format: string; source: { bytes: string } };
+type KiroReplayReasoning =
+  | { reasoningText: { text: string; signature: string } }
+  | { redactedContent: string };
+
+function asKiroRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function firstNonEmptyString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return null;
+}
+
+function redactedKiroReasoning(value: Record<string, unknown>): string | null {
+  if (typeof value.redactedContent === "string") return value.redactedContent;
+  if (typeof value.redacted_content === "string") return value.redacted_content;
+  return null;
+}
+
+/**
+ * Preserve only authentic replayable Kiro reasoning. Bedrock rejects plain
+ * reasoning text without its original signature, so unsigned OpenAI-style
+ * `reasoning_content` deliberately remains omitted. Opaque redacted reasoning
+ * is replayed verbatim and takes precedence over any visible reasoning text.
+ */
+function extractKiroReplayReasoning(message: Record<string, unknown>): KiroReplayReasoning | null {
+  const directReasoning = asKiroRecord(message.reasoningContent);
+  const contentBlocks = Array.isArray(message.content) ? message.content : [];
+
+  const directRedaction = redactedKiroReasoning(message) ??
+    (directReasoning ? redactedKiroReasoning(directReasoning) : null);
+  if (directRedaction !== null) return { redactedContent: directRedaction };
+
+  for (const rawBlock of contentBlocks) {
+    const block = asKiroRecord(rawBlock);
+    if (!block) continue;
+    const redaction = redactedKiroReasoning(block);
+    if (redaction !== null) return { redactedContent: redaction };
+    if (block.type === "redacted_thinking" && typeof block.data === "string") {
+      return { redactedContent: block.data };
+    }
+  }
+
+  const directReasoningText = directReasoning ? asKiroRecord(directReasoning.reasoningText) : null;
+  const topLevelReasoningText = asKiroRecord(message.reasoningText);
+  const directText = firstNonEmptyString(
+    directReasoningText?.text,
+    directReasoning?.text,
+    typeof directReasoning?.reasoningText === "string" ? directReasoning.reasoningText : null,
+    topLevelReasoningText?.text,
+    typeof message.reasoningText === "string" ? message.reasoningText : null,
+    typeof message.reasoningContent === "string" ? message.reasoningContent : null,
+    message.reasoning_content
+  );
+  const directSignature = firstNonEmptyString(
+    directReasoningText?.signature,
+    directReasoning?.signature,
+    topLevelReasoningText?.signature,
+    message.signature,
+    message.thinkingSignature
+  );
+  if (directText && directSignature) {
+    return { reasoningText: { text: directText, signature: directSignature } };
+  }
+
+  let thinkingText = "";
+  let thinkingSignature = "";
+  for (const rawBlock of contentBlocks) {
+    const block = asKiroRecord(rawBlock);
+    if (!block || (block.type !== "thinking" && block.type !== "reasoning")) continue;
+    const text = firstNonEmptyString(
+      block.thinking,
+      block.reasoningContent,
+      block.reasoning_content,
+      block.text
+    );
+    if (text) thinkingText += text;
+    const signature = firstNonEmptyString(block.thinkingSignature, block.signature);
+    if (signature) thinkingSignature = signature;
+  }
+
+  return thinkingText && thinkingSignature
+    ? { reasoningText: { text: thinkingText, signature: thinkingSignature } }
+    : null;
+}
+
+function normalizeKiroImageFormat(mimeType: string): string | null {
+  const [primaryType, subtypeAndParameters] = mimeType.trim().toLowerCase().split("/", 2);
+  if (primaryType !== "image") return null;
+
+  const subtype = (subtypeAndParameters || "").split(";")[0]!.trim();
+  const base = subtype.replace(/\+.*$/, "").replace(/^vnd\./, "");
+  const canonical = base === "jpg" ? "jpeg" : base;
+  return KIRO_IMAGE_FORMATS.has(canonical) ? canonical : null;
+}
+
+function extractKiroDataUrlImage(url: string): KiroImageCandidate | null {
+  if (!url.startsWith("data:")) return null;
+  const [header, data] = url.split(",", 2);
+  if (!header || !data) return null;
+  const [, ...parameters] = header.split(";");
+  if (!parameters.some((parameter) => parameter.trim().toLowerCase() === "base64")) {
+    return null;
+  }
+
+  return {
+    mimeType: header.split(";", 1)[0]!.replace("data:", "").trim(),
+    data,
+  };
+}
+
+/**
+ * Convert image candidates into Kiro's wire shape at the emitted-message
+ * boundary. This keeps the limit across all input blocks merged into one Kiro
+ * user turn; invalid, oversized, and fifth-plus images are silently omitted.
+ * The estimate intentionally mirrors Kiro's reference client rather than
+ * decoding/validating base64 here.
+ */
+function convertKiroImages(candidates: KiroImageCandidate[]): KiroImage[] {
+  const images: KiroImage[] = [];
+
+  for (const candidate of candidates) {
+    const estimatedBytes = Math.ceil((candidate.data.length * 3) / 4);
+    if (estimatedBytes > KIRO_MAX_IMAGE_BYTES || images.length >= KIRO_MAX_IMAGES) continue;
+
+    const format = normalizeKiroImageFormat(candidate.mimeType);
+    if (!format) continue;
+    images.push({ format, source: { bytes: candidate.data } });
+  }
+
+  return images;
+}
 
 /** OpenAI- and Anthropic-shaped tool declarations, as clients actually send them. */
 type KiroToolInput = {
@@ -178,8 +329,12 @@ function convertMessages(messages, tools, model) {
   // batch. They are held back so the batch stays contiguous, then emitted as
   // their own assistant turn right after the batch flushes — see
   // `interruptsOpenToolBatch` below (issue #8903).
+  const KIRO_ORIGIN = process.env.KIRO_ORIGIN || "KIRO_CLI";
+  let lastAssistantMsg: Record<string, unknown> | null = null;
   let deferredAssistantContent: string[] = [];
-  let pendingImages: Array<{ format: string; source: { bytes: string } }> = [];
+  let pendingImages: KiroImageCandidate[] = [];
+  let pendingAssistantReasoning: KiroReplayReasoning | null = null;
+  let pendingAssistantSource: Record<string, unknown> | null = null;
   let currentRole = null;
   let toolsAttached = false;
   let toolDocs = "";
@@ -199,7 +354,8 @@ function convertMessages(messages, tools, model) {
       // "(empty)" injected as if the user had typed it, which can confuse Kiro.
       // See decolua/9router#2183 for the same bug class.
       const text = pendingUserContent.join("\n\n").trim();
-      const hasContext = pendingToolResults.length > 0 || pendingImages.length > 0;
+      const images = convertKiroImages(pendingImages);
+      const hasContext = pendingToolResults.length > 0 || images.length > 0;
       const content = text || (hasContext ? "" : "(empty)");
       const userMsg: {
         userInputMessage: {
@@ -216,7 +372,7 @@ function convertMessages(messages, tools, model) {
         userInputMessage: {
           content: content,
           modelId: "",
-          origin: "AI_EDITOR",
+          origin: KIRO_ORIGIN,
         },
       };
 
@@ -227,8 +383,8 @@ function convertMessages(messages, tools, model) {
       }
 
       // Attach images to userInputMessage (NOT userInputMessageContext)
-      if (pendingImages.length > 0) {
-        userMsg.userInputMessage.images = pendingImages;
+      if (images.length > 0) {
+        userMsg.userInputMessage.images = images;
       }
 
       // Add tools to the first emitted user turn. We track a flag instead of
@@ -257,28 +413,55 @@ function convertMessages(messages, tools, model) {
       // Without this the deferred text would sit in a queue nothing drains and
       // be silently dropped from the transcript.
       if (deferredAssistantContent.length > 0) {
+        const deferredContent = deferredAssistantContent.join("\n\n").trim() || "(empty)";
         history.push({
           assistantResponseMessage: {
-            content: deferredAssistantContent.join("\n\n").trim() || "(empty)",
+            content: deferredContent,
+            messageId: resolveKiroAssistantMessageId(
+              lastAssistantMsg || { content: deferredContent },
+              history.length
+            ),
           },
         });
         deferredAssistantContent = [];
       }
     } else if (currentRole === "assistant") {
-      const content = pendingAssistantContent.join("\n\n").trim() || "(empty)";
-      const assistantMsg = {
+      const content =
+        pendingAssistantContent.join("\n\n").trim() || (pendingAssistantReasoning ? "" : "(empty)");
+      const assistantMsg: {
+        assistantResponseMessage: {
+          content: string;
+          messageId: string;
+          toolUses?: Array<Record<string, unknown>>;
+          reasoningContent?: KiroReplayReasoning;
+        };
+      } = {
         assistantResponseMessage: {
           content: content,
+          messageId: resolveKiroAssistantMessageId(
+            pendingAssistantSource || lastAssistantMsg || { content },
+            history.length
+          ),
+          ...(pendingAssistantReasoning
+            ? { reasoningContent: pendingAssistantReasoning }
+            : {}),
         },
       };
       history.push(assistantMsg);
       pendingAssistantContent = [];
+      pendingAssistantReasoning = null;
+      pendingAssistantSource = null;
     }
   };
 
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     let role = msg.role;
+    const replayReasoning =
+      role === "assistant" ? extractKiroReplayReasoning(msg as Record<string, unknown>) : null;
+    if (role === "assistant") {
+      lastAssistantMsg = msg as Record<string, unknown>;
+    }
 
     // Normalize: system/tool -> user
     if (role === "system" || role === "tool") {
@@ -302,6 +485,7 @@ function convertMessages(messages, tools, model) {
     // deferred and its text lost. Only a genuine sandwich qualifies.
     const isTextOnlyAssistant =
       msg.role === "assistant" &&
+      !replayReasoning &&
       (!msg.tool_calls || msg.tool_calls.length === 0) &&
       !(Array.isArray(msg.content) && msg.content.some((c) => c.type === "tool_use"));
     const interruptsOpenToolBatch =
@@ -340,6 +524,14 @@ function convertMessages(messages, tools, model) {
       currentRole = null;
     }
 
+    // Reasoning replay is bound to one assistant messageId. Keep adjacent
+    // assistant turns separate whenever either carries it instead of merging
+    // their text/tool calls and severing that linkage.
+    if (currentRole === "assistant" && (pendingAssistantReasoning || replayReasoning)) {
+      flushPending();
+      currentRole = null;
+    }
+
     if (role !== currentRole && currentRole !== null) {
       flushPending();
     }
@@ -360,26 +552,17 @@ function convertMessages(messages, tools, model) {
         for (const block of msg.content) {
           if (supportsImages && block.type === "image_url") {
             const url: string = block.image_url?.url || "";
-            if (url.startsWith("data:")) {
-              // data:image/jpeg;base64,<data>
-              const [header, bytes] = url.split(",", 2);
-              const mediaType = header.split(";")[0].replace("data:", ""); // e.g. "image/jpeg"
-              const format = mediaType.split("/")[1] || "jpeg";
-              if (bytes) pendingImages.push({ format, source: { bytes } });
-            }
+            const image = extractKiroDataUrlImage(url);
+            if (image) pendingImages.push(image);
           } else if (supportsImages && block.type === "image" && block.source?.type === "base64") {
-            const format = (block.source.media_type || "image/jpeg").split("/")[1] || "jpeg";
-            if (block.source.data)
-              pendingImages.push({ format, source: { bytes: block.source.data } });
+            const data = typeof block.source.data === "string" ? block.source.data : "";
+            const mimeType =
+              typeof block.source.media_type === "string" ? block.source.media_type : "image/jpeg";
+            if (data) pendingImages.push({ mimeType, data });
           } else if (supportsImages && block.type === "image" && typeof block.image === "string") {
             // AI SDK-style image part: { type: "image", image: "data:...;base64,..." } (#1330)
-            const url = block.image;
-            if (url.startsWith("data:")) {
-              const [header, bytes] = url.split(",", 2);
-              const mediaType = header.split(";")[0].replace("data:", "");
-              const format = mediaType.split("/")[1] || "jpeg";
-              if (bytes) pendingImages.push({ format, source: { bytes } });
-            }
+            const image = extractKiroDataUrlImage(block.image);
+            if (image) pendingImages.push(image);
           }
         }
 
@@ -389,7 +572,7 @@ function convertMessages(messages, tools, model) {
           toolResultBlocks.forEach((block) => {
             const text = serializeToolResultContent(block.content);
             pendingToolResults.push({
-              toolUseId: block.tool_use_id,
+              toolUseId: toKiroToolUseId(block.tool_use_id),
               status: block.is_error ? "error" : "success",
               content: [{ text: text }],
             });
@@ -405,7 +588,7 @@ function convertMessages(messages, tools, model) {
         // — the same failure mode that hit the Anthropic tool_result path (issue #2446).
         const toolContent = serializeToolResultContent(msg.content);
         pendingToolResults.push({
-          toolUseId: msg.tool_call_id,
+          toolUseId: toKiroToolUseId(msg.tool_call_id),
           status: "success",
           content: [{ text: toolContent }],
         });
@@ -420,6 +603,14 @@ function convertMessages(messages, tools, model) {
       // Extract text content and tool uses
       let textContent = "";
       let toolUses = [];
+
+      // Consecutive ordinary assistant messages are merged, retaining the
+      // historic last-message ID behavior. A reasoning-bearing turn is flushed
+      // before this branch, so its source cannot be replaced by the next turn.
+      if (!pendingAssistantSource || !pendingAssistantReasoning) {
+        pendingAssistantSource = msg as Record<string, unknown>;
+      }
+      if (replayReasoning) pendingAssistantReasoning = replayReasoning;
 
       if (Array.isArray(msg.content)) {
         const textBlocks = msg.content.filter((c) => c.type === "text");
@@ -459,14 +650,14 @@ function convertMessages(messages, tools, model) {
               const stableId =
                 tc.id || uuidv5(`${tc.function.name}:${idx}`, NAMESPACE_KIRO_TOOLUSE);
               return {
-                toolUseId: stableId,
+                toolUseId: toKiroToolUseId(stableId),
                 name: tc.function.name,
                 input: parseToolInput(tc.function.arguments),
               };
             } else {
               const stableId = tc.id || uuidv5(`${tc.name}:${idx}`, NAMESPACE_KIRO_TOOLUSE);
               return {
-                toolUseId: stableId,
+                toolUseId: toKiroToolUseId(stableId),
                 name: tc.name,
                 input: parseToolInput(tc.input),
               };
@@ -534,8 +725,30 @@ function convertMessages(messages, tools, model) {
     toolsAttached = true;
   }
 
+  // If no tools were attached to currentMessage, but history contains tool calls/results,
+  // Bedrock will reject the request with TOOL_CONFIG_MISSING. Attach a placeholder tool.
+  if (
+    !toolsAttached &&
+    historyHasToolBlocks(history) &&
+    currentMessage?.userInputMessage
+  ) {
+    if (!currentMessage.userInputMessage.userInputMessageContext) {
+      currentMessage.userInputMessage.userInputMessageContext = {};
+    }
+    if (!currentMessage.userInputMessage.userInputMessageContext.tools) {
+      currentMessage.userInputMessage.userInputMessageContext.tools = [KIRO_PLACEHOLDER_TOOL];
+      toolsAttached = true;
+    }
+  }
+
   // Clean up history for Kiro API compatibility
   history.forEach((item) => {
+    // Kiro accepts images only on currentMessage; replaying them in history
+    // returns IMAGE_FORMAT_UNSUPPORTED even when the bytes match the format.
+    if (item.userInputMessage?.images) {
+      delete item.userInputMessage.images;
+    }
+
     if (item.userInputMessage?.userInputMessageContext?.tools) {
       delete item.userInputMessage.userInputMessageContext.tools;
     }
@@ -553,7 +766,7 @@ function convertMessages(messages, tools, model) {
 
     // Kiro API requires `origin` on every userInputMessage
     if (item.userInputMessage && !item.userInputMessage.origin) {
-      item.userInputMessage.origin = "AI_EDITOR";
+      item.userInputMessage.origin = KIRO_ORIGIN;
     }
   });
 
@@ -595,7 +808,12 @@ function convertMessages(messages, tools, model) {
 
         previous.userInputMessage.userInputMessageContext = mergedContext;
       }
-    } else if (item.assistantResponseMessage && previous?.assistantResponseMessage) {
+    } else if (
+      item.assistantResponseMessage &&
+      previous?.assistantResponseMessage &&
+      !item.assistantResponseMessage.reasoningContent &&
+      !previous.assistantResponseMessage.reasoningContent
+    ) {
       // Kiro API also rejects consecutive assistant messages. Merge them.
       const previousContent = previous.assistantResponseMessage.content || "";
       const currentContent = item.assistantResponseMessage.content || "";
@@ -622,7 +840,7 @@ function convertMessages(messages, tools, model) {
       userInputMessage: {
         content: "(empty)",
         modelId: model,
-        origin: "AI_EDITOR",
+        origin: KIRO_ORIGIN,
       },
     };
     // Mark as synthetic (non-enumerable so it doesn't leak to upstream JSON)
@@ -869,7 +1087,7 @@ export function buildKiroPayload(model, body, stream, credentials) {
     }
   }
 
-  const { history, currentMessage, toolsAttached, toolDocs } = convertMessages(
+  const { history, currentMessage, toolDocs } = convertMessages(
     messages,
     tools,
     normalizedModel
@@ -893,6 +1111,7 @@ export function buildKiroPayload(model, body, stream, credentials) {
     conversationState: {
       chatTriggerType: string;
       conversationId: string;
+      agentTaskType?: string;
       currentMessage: {
         userInputMessage: {
           content: string;
@@ -912,7 +1131,6 @@ export function buildKiroPayload(model, body, stream, credentials) {
     };
     additionalModelRequestFields?: {
       reasoning?: { effort: string };
-      thinking?: { type: string; display?: string };
       output_config?: { effort: string };
       max_tokens?: number;
     };
@@ -920,11 +1138,12 @@ export function buildKiroPayload(model, body, stream, credentials) {
     conversationState: {
       chatTriggerType: "MANUAL",
       conversationId: uuidv4(), // We must override this with deterministic ID
+      agentTaskType: "vibe",
       currentMessage: {
         userInputMessage: {
           content: finalContent,
           modelId: normalizedModel,
-          origin: "AI_EDITOR",
+          origin: process.env.KIRO_ORIGIN || "KIRO_CLI",
           ...(currentMessage?.userInputMessage?.images?.length && {
             images: currentMessage.userInputMessage.images,
           }),
@@ -1007,13 +1226,11 @@ export function buildKiroPayload(model, body, stream, credentials) {
     const fields: {
       reasoning?: { effort: string };
       output_config?: { effort: string };
-      thinking?: { type: string; display: string };
       max_tokens?: number;
     } = usesNativeReasoning
       ? { reasoning: { effort: kiroEffort } }
       : {
           output_config: { effort: kiroEffort },
-          thinking: { type: "adaptive", display: "summarized" },
         };
 
     if (usesAdaptiveThinking) {

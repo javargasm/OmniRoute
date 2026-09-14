@@ -1,6 +1,7 @@
 import { normalizeComboModels, type ComboStep } from "./steps";
 import { resolveComboTargetModelStr } from "../../../open-sse/services/combo/opencodeTargetAlias.ts";
-import { resolveProviderAlias } from "../../../open-sse/services/model.ts";
+import { resolveProviderAlias } from "../../../open-sse/services/providerAlias.ts";
+import { toNumber } from "@/shared/utils/numeric";
 
 type JsonRecord = Record<string, unknown>;
 
@@ -98,10 +99,6 @@ export interface ComboControlCenterSummary {
 
 function isRecord(value: unknown): value is JsonRecord {
   return !!value && typeof value === "object" && !Array.isArray(value);
-}
-
-function toNumber(value: unknown, fallback = 0): number {
-  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function toString(value: unknown): string | null {

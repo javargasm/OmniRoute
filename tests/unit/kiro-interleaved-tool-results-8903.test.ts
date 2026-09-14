@@ -2,6 +2,12 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 const { buildKiroPayload } = await import("../../open-sse/translator/request/openai-to-kiro.ts");
+const { toKiroToolUseId } = await import(
+  "../../open-sse/translator/request/openai-to-kiro/messageHelpers.ts"
+);
+
+const TOOL_A = toKiroToolUseId("call_A");
+const TOOL_B = toKiroToolUseId("call_B");
 
 const CREDENTIALS = {
   accessToken: "test-token",
@@ -116,11 +122,14 @@ test("kiro #8903: consecutive tool messages answer every parallel tool call", ()
   ]);
 
   const { advertised, answered } = collectToolIds(payload);
-  assert.deepEqual(advertised, ["call_A", "call_B"]);
-  assert.deepEqual(answered.sort(), ["call_A", "call_B"]);
+  assert.deepEqual(advertised, [TOOL_A, TOOL_B]);
+  assert.deepEqual(answered.sort(), [TOOL_A, TOOL_B].sort());
 });
 
 test("kiro #8903: three parallel tool calls are all answered", () => {
+  const C1 = toKiroToolUseId("c1");
+  const C2 = toKiroToolUseId("c2");
+  const C3 = toKiroToolUseId("c3");
   const payload = build([
     { role: "user", content: "go" },
     {
@@ -139,11 +148,12 @@ test("kiro #8903: three parallel tool calls are all answered", () => {
   ]);
 
   const { advertised, answered } = collectToolIds(payload);
-  assert.deepEqual(advertised.sort(), ["c1", "c2", "c3"]);
-  assert.deepEqual(answered.sort(), ["c1", "c2", "c3"]);
+  assert.deepEqual(advertised.sort(), [C1, C2, C3].sort());
+  assert.deepEqual(answered.sort(), [C1, C2, C3].sort());
 });
 
 test("kiro #8903: two sequential rounds of parallel tool calls are all answered", () => {
+  const TOOL_C = toKiroToolUseId("call_C");
   const payload = build([
     { role: "user", content: "go" },
     PARALLEL_TOOL_CALLS,
@@ -159,8 +169,8 @@ test("kiro #8903: two sequential rounds of parallel tool calls are all answered"
   ]);
 
   const { advertised, answered } = collectToolIds(payload);
-  assert.deepEqual(advertised.sort(), ["call_A", "call_B", "call_C"]);
-  assert.deepEqual(answered.sort(), ["call_A", "call_B", "call_C"]);
+  assert.deepEqual(advertised.sort(), [TOOL_A, TOOL_B, TOOL_C].sort());
+  assert.deepEqual(answered.sort(), [TOOL_A, TOOL_B, TOOL_C].sort());
 });
 
 test("kiro #8903: transcript ending on tool results still answers every tool call", () => {
@@ -172,8 +182,8 @@ test("kiro #8903: transcript ending on tool results still answers every tool cal
   ]);
 
   const { advertised, answered } = collectToolIds(payload);
-  assert.deepEqual(advertised, ["call_A", "call_B"]);
-  assert.deepEqual(answered.sort(), ["call_A", "call_B"]);
+  assert.deepEqual(advertised, [TOOL_A, TOOL_B]);
+  assert.deepEqual(answered.sort(), [TOOL_A, TOOL_B].sort());
 });
 
 test("kiro #8903: structured array tool content is answered for every tool call", () => {
@@ -186,8 +196,8 @@ test("kiro #8903: structured array tool content is answered for every tool call"
   ]);
 
   const { advertised, answered } = collectToolIds(payload);
-  assert.deepEqual(advertised, ["call_A", "call_B"]);
-  assert.deepEqual(answered.sort(), ["call_A", "call_B"]);
+  assert.deepEqual(advertised, [TOOL_A, TOOL_B]);
+  assert.deepEqual(answered.sort(), [TOOL_A, TOOL_B].sort());
 });
 
 // --- RED: interleaved assistant text drops the trailing tool result --------
@@ -203,10 +213,10 @@ test("kiro #8903: assistant text between tool results does not drop a tool resul
   ]);
 
   const { advertised, answered } = collectToolIds(payload);
-  assert.deepEqual(advertised, ["call_A", "call_B"]);
+  assert.deepEqual(advertised, [TOOL_A, TOOL_B]);
   assert.deepEqual(
     answered.sort(),
-    ["call_A", "call_B"],
+    [TOOL_A, TOOL_B].sort(),
     "every advertised toolUse must have a matching toolResult; Bedrock rejects the transcript otherwise"
   );
 });
@@ -232,7 +242,7 @@ test("kiro #8903 probe A: a final text-only assistant reply survives a tool resu
   );
 
   // Order: the reply belongs after the turn carrying call_A's result.
-  const resultIdx = turns.findIndex((t) => (t.toolResults ?? []).includes("call_A"));
+  const resultIdx = turns.findIndex((t) => (t.toolResults ?? []).includes(TOOL_A));
   const replyIdx = turns.findIndex((t) => t.content.includes("THIS_TEXT_MUST_SURVIVE"));
   assert.ok(resultIdx >= 0, "call_A's toolResult must be present");
   assert.ok(replyIdx > resultIdx, "the assistant reply must come after the tool result turn");
@@ -283,7 +293,7 @@ test("kiro #8903 probe B: deferred assistant text survives AND the tool batch st
   assert.ok(batchTurn, "a turn carrying toolResults must exist");
   assert.deepEqual(
     [...batchTurn.toolResults].sort(),
-    ["call_A", "call_B"],
+    [TOOL_A, TOOL_B].sort(),
     "call_A and call_B must stay in one toolResults batch"
   );
 

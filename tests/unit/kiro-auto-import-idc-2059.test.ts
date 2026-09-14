@@ -348,6 +348,51 @@ test("auto-import: without clientIdHash, fallback still works and clientId/clien
   );
 });
 
+test("auto-import: cache fallback registers its isolated client in the cached OIDC region", async () => {
+  writeAwsSsoCache({
+    tokenData: {
+      refreshToken: "aorAAAAAGregional-cache-token",
+      region: "ap-southeast-1",
+    },
+  });
+
+  const fetchedUrls: string[] = [];
+  globalThis.fetch = (async (input: RequestInfo | URL) => {
+    const url = String(input);
+    fetchedUrls.push(url);
+    if (url === "https://oidc.ap-southeast-1.amazonaws.com/client/register") {
+      return new Response(
+        JSON.stringify({ clientId: "regional-client", clientSecret: "regional-secret" }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    if (url.includes("kiro.dev") && url.endsWith("/refreshToken")) {
+      return new Response(
+        JSON.stringify({
+          accessToken: "access-social-refreshed",
+          refreshToken: "aorAAAAAGsocial-refreshed",
+          expiresIn: 3600,
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } }
+      );
+    }
+    throw new Error(`[kiro-idc-2059 test] unexpected fetch to ${url}`);
+  }) as typeof fetch;
+
+  const { body } = await callGet();
+
+  assert.equal(body.found, true, `expected found:true, got: ${JSON.stringify(body)}`);
+  assert.ok(
+    fetchedUrls.includes("https://oidc.ap-southeast-1.amazonaws.com/client/register"),
+    `expected cache region to be used for client registration, fetched: ${JSON.stringify(fetchedUrls)}`
+  );
+  assert.equal(
+    fetchedUrls.includes("https://oidc.us-east-1.amazonaws.com/client/register"),
+    false,
+    `cache import must not overwrite the cached region with us-east-1, fetched: ${JSON.stringify(fetchedUrls)}`
+  );
+});
+
 test("auto-import: clientIdHash present but registration file missing — gracefully continues without clientId", async () => {
   // clientIdHash in token but NO corresponding file on disk
   writeAwsSsoCache({

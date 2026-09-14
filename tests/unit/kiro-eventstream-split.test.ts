@@ -26,10 +26,21 @@ test("host imports the framing primitives back from the leaf", () => {
 });
 
 test("crc32 is deterministic and ByteQueue buffers bytes", async () => {
-  const { crc32, ByteQueue } = await import("../../open-sse/executors/kiro/eventstream.ts");
+  const { crc32, ByteQueue, KiroEventStreamProtocolError } = await import(
+    "../../open-sse/executors/kiro/eventstream.ts"
+  );
   const a = crc32(new Uint8Array([1, 2, 3]));
   const b = crc32(new Uint8Array([1, 2, 3]));
   assert.equal(a, b);
   const q = new ByteQueue();
   assert.equal(typeof q, "object");
+
+  const bounded = new ByteQueue(4);
+  bounded.push(new Uint8Array([1, 2, 3, 4]));
+  assert.throws(
+    () => bounded.push(new Uint8Array([5])),
+    (error: unknown) =>
+      error instanceof KiroEventStreamProtocolError &&
+      error.code === "kiro_eventstream_buffer_too_large"
+  );
 });

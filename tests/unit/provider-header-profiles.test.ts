@@ -13,6 +13,7 @@ import {
   GITHUB_COPILOT_REFRESH_PLUGIN_VERSION,
   GITHUB_COPILOT_REFRESH_USER_AGENT,
   KIRO_AMZ_USER_AGENT,
+  KIRO_CLI_VERSION,
   KIRO_SDK_USER_AGENT,
   QWEN_CLI_VERSION,
   getGitHubCopilotMachineId,
@@ -84,8 +85,13 @@ test("provider header profiles expose dedicated refresh, qoder and kiro variants
 
   const kiroHeaders = getKiroServiceHeaders("application/json");
   assert.equal(kiroHeaders.Accept, "application/json");
+  assert.equal(kiroHeaders["Accept-Encoding"], "gzip");
+  assert.equal(kiroHeaders.Pragma, "no-cache");
+  assert.equal(kiroHeaders["Cache-Control"], "no-cache");
   assert.equal(kiroHeaders["User-Agent"], KIRO_SDK_USER_AGENT);
   assert.equal(kiroHeaders["X-Amz-User-Agent"], KIRO_AMZ_USER_AGENT);
+  assert.match(kiroHeaders["User-Agent"], new RegExp(`md/appVersion-${KIRO_CLI_VERSION}`));
+  assert.match(kiroHeaders["X-Amz-User-Agent"], new RegExp(`md/appVersion-${KIRO_CLI_VERSION}`));
 });
 
 test("provider header profiles tolerate browser-like process shims", async () => {

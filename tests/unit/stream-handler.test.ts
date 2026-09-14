@@ -59,6 +59,49 @@ test("createDisconnectAwareStream converts upstream errors into SSE error chunks
   assert.match(text, /\[DONE\]/);
 });
 
+test("createStreamController forwards validated provider classification on a late stream error", async () => {
+  const upstreamError = Object.assign(new Error("Kiro throttled the request"), {
+    statusCode: 429,
+    code: "rate_limit_exceeded",
+    type: "requests",
+    isKiroEventStreamException: true,
+  });
+  let capturedEvent: {
+    statusCode: number;
+    code?: string;
+    type?: string;
+  } | null = null;
+  const transformStream = {
+    readable: new ReadableStream({
+      start(controller) {
+        controller.error(upstreamError);
+      },
+    }),
+    writable: {
+      getWriter() {
+        return { abort() {} };
+      },
+    },
+  };
+
+  const stream = createDisconnectAwareStream(
+    transformStream,
+    createStreamController({
+      onError(event) {
+        capturedEvent = event;
+        return true;
+      },
+    })
+  );
+
+  const text = await readStreamText(stream);
+  assert.ok(capturedEvent);
+  assert.equal(capturedEvent.statusCode, 429);
+  assert.equal(capturedEvent.code, "rate_limit_exceeded");
+  assert.equal(capturedEvent.type, "requests");
+  assert.match(text, /"code":"rate_limit_exceeded"/);
+});
+
 test("createDisconnectAwareStream treats errors after OpenAI DONE as successful completion", async () => {
   let pullCount = 0;
   let errorHandled = false;

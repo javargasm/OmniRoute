@@ -21,7 +21,7 @@
   },
   "open-sse/config/providers/registry/claude/index.ts": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 7
+      "count": 6
     }
   },
   "open-sse/config/providers/registry/vertex/index.ts": {
@@ -157,11 +157,6 @@
   "open-sse/executors/kiro.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 3
-    }
-  },
-  "open-sse/executors/kiro/eventstream.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
     }
   },
   "open-sse/executors/muse-spark-web.ts": {
@@ -474,7 +469,7 @@
   },
   "open-sse/services/combo.ts": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 21
+      "count": 1
     }
   },
   "open-sse/services/combo/providerWildcard.ts": {
@@ -618,11 +613,6 @@
       "count": 1
     }
   },
-  "open-sse/services/tlsClientBase.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "open-sse/services/tokenLimitCounter.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -708,7 +698,7 @@
   },
   "open-sse/translator/request/openai-to-kiro.ts": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 2
+      "count": 1
     }
   },
   "open-sse/translator/response/cursor-to-openai.ts": {
@@ -946,11 +936,6 @@
       "count": 2
     }
   },
-  "src/app/(dashboard)/dashboard/providers/[id]/hooks/useProviderConnections.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/(dashboard)/dashboard/providers/page.tsx": {
     "@typescript-eslint/no-unused-vars": {
       "count": 4
@@ -1171,11 +1156,6 @@
       "count": 4
     }
   },
-  "src/app/api/oauth/kiro/auto-import/route.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/api/providers/[id]/models/discovery/providerModelsConfig.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -1287,11 +1267,6 @@
   "src/app/api/v1/models/catalog.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 10
-    }
-  },
-  "src/app/api/v1/models/catalogCache.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
     }
   },
   "src/app/api/v1/models/catalogOpenrouter.ts": {
@@ -1437,11 +1412,6 @@
   "src/lib/cli-helper/doctor/checks.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 2
-    }
-  },
-  "src/lib/combos/controlCenter.ts": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "src/lib/compliance/index.ts": {
@@ -2730,7 +2700,7 @@
   },
   "tests/unit/build/check-licenses.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 5
+      "count": 4
     }
   },
   "tests/unit/bypass-handler.test.ts": {
@@ -2834,7 +2804,7 @@
   },
   "tests/unit/chatcore-translation-paths.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 31
+      "count": 30
     }
   },
   "tests/unit/check-docs-symbols.test.ts": {
@@ -3320,7 +3290,7 @@
   },
   "tests/unit/combo-routing-engine.test.ts": {
     "@typescript-eslint/no-explicit-any": {
-      "count": 268
+      "count": 267
     }
   },
   "tests/unit/combo-same-provider-cascade.test.ts": {
@@ -5334,31 +5304,8 @@
       "count": 1
     }
   },
-  "tests/unit/ui/use-improve-prompt.test.tsx": {
-    "react-hooks/immutability": {
-      "count": 1
-    }
-  },
-  "tests/unit/ui/use-presets.test.tsx": {
-    "react-hooks/immutability": {
-      "count": 1
-    }
-  },
   "tests/unit/ui/use-stream-metrics.test.tsx": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    },
-    "react-hooks/immutability": {
-      "count": 1
-    }
-  },
-  "tests/unit/ui/use-structured-output.test.tsx": {
-    "react-hooks/immutability": {
-      "count": 1
-    }
-  },
-  "tests/unit/ui/use-tools-builder.test.tsx": {
-    "react-hooks/immutability": {
       "count": 1
     }
   },

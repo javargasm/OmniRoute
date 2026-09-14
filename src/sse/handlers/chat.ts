@@ -1962,6 +1962,7 @@ async function handleSingleModelChat(
             managedLease: runtimeOptions.managedLease ?? null,
             videoBridgeLog: runtimeOptions.videoBridgeLog,
             fallbackAttempts: runtimeOptions.fallbackAttempts,
+            forceLiveComboTest,
           },
           runtimeOptions
         );

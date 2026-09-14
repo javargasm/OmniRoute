@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 const { buildKiroPayload } = await import("../../open-sse/translator/request/openai-to-kiro.ts");
+const { toKiroToolUseId, resolveKiroAssistantMessageId } = await import(
+  "../../open-sse/translator/request/openai-to-kiro/messageHelpers.ts"
+);
 
 function buildSamplePayload() {
   return buildKiroPayload(
@@ -68,7 +71,7 @@ test("OpenAI -> Kiro builds a conversation payload with deterministic structure"
   assert.equal(result.conversationState.chatTriggerType, "MANUAL");
   assert.match(result.conversationState.conversationId, /^[0-9a-f-]{36}$/);
   assert.equal(result.conversationState.currentMessage.userInputMessage.modelId, "claude-sonnet-4");
-  assert.equal(result.conversationState.currentMessage.userInputMessage.origin, "AI_EDITOR");
+  assert.equal(result.conversationState.currentMessage.userInputMessage.origin, "KIRO_CLI");
   assert.match(
     result.conversationState.currentMessage.userInputMessage.content,
     /^\[Context: Current time is .*Z\]\n\nThanks$/
@@ -85,31 +88,29 @@ test("OpenAI -> Kiro preserves prior history, tool uses and accumulated tool res
       // being merged into the Kiro user turn, instead of leaking as raw user text.
       content: "<system-reminder>\nRules\n</system-reminder>\n\nHello",
       modelId: "claude-sonnet-4",
-      origin: "AI_EDITOR",
+      origin: "KIRO_CLI",
     },
   });
-  assert.deepEqual(result.conversationState.history[1], {
-    assistantResponseMessage: {
-      content: "I can help",
-      toolUses: [
-        {
-          toolUseId: "call_1",
-          name: "read_file",
-          input: { path: "/tmp/a" },
-        },
-      ],
+  const asstTurn = result.conversationState.history[1].assistantResponseMessage;
+  assert.equal(asstTurn.content, "I can help");
+  assert.match(asstTurn.messageId, /^[0-9a-f-]{36}$/);
+  assert.deepEqual(asstTurn.toolUses, [
+    {
+      toolUseId: toKiroToolUseId("call_1"),
+      name: "read_file",
+      input: { path: "/tmp/a" },
     },
-  });
+  ]);
 
   const context = result.conversationState.currentMessage.userInputMessage.userInputMessageContext;
   assert.equal((context.toolResults as any).length, 2);
   assert.deepEqual(context.toolResults[0], {
-    toolUseId: "call_1",
+    toolUseId: toKiroToolUseId("call_1"),
     status: "success",
     content: [{ text: "file contents" }],
   });
   assert.deepEqual(context.toolResults[1], {
-    toolUseId: "call_1",
+    toolUseId: toKiroToolUseId("call_1"),
     status: "success",
     content: [{ text: "done" }],
   });
@@ -223,9 +224,14 @@ test("OpenAI -> Kiro uses a neutral filler currentMessage when the request ends 
   );
   assert.deepEqual(result.conversationState.history, [
     {
-      userInputMessage: { content: "First user", modelId: "claude-sonnet-4", origin: "AI_EDITOR" },
+      userInputMessage: { content: "First user", modelId: "claude-sonnet-4", origin: "KIRO_CLI" },
     },
-    { assistantResponseMessage: { content: "Assistant answer" } },
+    {
+      assistantResponseMessage: {
+        content: "Assistant answer",
+        messageId: resolveKiroAssistantMessageId({ content: "Assistant answer" }, 1),
+      },
+    },
   ]);
 });
 
@@ -541,7 +547,7 @@ test("OpenAI -> Kiro prepends synthetic user when conversation starts with assis
   const history = result.conversationState.history as any[];
   assert.equal(history.length, 2);
   assert.equal(history[0].userInputMessage.content, "(empty)");
-  assert.equal(history[0].userInputMessage.origin, "AI_EDITOR");
+  assert.equal(history[0].userInputMessage.origin, "KIRO_CLI");
   assert.equal(history[1].assistantResponseMessage.content, "Greeting");
 });
 
@@ -561,7 +567,10 @@ test("OpenAI -> Kiro converts orphaned tool results to text", () => {
   );
 
   const currentMsg = result.conversationState.currentMessage.userInputMessage;
-  assert.match(currentMsg.content, /Follow-up\n\n\[Tool Result \(orphan_1\)\]\nresult data$/);
+  assert.match(
+    currentMsg.content,
+    new RegExp(`Follow-up\\n\\n\\[Tool Result \\(${toKiroToolUseId("orphan_1")}\\)\\]\\nresult data$`)
+  );
   assert.equal(
     currentMsg.userInputMessageContext,
     undefined,
@@ -584,7 +593,7 @@ test("OpenAI -> Kiro includes origin on all history user messages", () => {
   );
 
   const history = result.conversationState.history as any[];
-  assert.equal(history[0].userInputMessage.origin, "AI_EDITOR");
+  assert.equal(history[0].userInputMessage.origin, "KIRO_CLI");
   assert.equal(history[1].assistantResponseMessage.content, "B");
   // Note: last user message becomes currentMessage, not history
   assert.equal(history.length, 2);
@@ -624,7 +633,7 @@ test("OpenAI -> Kiro maps tool_result is_error:true to status:'error'", () => {
     toolResults?: Array<{ toolUseId: string; status: string; content: Array<{ text: string }> }>;
   };
   assert.ok(ctx?.toolResults, "toolResults should be present");
-  const errorResult = ctx.toolResults!.find((tr) => tr.toolUseId === "call_err");
+  const errorResult = ctx.toolResults!.find((tr) => tr.toolUseId === toKiroToolUseId("call_err"));
   assert.ok(errorResult, "tool result for call_err should exist");
   assert.equal(errorResult!.status, "error", "is_error:true must map to status:'error'");
   assert.equal(errorResult!.content[0].text, "Command not found");
@@ -661,7 +670,7 @@ test("OpenAI -> Kiro maps tool_result is_error:false to status:'success'", () =>
   const ctx = result.conversationState.currentMessage.userInputMessage.userInputMessageContext as {
     toolResults?: Array<{ toolUseId: string; status: string }>;
   };
-  const okResult = ctx?.toolResults?.find((tr) => tr.toolUseId === "call_ok");
+  const okResult = ctx?.toolResults?.find((tr) => tr.toolUseId === toKiroToolUseId("call_ok"));
   assert.ok(okResult, "tool result for call_ok should exist");
   assert.equal(okResult!.status, "success");
 });
@@ -703,7 +712,7 @@ test("OpenAI -> Kiro serializes image tool_result content to non-empty text", ()
   const ctx = result.conversationState.currentMessage.userInputMessage.userInputMessageContext as {
     toolResults?: Array<{ toolUseId: string; content: Array<{ text: string }> }>;
   };
-  const imgResult = ctx?.toolResults?.find((tr) => tr.toolUseId === "call_img");
+  const imgResult = ctx?.toolResults?.find((tr) => tr.toolUseId === toKiroToolUseId("call_img"));
   assert.ok(imgResult, "tool result should exist");
   const text = imgResult!.content[0].text;
   assert.ok(text && text.length > 0, `text must not be empty for image content, got: '${text}'`);
@@ -741,7 +750,7 @@ test("OpenAI -> Kiro serializes JSON-object tool_result content to non-empty tex
   const ctx = result.conversationState.currentMessage.userInputMessage.userInputMessageContext as {
     toolResults?: Array<{ toolUseId: string; content: Array<{ text: string }> }>;
   };
-  const jsonResult = ctx?.toolResults?.find((tr) => tr.toolUseId === "call_json");
+  const jsonResult = ctx?.toolResults?.find((tr) => tr.toolUseId === toKiroToolUseId("call_json"));
   assert.ok(jsonResult, "tool result should exist");
   const text = jsonResult!.content[0].text;
   assert.ok(text && text.length > 0, `text must be non-empty, got: '${text}'`);
@@ -777,7 +786,7 @@ test("OpenAI -> Kiro uses placeholder text when tool_result content is empty arr
   const ctx = result.conversationState.currentMessage.userInputMessage.userInputMessageContext as {
     toolResults?: Array<{ toolUseId: string; content: Array<{ text: string }> }>;
   };
-  const emptyResult = ctx?.toolResults?.find((tr) => tr.toolUseId === "call_empty");
+  const emptyResult = ctx?.toolResults?.find((tr) => tr.toolUseId === toKiroToolUseId("call_empty"));
   assert.ok(emptyResult, "tool result should exist");
   const text = emptyResult!.content[0].text;
   assert.ok(text && text.length > 0, `placeholder text must be non-empty, got: '${text}'`);
@@ -826,14 +835,15 @@ test("OpenAI -> Kiro toolUseId round-trips between tool_use and tool_result in 2
   );
   assert.ok(historyAssistant, "assistant turn with toolUses must be in history");
   const toolUse = historyAssistant.assistantResponseMessage.toolUses[0];
-  assert.equal(toolUse.toolUseId, "toolu_01abc", "toolUseId must be preserved from tool_use.id");
+  const expectedId = toKiroToolUseId("toolu_01abc");
+  assert.equal(toolUse.toolUseId, expectedId, "toolUseId must be preserved/canonicalized");
 
   const ctx = result.conversationState.currentMessage.userInputMessage.userInputMessageContext as {
     toolResults?: Array<{ toolUseId: string; status: string }>;
   };
   assert.ok(ctx?.toolResults, "toolResults must be present in currentMessage context");
-  const tr = ctx.toolResults!.find((r) => r.toolUseId === "toolu_01abc");
-  assert.ok(tr, "toolResult must reference the same toolUseId 'toolu_01abc'");
+  const tr = ctx.toolResults!.find((r) => r.toolUseId === expectedId);
+  assert.ok(tr, `toolResult must reference the same toolUseId '${expectedId}'`);
   assert.equal(tr!.status, "success");
 });
 
@@ -871,7 +881,7 @@ test("OpenAI -> Kiro does not inject the '(empty)' placeholder on a trailing too
 
   // The trailing tool-result turn must still carry its toolResults...
   assert.ok(ctx?.toolResults, "toolResults must be present in currentMessage context");
-  assert.equal(ctx.toolResults![0].toolUseId, "call_1");
+  assert.equal(ctx.toolResults![0].toolUseId, toKiroToolUseId("call_1"));
 
   // ...and the turn's own body (content minus the injected "[Context: ...]" time
   // prefix, which buildKiroPayload always prepends) must be empty — NOT the
@@ -957,9 +967,9 @@ test("OpenAI -> Kiro serializes non-string role:tool content to non-empty text (
   ];
   const toolResults = contexts
     .map((c) => c?.toolResults)
-    .find((tr) => Array.isArray(tr) && tr.some((r: any) => r.toolUseId === "call_mem"));
+    .find((tr) => Array.isArray(tr) && tr.some((r: any) => r.toolUseId === toKiroToolUseId("call_mem")));
   assert.ok(toolResults, "tool role must produce a toolResult");
-  const result0 = toolResults.find((r: any) => r.toolUseId === "call_mem");
+  const result0 = toolResults.find((r: any) => r.toolUseId === toKiroToolUseId("call_mem"));
   const text = result0.content[0].text as string;
   assert.notEqual(text, "", "non-string tool content must not collapse to empty string");
   assert.match(text, /entry A/, "serialized content preserves the structured text blocks");
@@ -1025,6 +1035,163 @@ test("OpenAI -> Kiro drops images for other non-Claude Kiro models", () => {
       `${model} must NOT receive image attachments, got: ${JSON.stringify(images)}`
     );
   }
+});
+
+test("OpenAI -> Kiro canonicalizes only Kiro-supported image formats", () => {
+  const image = (media_type: string, data: string) => ({
+    type: "image",
+    source: { type: "base64", media_type, data },
+  });
+  const result = buildKiroPayload(
+    "claude-sonnet-4.6",
+    {
+      messages: [
+        {
+          role: "user",
+          content: [
+            image("image/png", "png"),
+            image("image/jpeg", "jpeg"),
+            image("image/jpg", "jpg"),
+            image("image/gif", "gif"),
+            image("image/webp", "webp"),
+            image("image/svg+xml", "svg"),
+            image("application/pdf", "pdf"),
+            image("image/vnd.microsoft.icon", "ico"),
+          ],
+        },
+      ],
+    },
+    false,
+    null
+  );
+
+  const images = result.conversationState.currentMessage.userInputMessage.images;
+  assert.deepEqual(
+    images?.map((entry) => entry.format),
+    ["png", "jpeg", "jpeg", "gif"],
+    "unsupported images are omitted and the first four valid images retain order"
+  );
+  assert.deepEqual(
+    images?.map((entry) => entry.source.bytes),
+    ["png", "jpeg", "jpg", "gif"]
+  );
+});
+
+test("OpenAI -> Kiro requires image MIME types and base64 data URLs", () => {
+  const image = (media_type: string, data: string) => ({
+    type: "image",
+    source: { type: "base64", media_type, data },
+  });
+  const result = buildKiroPayload(
+    "claude-sonnet-4.6",
+    {
+      messages: [
+        {
+          role: "user",
+          content: [
+            image("application/png", "wrong-primary-type"),
+            image("image/png", "direct-source"),
+            { type: "image_url", image_url: { url: "data:image/png,not-base64" } },
+            { type: "image_url", image_url: { url: "data:application/png;base64,aGVsbG8=" } },
+            { type: "image_url", image_url: { url: "data:image/gif;base64,Z2lm" } },
+          ],
+        },
+      ],
+    },
+    false,
+    null
+  );
+
+  assert.deepEqual(
+    result.conversationState.currentMessage.userInputMessage.images?.map((entry) => ({
+      format: entry.format,
+      bytes: entry.source.bytes,
+    })),
+    [
+      { format: "png", bytes: "direct-source" },
+      { format: "gif", bytes: "Z2lm" },
+    ]
+  );
+});
+
+test("OpenAI -> Kiro omits oversized and fifth-plus image attachments", () => {
+  const image = (data: string, media_type = "image/png") => ({
+    type: "image",
+    source: { type: "base64", media_type, data },
+  });
+  const atLimit = "a".repeat(5_000_000);
+  const aboveLimit = "b".repeat(5_000_001);
+  const result = buildKiroPayload(
+    "claude-sonnet-4.6",
+    {
+      messages: [
+        {
+          role: "user",
+          content: [
+            image("ignored-format", "image/svg+xml"),
+            image(aboveLimit),
+            image(atLimit),
+            image("one"),
+            image("two"),
+            image("three"),
+            image("four"),
+            image("five"),
+          ],
+        },
+      ],
+    },
+    false,
+    null
+  );
+
+  const images = result.conversationState.currentMessage.userInputMessage.images;
+  assert.deepEqual(
+    images?.map((entry) => entry.source.bytes),
+    [atLimit, "one", "two", "three"],
+    "the size boundary is accepted, while invalid, oversized, and fifth-plus candidates are omitted"
+  );
+});
+
+test("OpenAI -> Kiro strips images from history to prevent IMAGE_FORMAT_UNSUPPORTED while preserving currentMessage images", () => {
+  const imageBlocks = (prefix: string) =>
+    Array.from({ length: 5 }, (_, index) => ({
+      type: "image",
+      source: { type: "base64", media_type: "image/png", data: `${prefix}-${index + 1}` },
+    }));
+  const body = {
+    messages: [
+      { role: "user", content: [{ type: "text", text: "first" }, ...imageBlocks("history-one")] },
+      { role: "assistant", content: "acknowledged first" },
+      { role: "user", content: [{ type: "text", text: "second" }, ...imageBlocks("history-two")] },
+      { role: "assistant", content: "acknowledged second" },
+      { role: "user", content: [{ type: "text", text: "third" }, ...imageBlocks("current")] },
+    ],
+  };
+  const originalBody = structuredClone(body);
+  const result = buildKiroPayload(
+    "claude-sonnet-4.6",
+    body,
+    false,
+    null
+  );
+
+  const historicalUsers = result.conversationState.history.filter((entry) => entry.userInputMessage);
+  assert.equal(historicalUsers.length, 2);
+  for (const historyUser of historicalUsers) {
+    assert.equal(
+      historyUser.userInputMessage?.images,
+      undefined,
+      "historical turns must NOT carry images because Kiro returns IMAGE_FORMAT_UNSUPPORTED"
+    );
+  }
+  assert.deepEqual(
+    result.conversationState.currentMessage.userInputMessage.images?.map(
+      (entry) => entry.source.bytes
+    ),
+    ["current-1", "current-2", "current-3", "current-4"],
+    "current message preserves image attachments up to the 4-image limit"
+  );
+  assert.deepEqual(body, originalBody, "translation must not mutate the OpenAI input body");
 });
 
 test("buildKiroPayload rejects the Anthropic-only [1m] context suffix before Bedrock", () => {
@@ -1117,10 +1284,11 @@ test("buildKiroPayload enables thinking mode for Claude models via reasoning_eff
   const result = buildKiroPayload("claude-sonnet-5", body, false, null); // only Kiro model accepting adaptive thinking (#6576)
 
   assert.ok(result.additionalModelRequestFields, "additionalModelRequestFields must be set");
-  assert.deepEqual(result.additionalModelRequestFields.thinking, {
-    type: "adaptive",
-    display: "summarized",
-  });
+  assert.equal(
+    result.additionalModelRequestFields.thinking,
+    undefined,
+    "thinking field must be omitted for Claude to avoid suppressing reasoning"
+  );
   assert.equal(result.additionalModelRequestFields.output_config.effort, "high");
   assert.equal(result.additionalModelRequestFields.max_tokens, 64000);
   assert.match(
@@ -1271,4 +1439,306 @@ test("buildKiroPayload drops both temperature and top_p when thinking is enabled
   assert.ok(result.additionalModelRequestFields, "thinking must be enabled");
   assert.equal(result.inferenceConfig?.temperature, undefined, "temperature must be dropped");
   assert.equal(result.inferenceConfig?.topP, undefined, "top_p must be dropped");
+});
+
+test("buildKiroPayload includes agentTaskType vibe on conversationState", () => {
+  const result = buildKiroPayload("claude-sonnet-4.5", { messages: [{ role: "user", content: "hi" }] }, false, null);
+  assert.equal(result.conversationState.agentTaskType, "vibe");
+});
+
+test("buildKiroPayload sanitizes malformed toolCall IDs containing pipe characters", () => {
+  const result = buildKiroPayload(
+    "claude-sonnet-4.5",
+    {
+      messages: [
+        { role: "user", content: "Run" },
+        {
+          role: "assistant",
+          tool_calls: [
+            { id: "call_abc|fc_def", type: "function", function: { name: "test", arguments: "{}" } },
+          ],
+        },
+        { role: "tool", tool_call_id: "call_abc|fc_def", content: "ok" },
+        { role: "user", content: "Next" },
+      ],
+    },
+    false,
+    null
+  );
+  const historyEntry = result.conversationState.history[1] as {
+    assistantResponseMessage: { toolUses: Array<{ toolUseId: string }> };
+  };
+  const toolUse = historyEntry.assistantResponseMessage.toolUses[0];
+  assert.match(toolUse.toolUseId, /^tooluse_[a-f0-9]+$/);
+  assert.doesNotMatch(toolUse.toolUseId, /\|/);
+});
+
+test("buildKiroPayload attaches KIRO_PLACEHOLDER_TOOL when history has tool blocks but no tools declared", () => {
+  const result = buildKiroPayload(
+    "claude-sonnet-4.5",
+    {
+      messages: [
+        { role: "user", content: "Query" },
+        {
+          role: "assistant",
+          tool_calls: [{ id: "call_abc" }],
+        },
+        { role: "tool", tool_call_id: "call_abc", content: "done" },
+        { role: "user", content: "Follow up" },
+      ],
+    },
+    false,
+    null
+  );
+  const tools = result.conversationState.currentMessage.userInputMessage.userInputMessageContext
+    ?.tools as Array<{ toolSpecification: { name: string } }> | undefined;
+  assert.ok(tools && tools.length > 0, "tools must be present in context to prevent TOOL_CONFIG_MISSING");
+  assert.equal(tools[0].toolSpecification.name, "noop");
+});
+
+test("buildKiroPayload enables adaptive thinking for claude-opus-4.8", () => {
+  const result = buildKiroPayload(
+    "claude-opus-4.8",
+    {
+      messages: [{ role: "user", content: "Think carefully" }],
+      reasoning_effort: "high",
+    },
+    false,
+    null
+  );
+  assert.ok(result.additionalModelRequestFields, "additionalModelRequestFields must be set for opus 4.8");
+  assert.equal(result.additionalModelRequestFields.output_config?.effort, "high");
+  assert.match(result.conversationState.currentMessage.userInputMessage.content, /<thinking_mode>enabled<\/thinking_mode>/);
+});
+
+test("buildKiroPayload sets messageId on assistant message when responseId is provided", () => {
+  const result = buildKiroPayload(
+    "claude-sonnet-4.5",
+    {
+      messages: [
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Answer", responseId: "msg_01234567-89ab-4cde-8f01-23456789abcd" },
+        { role: "user", content: "Followup" },
+      ],
+    },
+    false,
+    null
+  );
+  const asst = (
+    result.conversationState.history[1] as { assistantResponseMessage: { messageId?: string } }
+  ).assistantResponseMessage;
+  assert.equal(asst.messageId, "01234567-89ab-4cde-8f01-23456789abcd");
+});
+
+test("buildKiroPayload generates valid UUID messageId for assistant messages without prior id", () => {
+  const result = buildKiroPayload(
+    "claude-sonnet-4.5",
+    {
+      messages: [
+        { role: "user", content: "Hello" },
+        { role: "assistant", content: "Deterministic reply" },
+        { role: "user", content: "Followup" },
+      ],
+    },
+    false,
+    null
+  );
+  const asst = (
+    result.conversationState.history[1] as { assistantResponseMessage: { messageId: string } }
+  ).assistantResponseMessage;
+  assert.match(
+    asst.messageId,
+    /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
+    "assistant turn must receive valid UUID messageId"
+  );
+  assert.equal(asst.messageId, resolveKiroAssistantMessageId({ content: "Deterministic reply" }, 1));
+});
+
+test("buildKiroPayload replays native signed Kiro reasoning with its assistant linkage", () => {
+  const responseId = "msg_01234567-89ab-4cde-8f01-23456789abcd";
+  const result = buildKiroPayload(
+    "claude-sonnet-4.5",
+    {
+      messages: [
+        { role: "user", content: "Question" },
+        {
+          role: "assistant",
+          content: "Visible answer",
+          responseId,
+          reasoningContent: {
+            reasoningText: { text: "Signed private reasoning", signature: "kiro-signature" },
+          },
+        },
+        { role: "user", content: "Follow up" },
+      ],
+    },
+    false,
+    null
+  );
+
+  const assistant = (
+    result.conversationState.history[1] as {
+      assistantResponseMessage: {
+        content: string;
+        messageId: string;
+        reasoningContent?: unknown;
+      };
+    }
+  ).assistantResponseMessage;
+  assert.equal(assistant.content, "Visible answer");
+  assert.equal(assistant.messageId, "01234567-89ab-4cde-8f01-23456789abcd");
+  assert.deepEqual(assistant.reasoningContent, {
+    reasoningText: { text: "Signed private reasoning", signature: "kiro-signature" },
+  });
+});
+
+test("buildKiroPayload replays signed thinking blocks but omits unsigned reasoning", () => {
+  const signed = buildKiroPayload(
+    "claude-sonnet-4.5",
+    {
+      messages: [
+        { role: "user", content: "Question" },
+        {
+          role: "assistant",
+          responseId: "msg_01234567-89ab-4cde-8f01-23456789abcd",
+          content: [
+            { type: "thinking", thinking: "Block reasoning", signature: "block-signature" },
+            { type: "text", text: "Visible answer" },
+          ],
+        },
+        { role: "user", content: "Follow up" },
+      ],
+    },
+    false,
+    null
+  );
+  const signedAssistant = (
+    signed.conversationState.history[1] as {
+      assistantResponseMessage: { reasoningContent?: unknown };
+    }
+  ).assistantResponseMessage;
+  assert.deepEqual(signedAssistant.reasoningContent, {
+    reasoningText: { text: "Block reasoning", signature: "block-signature" },
+  });
+
+  const unsigned = buildKiroPayload(
+    "claude-sonnet-4.5",
+    {
+      messages: [
+        { role: "user", content: "Question" },
+        {
+          role: "assistant",
+          content: [
+            { type: "thinking", thinking: "Do not replay without an authentic signature" },
+            { type: "text", text: "Visible answer" },
+          ],
+          reasoning_content: "also unsigned",
+        },
+        { role: "user", content: "Follow up" },
+      ],
+    },
+    false,
+    null
+  );
+  const unsignedAssistant = (
+    unsigned.conversationState.history[1] as {
+      assistantResponseMessage: { reasoningContent?: unknown };
+    }
+  ).assistantResponseMessage;
+  assert.equal(unsignedAssistant.reasoningContent, undefined);
+});
+
+test("buildKiroPayload replays opaque redacted reasoning ahead of signed text", () => {
+  const messageId = "01234567-89ab-4cde-8f01-23456789abcd";
+  const result = buildKiroPayload(
+    "claude-sonnet-4.5",
+    {
+      messages: [
+        { role: "user", content: "Question" },
+        {
+          role: "assistant",
+          messageId,
+          content: [
+            { type: "thinking", thinking: "Must stay opaque", signature: "ignored-signature" },
+            { type: "redacted_thinking", data: "opaque-redaction" },
+          ],
+          redacted_content: "top-level-opaque-redaction",
+        },
+        { role: "user", content: "Follow up" },
+      ],
+    },
+    false,
+    null
+  );
+
+  const assistant = (
+    result.conversationState.history[1] as {
+      assistantResponseMessage: {
+        content: string;
+        messageId: string;
+        reasoningContent?: unknown;
+      };
+    }
+  ).assistantResponseMessage;
+  assert.equal(assistant.content, "");
+  assert.equal(assistant.messageId, messageId);
+  assert.deepEqual(assistant.reasoningContent, {
+    redactedContent: "top-level-opaque-redaction",
+  });
+});
+
+test("buildKiroPayload keeps signed reasoning attached to its own adjacent assistant turn", () => {
+  const reasoningResponseId = "msg_01234567-89ab-4cde-8f01-23456789abcd";
+  const nextResponseId = "msg_89abcdef-0123-4abc-8def-0123456789ab";
+  const result = buildKiroPayload(
+    "claude-sonnet-4.5",
+    {
+      messages: [
+        { role: "user", content: "Question" },
+        {
+          role: "assistant",
+          content: "First answer",
+          responseId: reasoningResponseId,
+          reasoningContent: {
+            reasoningText: { text: "First reasoning", signature: "first-signature" },
+          },
+        },
+        { role: "assistant", content: "Second answer", responseId: nextResponseId },
+        { role: "user", content: "Follow up" },
+      ],
+    },
+    false,
+    null
+  );
+
+  const assistants = result.conversationState.history.filter(
+    (entry) => entry.assistantResponseMessage
+  ) as Array<{
+    assistantResponseMessage: {
+      content: string;
+      messageId: string;
+      reasoningContent?: unknown;
+    };
+  }>;
+  assert.equal(assistants.length, 2, "reasoning metadata keeps adjacent assistant turns distinct");
+  assert.equal(assistants[0]?.assistantResponseMessage.messageId, "01234567-89ab-4cde-8f01-23456789abcd");
+  assert.equal(assistants[1]?.assistantResponseMessage.messageId, "89abcdef-0123-4abc-8def-0123456789ab");
+  assert.deepEqual(assistants[0]?.assistantResponseMessage.reasoningContent, {
+    reasoningText: { text: "First reasoning", signature: "first-signature" },
+  });
+  assert.equal(assistants[1]?.assistantResponseMessage.reasoningContent, undefined);
+});
+
+test("toKiroToolUseId strictly canonicalizes call_123 and empty IDs deterministically", () => {
+  const canonicalCall = toKiroToolUseId("call_123");
+  assert.match(canonicalCall, /^tooluse_[a-f0-9]{22}$/, "call_123 must be hashed to tooluse_<sha256>");
+  assert.equal(canonicalCall, toKiroToolUseId("call_123"), "hash must be deterministic across calls");
+
+  const validKiroId = "tooluse_abc123DEF";
+  assert.equal(toKiroToolUseId(validKiroId), validKiroId, "already valid tooluse_* ID must be preserved");
+
+  const fallback1 = toKiroToolUseId("");
+  const fallback2 = toKiroToolUseId("");
+  assert.equal(fallback1, fallback2, "empty ID fallback must be strictly deterministic");
+  assert.match(fallback1, /^tooluse_[a-f0-9]{22}$/);
 });

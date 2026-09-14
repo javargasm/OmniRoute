@@ -28,6 +28,8 @@ export type StreamFailurePayload = {
 export type PipelineStreamErrorHandler = (event: {
   message: string;
   statusCode: number;
+  code?: string;
+  type?: string;
 }) => boolean;
 
 export type ClientDisconnectEvent = { reason: string; duration: number };
@@ -197,7 +199,12 @@ export function createStreamFailureFinalizers({
   };
 
   let pipelineStreamFailureFinalized = false;
-  const onPipelineStreamError: PipelineStreamErrorHandler = ({ message, statusCode }) => {
+  const onPipelineStreamError: PipelineStreamErrorHandler = ({
+    message,
+    statusCode,
+    code: upstreamCode,
+    type: upstreamType,
+  }) => {
     if (pipelineStreamFailureFinalized) return true;
     pipelineStreamFailureFinalized = true;
 
@@ -208,12 +215,19 @@ export function createStreamFailureFinalizers({
       : Number.isFinite(statusCode) && statusCode >= 400 && statusCode <= 599
         ? statusCode
         : HTTP_STATUS.BAD_GATEWAY;
+    const protocolToken = (value: unknown, fallback: string) =>
+      typeof value === "string" && /^[a-z][a-z0-9_-]{0,127}$/i.test(value)
+        ? value
+        : fallback;
     const code = clientClosed
       ? "client_disconnected"
-      : normalizedMessage.toLowerCase().includes("terminated")
-        ? "stream_terminated"
-        : "stream_pipeline_error";
-    const type = clientClosed ? "client_disconnected" : "stream_error";
+      : protocolToken(
+          upstreamCode,
+          normalizedMessage.toLowerCase().includes("terminated")
+            ? "stream_terminated"
+            : "stream_pipeline_error"
+        );
+    const type = clientClosed ? "client_disconnected" : protocolToken(upstreamType, "stream_error");
 
     handleStreamFailure({
       status,

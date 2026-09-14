@@ -3,6 +3,7 @@ import {
   buildExternalIdpRefreshParams,
   isExternalIdpAuthMethod,
 } from "@omniroute/open-sse/services/kiroExternalIdp.ts";
+import { DEFAULT_PROFILE_ARN } from "@omniroute/open-sse/services/kiroRegion.ts";
 
 /**
  * Kiro OAuth Service
@@ -280,12 +281,12 @@ export class KiroService {
 
       const data = await response.json();
       return {
-        // Builder ID / IDC OIDC refresh: no profileArn (the social path supplies
-        // one; Builder ID connections legitimately have none). expiresIn falls
-        // back to 3600 so the import route never computes Date(NaN) if upstream
-        // omits it (the social path already guards the same way).
+        // Builder ID / IDC OIDC refresh: falls back to DEFAULT_PROFILE_ARN for Builder ID.
+        // expiresIn falls back to 3600 so the import route never computes
+        // Date(NaN) if upstream omits it.
         accessToken: data.accessToken,
         refreshToken: data.refreshToken || refreshToken,
+        ...(authMethod === "builder-id" ? { profileArn: DEFAULT_PROFILE_ARN } : {}),
         expiresIn: data.expiresIn || 3600,
       };
     }
@@ -354,10 +355,7 @@ export class KiroService {
         return {
           accessToken: result.accessToken,
           refreshToken: result.refreshToken || refreshToken,
-          // profileArn is intentionally absent for Builder ID (OIDC) imports —
-          // only the social-auth path returns one, and Builder ID connections
-          // don't require it. The Kiro executor adds profileArn conditionally.
-          profileArn: result.profileArn,
+          profileArn: result.profileArn || DEFAULT_PROFILE_ARN,
           expiresIn: result.expiresIn,
           authMethod: "builder-id",
           clientId: cachedClient.clientId,

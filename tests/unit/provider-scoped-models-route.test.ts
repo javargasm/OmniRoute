@@ -99,6 +99,24 @@ test("provider models route returns only selected provider models with unprefixe
   assert.equal(ids.includes("team-router"), false);
 });
 
+test("provider models route strips stale content-length to prevent ERR_CONTENT_LENGTH_MISMATCH", async () => {
+  await seedConnection("openai", { name: "openai-main" });
+
+  const response = await providerModelsRoute.GET(
+    new Request("http://localhost/api/v1/providers/openai/models"),
+    {
+      params: Promise.resolve({ provider: "openai" }),
+    }
+  );
+
+  assert.equal(response.status, 200);
+  assert.equal(
+    response.headers.get("content-length"),
+    null,
+    "stale content-length header from unified catalog must be stripped"
+  );
+});
+
 test("provider models route accepts provider alias in path", async () => {
   await seedConnection("claude", {
     authType: "oauth",

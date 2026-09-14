@@ -138,7 +138,8 @@ export const kiro = {
   // AWS only hosts the profile (and its runtime) in us-east-1 / eu-central-1. So probe those
   // profile regions with the freshly-minted SSO token (which works cross-region against the
   // profile's home region), NOT q.{idcRegion} which does not resolve. Best-effort: AWS Builder ID
-  // accounts have no profile and this simply yields none; failures never block login.
+  // accounts have no profile and this simply yields none; failures never block login. The Kiro
+  // executor applies DEFAULT_PROFILE_ARN only for an explicitly identified Builder ID account.
   postExchange: async (tokenData) => {
     const accessToken = tokenData?.access_token;
     if (!accessToken) return null;

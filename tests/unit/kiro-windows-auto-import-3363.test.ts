@@ -10,9 +10,8 @@
 // tests/unit/_helpers/betterSqlite3Availability.ts for a guard helper.
 /**
  * Regression guard for #3363 — Kiro auto-import failed on Windows because
- * tryKiroCliSqlite() only probed the Linux/macOS path
- * (~/.local/share/kiro-cli/data.sqlite3) and never checked the Kiro IDE
- * path that Windows users have: %APPDATA%\kiro\storage.db
+ * tryKiroCliSqlite() only probed a Unix data path and never checked the Kiro IDE
+ * path that Windows users have: %APPDATA%\kiro\storage.db.
  */
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -31,7 +30,9 @@ const core = await import("../../src/lib/db/core.ts");
 
 // Import the GET handler at the module level so the DB is initialised once
 // before any test runs.
-const { GET } = await import("../../src/app/api/oauth/kiro/auto-import/route.ts");
+const { GET, getKiroCliSqliteCandidatePaths } = await import(
+  "../../src/app/api/oauth/kiro/auto-import/route.ts"
+);
 
 const ORIGINAL_HOME = process.env.HOME;
 const ORIGINAL_USERPROFILE = process.env.USERPROFILE;
@@ -120,15 +121,54 @@ test("triedPaths does NOT include any Windows path when process.env.APPDATA is n
   );
 });
 
-test("triedPaths always includes the Linux/macOS kiro-cli path", async () => {
+test("Kiro CLI SQLite candidates use canonical macOS, Linux XDG, and Windows paths", () => {
+  const home = path.join(tmpHome, "home");
+
+  assert.deepEqual(
+    getKiroCliSqliteCandidatePaths({ home, platform: "darwin" }),
+    [
+      path.join(home, "Library", "Application Support", "kiro-cli", "data.sqlite3"),
+      path.join(home, ".local", "share", "kiro-cli", "data.sqlite3"),
+    ]
+  );
+  assert.deepEqual(
+    getKiroCliSqliteCandidatePaths({
+      home,
+      platform: "linux",
+      xdgDataHome: path.join(tmpHome, "xdg-data"),
+    }),
+    [path.join(tmpHome, "xdg-data", "kiro-cli", "data.sqlite3")]
+  );
+  assert.deepEqual(
+    getKiroCliSqliteCandidatePaths({
+      home,
+      platform: "win32",
+      appData: path.join(tmpHome, "appdata"),
+    }),
+    [
+      path.join(tmpHome, "appdata", "kiro-cli", "data.sqlite3"),
+      path.join(tmpHome, "appdata", "kiro", "storage.db"),
+    ]
+  );
+  assert.deepEqual(
+    getKiroCliSqliteCandidatePaths({ home, platform: "win32" }),
+    [],
+    "do not guess a Windows data root when APPDATA is unavailable"
+  );
+});
+
+test("triedPaths includes the native Unix kiro-cli path", async () => {
   const { body } = await callGet();
 
   assert.ok(Array.isArray(body.triedPaths), "triedPaths must be an array");
 
-  const expectedLinuxPath = path.join(tmpHome, ".local/share/kiro-cli/data.sqlite3");
+  const expectedNativePath =
+    process.platform === "darwin"
+      ? path.join(tmpHome, "Library", "Application Support", "kiro-cli", "data.sqlite3")
+      : path.join(tmpHome, ".local/share/kiro-cli/data.sqlite3");
   assert.ok(
-    (body.triedPaths as string[]).includes(expectedLinuxPath),
-    `triedPaths must always include the Linux/macOS kiro-cli path ${expectedLinuxPath}, got: ${JSON.stringify(body.triedPaths)}`
+    (body.triedPaths as string[]).includes(expectedNativePath),
+    `triedPaths must include the native Kiro CLI path ${expectedNativePath}, got: ${JSON.stringify(body.triedPaths)}`
   );
 });
 

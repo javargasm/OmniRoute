@@ -417,6 +417,45 @@ function createErrorResponse(
   );
 }
 
+type KiroEventStreamReadinessFailure = {
+  statusCode: number;
+  code: string;
+  type: string;
+  message: string;
+};
+
+/**
+ * Kiro's binary AWS EventStream transform deliberately errors its SSE stream
+ * after forwarding a structured error frame. If that happens before the first
+ * readiness signal, a generic reader catch used to turn the real 401/429/503
+ * into a misleading 504 readiness timeout. Keep this marker structural so the
+ * generic readiness utility does not need to import the Kiro executor.
+ */
+function extractKiroEventStreamReadinessFailure(
+  error: unknown
+): KiroEventStreamReadinessFailure | null {
+  if (
+    !isRecord(error) ||
+    (error.isKiroEventStreamException !== true && error.isKiroEventStreamProtocolError !== true)
+  ) {
+    return null;
+  }
+
+  const statusCode = Number(error.statusCode ?? error.status);
+  if (!Number.isInteger(statusCode) || statusCode < 400 || statusCode > 599) return null;
+
+  const protocolToken = (value: unknown, fallback: string) =>
+    typeof value === "string" && /^[a-z][a-z0-9_-]{0,127}$/i.test(value) ? value : fallback;
+  const message = sanitizeErrorMessage(error.message).trim() || "Kiro EventStream error";
+
+  return {
+    statusCode,
+    code: protocolToken(error.code, "kiro_eventstream_exception"),
+    type: protocolToken(error.type, "api_error"),
+    message,
+  };
+}
+
 function prependBufferedChunks(
   chunks: Uint8Array[],
   reader: ReadableStreamDefaultReader<Uint8Array>
@@ -578,7 +617,30 @@ export async function ensureStreamReadiness(
       let readResult: ReadableStreamReadResult<Uint8Array>;
       try {
         readResult = await readWithTimeout(reader, remainingMs);
-      } catch {
+      } catch (error) {
+        const kiroFailure = extractKiroEventStreamReadinessFailure(error);
+        if (kiroFailure) {
+          const reason = `Stream failed before producing a non-ping SSE event: ${kiroFailure.message}`;
+          options.log?.warn?.(
+            "STREAM",
+            `${reason} (${options.provider || "provider"}/${options.model || "unknown"})`
+          );
+          await reader.cancel(reason).catch(() => {});
+          return {
+            ok: false,
+            reason,
+            classificationReason: kiroFailure.message,
+            code: kiroFailure.code,
+            type: kiroFailure.type,
+            response: createErrorResponse(
+              kiroFailure.statusCode,
+              kiroFailure.message,
+              kiroFailure.code,
+              kiroFailure.type
+            ),
+          };
+        }
+
         const reason = timeoutReason();
         options.log?.warn?.(
           "STREAM",

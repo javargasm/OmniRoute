@@ -49,6 +49,13 @@ export const KIRO_PROFILE_REGIONS = ["us-east-1", "eu-central-1"] as const;
  * Amazon Q endpoint `q.{region}.amazonaws.com` — codewhisperer.{region}.amazonaws.com does not
  * resolve for non-us-east-1 regions.
  */
+export const DEFAULT_PROFILE_ARN = "arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX";
+export const BUILDER_ID_PROFILE_ARN = DEFAULT_PROFILE_ARN;
+
+export function kiroRuntimeEndpoint(region: string = "us-east-1"): string {
+  return `https://runtime.${region}.kiro.dev`;
+}
+
 export function kiroRuntimeHost(region: string): string {
   return region === "us-east-1"
     ? "https://codewhisperer.us-east-1.amazonaws.com"

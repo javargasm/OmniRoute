@@ -27,6 +27,10 @@ type StreamErrorEvent = {
   error: unknown;
   message: string;
   statusCode: number;
+  /** Provider-provided, validated error code retained for late stream failures. */
+  code?: string;
+  /** Provider-provided, validated error type retained for late stream failures. */
+  type?: string;
   duration: number;
 };
 
@@ -186,6 +190,19 @@ function getErrorStatusCode(error: unknown): number {
     }
   }
   return 502;
+}
+
+/**
+ * Preserve only protocol-shaped error fields when a stream fails after its
+ * readiness handoff. Error objects can originate in provider transforms, so
+ * arbitrary values must not reach persistence or client-facing classification.
+ */
+function getErrorProtocolToken(error: unknown, field: "code" | "type"): string | undefined {
+  if (!error || typeof error !== "object") return undefined;
+  const value = (error as Record<string, unknown>)[field];
+  return typeof value === "string" && /^[a-z][a-z0-9_-]{0,127}$/i.test(value)
+    ? value
+    : undefined;
 }
 
 function getPublicErrorMessage(errorMsg: string, statusCode: number): string {
@@ -387,12 +404,16 @@ export function createStreamController({
       let handled = false;
       if (!alreadyCleared) {
         try {
+          const code = getErrorProtocolToken(error, "code");
+          const type = getErrorProtocolToken(error, "type");
           handled =
             onError?.({
               error,
               message: getErrorMessage(error),
               statusCode: getErrorStatusCode(error),
               duration: Date.now() - startTime,
+              ...(code ? { code } : {}),
+              ...(type ? { type } : {}),
             }) === true;
         } catch (e) {
           console.debug(`[STREAM-HANDLER] onError callback error:`, e);

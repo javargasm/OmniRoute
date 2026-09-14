@@ -3,6 +3,32 @@
 
 type JsonRecord = Record<string, unknown>;
 
+/**
+ * Kiro EventStream frames are normally tiny JSON envelopes. A bounded limit
+ * prevents a corrupted length prefix from retaining arbitrary upstream bytes
+ * forever while the parser waits for a frame that will never complete.
+ *
+ * This matches the native Kiro client's 8 MiB incomplete-frame ceiling.
+ */
+export const KIRO_MAX_EVENTSTREAM_FRAME_BYTES = 8 * 1024 * 1024;
+export const KIRO_MAX_EVENTSTREAM_BUFFER_BYTES = 8 * 1024 * 1024;
+export const KIRO_MAX_EVENTSTREAM_RESPONSE_BYTES = 64 * 1024 * 1024;
+
+export class KiroEventStreamProtocolError extends Error {
+  readonly status = 502;
+  readonly statusCode = 502;
+  readonly type = "stream_error";
+  readonly isKiroEventStreamProtocolError = true;
+
+  constructor(
+    readonly code: string,
+    message: string
+  ) {
+    super(message);
+    this.name = "KiroEventStreamProtocolError";
+  }
+}
+
 export type EventFrame = {
   headers: Record<string, string>;
   payload: JsonRecord | null;
@@ -13,8 +39,16 @@ export class ByteQueue {
   private headOffset = 0;
   length = 0;
 
+  constructor(private readonly maxBytes = KIRO_MAX_EVENTSTREAM_BUFFER_BYTES) {}
+
   push(chunk: Uint8Array) {
     if (!(chunk instanceof Uint8Array) || chunk.length === 0) return;
+    if (chunk.length > this.maxBytes - this.length) {
+      throw new KiroEventStreamProtocolError(
+        "kiro_eventstream_buffer_too_large",
+        `Kiro EventStream incomplete frame exceeded ${this.maxBytes} bytes`
+      );
+    }
     this.chunks.push(chunk);
     this.length += chunk.length;
   }
@@ -99,9 +133,25 @@ export function crc32(buf: Uint8Array) {
  */
 export function parseEventFrame(data: Uint8Array): EventFrame | null {
   try {
+    if (data.length < 16) {
+      console.warn(`[Kiro] EventStream frame too short: ${data.length} bytes`);
+      return null;
+    }
     const view = new DataView(data.buffer, data.byteOffset);
     const totalLength = view.getUint32(0, false);
     const headersLength = view.getUint32(4, false);
+
+    if (
+      totalLength < 16 ||
+      totalLength !== data.length ||
+      totalLength > KIRO_MAX_EVENTSTREAM_FRAME_BYTES ||
+      headersLength > totalLength - 16
+    ) {
+      console.warn(
+        `[Kiro] Invalid EventStream frame bounds: total=${totalLength}, headers=${headersLength}, bytes=${data.length}`
+      );
+      return null;
+    }
 
     // ── CRC32 validation ──
     // Prelude CRC covers bytes [0..7] (totalLength + headersLength)
@@ -189,4 +239,68 @@ export function parseEventFrame(data: Uint8Array): EventFrame | null {
     console.warn(`[Kiro] Frame parse error: ${error.message}`);
     return null;
   }
+}
+
+export type EventStreamException = {
+  exceptionType: string;
+  message: string;
+  statusCode: number;
+  errorCode: string;
+  errorType: string;
+};
+
+/**
+ * Extract and classify an exception embedded within an AWS EventStream frame.
+ * CodeWhisperer/Amazon Q encodes stream errors with `:message-type: exception`
+ * and `:exception-type` in the frame headers, while the JSON payload carries
+ * the human-readable message.
+ */
+export function extractEventStreamException(event: EventFrame): EventStreamException | null {
+  const messageType = event.headers[":message-type"];
+  const exceptionType = event.headers[":exception-type"];
+  if (messageType !== "exception" && !exceptionType) {
+    return null;
+  }
+
+  const exType = exceptionType || "ServiceException";
+  const rawMsg = event.payload?.message || event.payload?.Message;
+  const message = typeof rawMsg === "string" ? rawMsg : `${exType}: AWS EventStream error`;
+
+  let statusCode = 500;
+  let errorCode = "service_exception";
+  let errorType = "api_error";
+
+  if (/throttling|toomanyrequests/i.test(exType)) {
+    statusCode = 429;
+    errorCode = "rate_limit_exceeded";
+    errorType = "requests";
+  } else if (/servicequotaexceeded|quota/i.test(exType)) {
+    statusCode = 429;
+    errorCode = "quota_exhausted";
+    errorType = "insufficient_quota";
+  } else if (/accessdenied|unauthorized/i.test(exType)) {
+    statusCode = 403;
+    errorCode = "access_denied";
+    errorType = "permission_error";
+  } else if (/expiredtoken|unrecognizedclient/i.test(exType)) {
+    statusCode = 401;
+    errorCode = "invalid_api_key";
+    errorType = "authentication_error";
+  } else if (/internalserver|serviceexception|modelstreamerror/i.test(exType)) {
+    statusCode = 503;
+    errorCode = "internal_server_error";
+    errorType = "api_error";
+  } else if (/validation|invalidparameter/i.test(exType)) {
+    statusCode = 400;
+    errorCode = "validation_error";
+    errorType = "invalid_request_error";
+  }
+
+  return {
+    exceptionType: exType,
+    message,
+    statusCode,
+    errorCode,
+    errorType,
+  };
 }
