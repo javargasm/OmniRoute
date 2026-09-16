@@ -9,11 +9,11 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
-import { maskSecret } from "../maskSecrets.ts";
-import { sanitizeHeaders } from "../sanitizeHeaders.ts";
-import type { AgentId } from "../types.ts";
-import { globalTrafficBuffer } from "./buffer.ts";
-import type { InterceptedRequest } from "./types.ts";
+import { maskSecret } from "../maskSecrets.js";
+import { sanitizeHeaders } from "../sanitizeHeaders.js";
+import type { AgentId } from "../types.js";
+import { globalTrafficBuffer } from "./buffer.js";
+import type { InterceptedRequest } from "./types.js";
 import { isCustomHost } from "@/lib/db/inspectorCustomHosts";
 
 export interface RecordRequestStartOpts {
@@ -83,7 +83,7 @@ export async function recordRequestStart(
   // which is what appears in that process's /proc/net/tcp local_address. Never
   // blocks capture — any failure leaves pid/processName unset. (Gap 1.)
   try {
-    const { attributeProcess } = await import("./processAttribution.ts");
+    const { attributeProcess } = await import("./processAttribution.js");
     const remotePort = opts.req.socket?.remotePort;
     if (typeof remotePort === "number") {
       const info = attributeProcess(remotePort);
@@ -113,8 +113,7 @@ export function recordRequestComplete(
   // Authorization, …) before they land in inspector JSON. The request side already
   // sanitizes (line ~69); the response side was storing headers verbatim.
   intercepted.responseHeaders = sanitizeHeaders(opts.responseHeaders);
-  intercepted.responseBody =
-    opts.responseBody != null ? maskSecret(opts.responseBody) : null;
+  intercepted.responseBody = opts.responseBody != null ? maskSecret(opts.responseBody) : null;
   intercepted.responseSize = opts.responseSize;
   intercepted.proxyLatencyMs = opts.proxyLatencyMs;
   intercepted.upstreamLatencyMs = opts.upstreamLatencyMs;
@@ -127,10 +126,7 @@ export function recordRequestComplete(
  * Mark the buffer entry as failed. Error messages are sanitized so stack
  * traces or absolute paths cannot leak to dashboards/exports (Hard Rule #12).
  */
-export function recordRequestError(
-  intercepted: InterceptedRequest,
-  err: unknown
-): void {
+export function recordRequestError(intercepted: InterceptedRequest, err: unknown): void {
   intercepted.status = "error";
   intercepted.error = sanitizeErrorMessage(err);
   globalTrafficBuffer.update(intercepted.id, intercepted);

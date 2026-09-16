@@ -21,7 +21,7 @@ import {
   buildTproxyRevertCommands,
   validateTproxyConfig,
   type TproxyConfig,
-} from "./commands";
+} from "./commands.js";
 
 const execFileAsync = promisify(execFile);
 
@@ -37,7 +37,10 @@ const defaultRunner: CommandRunner = async (bin, args) => {
  * fails, runs a best-effort full revert (so a half-applied rule set never
  * lingers) and rethrows the original error.
  */
-export async function applyTproxy(cfg: TproxyConfig, run: CommandRunner = defaultRunner): Promise<void> {
+export async function applyTproxy(
+  cfg: TproxyConfig,
+  run: CommandRunner = defaultRunner
+): Promise<void> {
   const invalid = validateTproxyConfig(cfg);
   if (invalid) throw new Error(invalid);
 
@@ -57,7 +60,10 @@ export async function applyTproxy(cfg: TproxyConfig, run: CommandRunner = defaul
  * prior crash) — those failures are swallowed so a clean teardown always runs
  * to completion. Safe for `repairMitm()` to call unconditionally.
  */
-export async function revertTproxy(cfg: TproxyConfig, run: CommandRunner = defaultRunner): Promise<void> {
+export async function revertTproxy(
+  cfg: TproxyConfig,
+  run: CommandRunner = defaultRunner
+): Promise<void> {
   for (const cmd of buildTproxyRevertCommands(cfg)) {
     try {
       await run(cmd.bin, cmd.args);

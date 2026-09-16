@@ -1,4 +1,4 @@
-import type { InterceptedRequest } from "./types";
+import type { InterceptedRequest } from "./types.js";
 
 /**
  * LLM host patterns — 18+ known LLM API hostnames.
@@ -84,4 +84,3 @@ export function detectKind(req: InterceptedRequest): "llm" | "app" | "unknown" {
   // Otherwise nothing was detectable — return "unknown".
   return bodySignalFired ? "app" : "unknown";
 }
-

@@ -6,8 +6,8 @@
  * the mapped target and the request is forwarded to the OmniRoute router.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { AgentId } from "../types";
-import { MitmHandlerBase } from "./base";
+import type { AgentId } from "../types.js";
+import { MitmHandlerBase } from "./base.js";
 
 export class CursorHandler extends MitmHandlerBase {
   readonly agentId: AgentId = "cursor";
@@ -16,7 +16,7 @@ export class CursorHandler extends MitmHandlerBase {
     req: IncomingMessage,
     res: ServerResponse,
     body: Buffer,
-    mappedModel: string,
+    mappedModel: string
   ): Promise<void> {
     const startedAt = this.now();
     const intercepted = await this.hookBufferStart(req, body, mappedModel);

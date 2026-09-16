@@ -30,15 +30,15 @@
  * per-connection logic are unit-testable without root.
  */
 import net from "node:net";
-import { applyTproxy, revertTproxy, type CommandRunner } from "./setup";
+import { applyTproxy, revertTproxy, type CommandRunner } from "./setup.js";
 import {
   createTransparentListenerFd,
   connectMarked,
   isTransparentSocketAvailable,
-} from "./transparentSocket";
-import { validateTproxyConfig, type TproxyConfig } from "./commands";
-import { createForward, createTlsCaptureServer, type TlsCaptureServer } from "./tlsCapture";
-import type { DynamicCertStore } from "./dynamicCert";
+} from "./transparentSocket.js";
+import { validateTproxyConfig, type TproxyConfig } from "./commands.js";
+import { createForward, createTlsCaptureServer, type TlsCaptureServer } from "./tlsCapture.js";
+import type { DynamicCertStore } from "./dynamicCert.js";
 
 /** Default bypass SO_MARK when `cfg.bypassMark` is unset (anti-loop). */
 const DEFAULT_BYPASS_MARK = 0x539;

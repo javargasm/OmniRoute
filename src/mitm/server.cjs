@@ -255,7 +255,11 @@ function loadLegacySslOptions() {
 // `tproxy/dynamicCert.ts` — see that file's header for why it's duplicated
 // rather than imported). Resolved once during async bootstrap below.
 async function loadRootCaSslOptions() {
-  const { loadOrCreateMitmCa, issueLeafCert, DynamicCertStore } = require("./_internal/rootCaShim.cjs");
+  const {
+    loadOrCreateMitmCa,
+    issueLeafCert,
+    DynamicCertStore,
+  } = require("./_internal/rootCaShim.cjs");
   const ca = await loadOrCreateMitmCa(certDir);
   const certStore = new DynamicCertStore({ key: ca.key, cert: ca.cert });
   const defaultHost = [...TARGET_HOSTS][0];
@@ -705,7 +709,9 @@ async function startMitmServer() {
     vlog(
       1,
       `[MITM] INTERCEPTED ${agentId} ${model} → ${mappedOverride.model || model}` +
-        (mappedOverride.reasoningEffort ? ` (reasoningEffort=${mappedOverride.reasoningEffort})` : "")
+        (mappedOverride.reasoningEffort
+          ? ` (reasoningEffort=${mappedOverride.reasoningEffort})`
+          : "")
     );
     return intercept(req, res, bodyBuffer, mappedOverride, model);
   });

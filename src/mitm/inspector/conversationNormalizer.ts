@@ -6,13 +6,13 @@
  * types consumed by the inspector UI.
  */
 
-import { mergeStream, parseSseStream } from "./sseMerger.ts";
+import { mergeStream, parseSseStream } from "./sseMerger.js";
 import type {
   InterceptedRequest,
   NormalizedBlock,
   NormalizedConversation,
   NormalizedTurn,
-} from "./types.ts";
+} from "./types.js";
 
 type JsonRecord = Record<string, unknown>;
 type NormalizedRole = NormalizedTurn["role"];

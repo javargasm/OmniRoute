@@ -21,6 +21,25 @@ export const NOAUTH_PROVIDERS = {
       text: "This provider accepts only the official Devin CLI over local ACP stdio and never falls back to another provider.",
     },
   },
+  "chatgpt-web-companion": {
+    id: "chatgpt-web-companion",
+    alias: "cgpt-companion",
+    name: "ChatGPT Web Companion (Local Bridge)",
+    icon: "devices",
+    color: "#10A37F",
+    textIcon: "CW",
+    website: "https://chatgpt.com",
+    noAuth: true,
+    hasFree: true,
+    serviceKinds: ["llm"],
+    toolCalling: "none",
+    isLocalCli: true,
+    authHint:
+      "No ChatGPT credential is stored by OmniRoute. This route communicates with your local Chrome companion extension.",
+    notice: {
+      text: "ChatGPT Web Companion uses your active ChatGPT Web subscription quota at $0 API cost via the local companion extension.",
+    },
+  },
   opencode: {
     id: "opencode",
     alias: "oc",

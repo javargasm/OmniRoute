@@ -29,13 +29,13 @@ import net from "node:net";
 import tls from "node:tls";
 import { randomUUID } from "node:crypto";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
-import { sanitizeHeaders } from "../sanitizeHeaders.ts";
-import { maskSecret } from "../maskSecrets.ts";
-import { MITM_IDLE_TIMEOUT_MS } from "../socketTimeouts.ts";
-import { globalTrafficBuffer } from "../inspector/buffer.ts";
-import type { InterceptedRequest } from "../inspector/types.ts";
-import type { DynamicCertStore } from "./dynamicCert.ts";
-import { connectMarked } from "./transparentSocket.ts";
+import { sanitizeHeaders } from "../sanitizeHeaders.js";
+import { maskSecret } from "../maskSecrets.js";
+import { MITM_IDLE_TIMEOUT_MS } from "../socketTimeouts.js";
+import { globalTrafficBuffer } from "../inspector/buffer.js";
+import type { InterceptedRequest } from "../inspector/types.js";
+import type { DynamicCertStore } from "./dynamicCert.js";
+import { connectMarked } from "./transparentSocket.js";
 
 /** Default bypass SO_MARK for the forward path (anti-loop). Matches captureMode. */
 export const DEFAULT_BYPASS_MARK = 0x539;

@@ -12,11 +12,11 @@ import { FREE_MODEL_BUDGETS } from "@omniroute/open-sse/config/freeModelCatalog.
 // cluster (#6112/#6113/#6099).
 const FABRICATED_KIRO_IDS = [
   "auto-kiro", // no "auto" model id on Kiro — was sent verbatim and 400'd
+  "claude-fable-5", // invalid/disabled on Kiro — must not be exposed in Kiro registry
 ];
 
 // Ids proven on Kiro (including plan-gated models and models verified in opencode-kiro).
 const REAL_KIRO_IDS = [
-  "claude-fable-5",
   "claude-haiku-4.5",
   "claude-opus-4.6",
   "claude-opus-4.7",

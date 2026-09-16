@@ -7,7 +7,7 @@ import {
   getErrorMessage,
   quotePowerShell,
   runElevatedPowerShell,
-} from "../systemCommands.ts";
+} from "../systemCommands.js";
 
 const IS_WIN = process.platform === "win32";
 const IS_MAC = process.platform === "darwin";

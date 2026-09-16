@@ -28,9 +28,7 @@ export function configureUpstreamCa(pemPath?: string): void {
 
   if (!existsSync(pemPath)) {
     // Safe error: message only contains the user-supplied path (no stack trace).
-    throw new Error(
-      `AGENTBRIDGE_UPSTREAM_CA_CERT path does not exist: ${pemPath}`,
-    );
+    throw new Error(`AGENTBRIDGE_UPSTREAM_CA_CERT path does not exist: ${pemPath}`);
   }
 
   const ca = readFileSync(pemPath, "utf8");

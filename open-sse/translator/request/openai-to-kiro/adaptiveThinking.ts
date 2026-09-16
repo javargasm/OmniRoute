@@ -18,9 +18,16 @@ const KIRO_ADAPTIVE_THINKING_MODELS = new Set([
   "claude-opus-4.7",
   "claude-opus-4.6",
   "claude-sonnet-4.6",
-  "claude-fable-5",
 ]);
-const KIRO_NATIVE_REASONING_MODELS = new Set(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]);
+// Kiro upstream does not support sending reasoning levels on GPT models (HTTP 400).
+// Do not send reasoning levels / additionalModelRequestFields for GPT models.
+const KIRO_NATIVE_REASONING_MODELS = new Set<string>();
+const KIRO_PROMPT_THINKING_MODELS = new Set([
+  "claude-sonnet-4.5",
+  "claude-opus-4.5",
+  "claude-haiku-4.5",
+  "claude-sonnet-4",
+]);
 
 export function supportsKiroAdaptiveThinking(normalizedModel: string): boolean {
   return KIRO_ADAPTIVE_THINKING_MODELS.has(normalizedModel);
@@ -28,6 +35,10 @@ export function supportsKiroAdaptiveThinking(normalizedModel: string): boolean {
 
 export function supportsKiroNativeReasoning(normalizedModel: string): boolean {
   return KIRO_NATIVE_REASONING_MODELS.has(normalizedModel);
+}
+
+export function supportsKiroPromptThinking(normalizedModel: string): boolean {
+  return KIRO_PROMPT_THINKING_MODELS.has(normalizedModel);
 }
 
 const KIRO_UNSUPPORTED_AGENTIC_MESSAGE =
@@ -40,15 +51,20 @@ const KIRO_REMOVED_AUTO_ALIAS_MESSAGE =
   "'auto-kiro' is not a real Kiro upstream model. Select a model returned by the live catalog.";
 
 export function resolveKiroModelAlias(model: unknown): { upstream: string; thinking: boolean } {
-  let upstream = String(model || "");
+  let upstream = String(model || "").replace(/^(?:kr|kiro)\//, "");
   if (upstream.endsWith("-agentic")) throw new Error(KIRO_UNSUPPORTED_AGENTIC_MESSAGE);
   if (upstream === "auto-kiro") throw new Error(KIRO_REMOVED_AUTO_ALIAS_MESSAGE);
 
   const thinking = upstream.endsWith("-thinking");
   if (thinking) upstream = upstream.slice(0, -"-thinking".length);
   upstream = upstream.replace(/^(claude-(?:opus|sonnet|haiku|3-\d+)-\d+)-(\d{1,2})$/, "$1.$2");
+  upstream = upstream.replace(/^(gpt-\d+)-(\d+)/, "$1.$2");
 
-  if (thinking && !supportsKiroAdaptiveThinking(upstream)) {
+  if (
+    thinking &&
+    !supportsKiroAdaptiveThinking(upstream) &&
+    !supportsKiroNativeReasoning(upstream)
+  ) {
     throw new Error(KIRO_UNSUPPORTED_THINKING_MESSAGE);
   }
   return { upstream, thinking };

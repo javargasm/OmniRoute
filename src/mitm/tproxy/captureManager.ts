@@ -12,10 +12,10 @@
  * static MITM cert). This keeps the manager unit-testable without root and means
  * it never mutates the trust store on its own.
  */
-import { DynamicCertStore } from "./dynamicCert";
-import { startTproxyCapture, type TproxyCaptureHandle } from "./captureMode";
-import { isTransparentSocketAvailable } from "./transparentSocket";
-import type { TproxyConfig } from "./commands";
+import { DynamicCertStore } from "./dynamicCert.js";
+import { startTproxyCapture, type TproxyCaptureHandle } from "./captureMode.js";
+import { isTransparentSocketAvailable } from "./transparentSocket.js";
+import type { TproxyConfig } from "./commands.js";
 
 export interface CaptureManagerStatus {
   /** Whether a capture session is currently running. */

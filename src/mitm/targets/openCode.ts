@@ -4,7 +4,7 @@
  * Hosts: `opencode.ai`.
  * Format: OpenAI-compatible Chat Completions on `/v1/chat/completions`.
  */
-import type { MitmTarget } from "../types";
+import type { MitmTarget } from "../types.js";
 
 export const OPEN_CODE_TARGET: MitmTarget = {
   id: "open-code",
@@ -28,7 +28,6 @@ export const OPEN_CODE_TARGET: MitmTarget = {
     ],
     detection: { command: "which opencode", platform: "all" },
   },
-  handler: () =>
-    import("../handlers/openCode").then((m) => ({ default: m.OpenCodeHandler })),
+  handler: () => import("../handlers/openCode.js").then((m) => ({ default: m.OpenCodeHandler })),
   riskNoticeKey: "providers.riskNotice.oauth",
 };

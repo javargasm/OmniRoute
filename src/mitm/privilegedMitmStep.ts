@@ -1,5 +1,5 @@
-import { createLogger } from "@/shared/utils/logger.ts";
-import { canRunPrivilegedMitmSteps } from "./sudoGate.ts";
+import { createLogger } from "@/shared/utils/logger";
+import { canRunPrivilegedMitmSteps } from "./sudoGate.js";
 
 const log = createLogger("mitm-manager");
 

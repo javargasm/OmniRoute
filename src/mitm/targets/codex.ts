@@ -1,7 +1,7 @@
 /**
  * OpenAI Codex CLI — MITM target descriptor.
  */
-import type { MitmTarget } from "../types";
+import type { MitmTarget } from "../types.js";
 
 export const CODEX_TARGET: MitmTarget = {
   id: "codex",
@@ -24,7 +24,6 @@ export const CODEX_TARGET: MitmTarget = {
     ],
     detection: { command: "which codex", platform: "all" },
   },
-  handler: () =>
-    import("../handlers/codex").then((m) => ({ default: m.CodexHandler })),
+  handler: () => import("../handlers/codex.js").then((m) => ({ default: m.CodexHandler })),
   riskNoticeKey: "providers.riskNotice.oauth",
 };

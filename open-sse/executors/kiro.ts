@@ -343,9 +343,7 @@ function stripHistoricalKiroImages(conversationState: unknown): unknown {
     sanitizedHistory[index] = { ...entry, userInputMessage };
   }
 
-  return sanitizedHistory
-    ? { ...conversationState, history: sanitizedHistory }
-    : conversationState;
+  return sanitizedHistory ? { ...conversationState, history: sanitizedHistory } : conversationState;
 }
 
 // Re-exported from the shared region module so existing importers (and tests) that pull
@@ -420,7 +418,8 @@ export class KiroExecutor extends BaseExecutor {
       kiroPayload.conversationState = stripHistoricalKiroImages(b.conversationState);
     }
     const creds = credentials as Record<string, unknown> | undefined;
-    const authMethod = (creds?.providerSpecificData as Record<string, unknown> | undefined)?.authMethod;
+    const authMethod = (creds?.providerSpecificData as Record<string, unknown> | undefined)
+      ?.authMethod;
     if (b.profileArn !== undefined) {
       kiroPayload.profileArn = b.profileArn;
     } else if ((creds?.providerSpecificData as Record<string, unknown> | undefined)?.profileArn) {
@@ -531,7 +530,10 @@ export class KiroExecutor extends BaseExecutor {
           >
         )?.userInputMessage as Record<string, unknown>
       )?.content as string) || "";
-    const thinkingExpected = userContent.includes("<thinking_mode>enabled</thinking_mode>");
+    const thinkingExpected =
+      userContent.includes("<thinking_mode>enabled</thinking_mode>") ||
+      Boolean(tb?.additionalModelRequestFields) ||
+      model.includes("-thinking");
     const transformedResponse = this.transformEventStreamToSSE(response, model, {
       thinkingExpected,
     });
@@ -547,18 +549,17 @@ export class KiroExecutor extends BaseExecutor {
    * @param model           Logical model id (kept in OpenAI chunks for clients).
    * @param opts
    * @param opts.thinkingExpected  When true, scan inbound
-   *   `assistantResponseEvent.content` for inline `<thinking>…</thinking>`
+   *   `assistantResponseEvent.content` for inline `<thinking>…</thinking>` (and variants)
    *   blocks and split them into the OpenAI `delta.reasoning_content` channel.
    *   Required for Claude on Kiro when `<thinking_mode>enabled</thinking_mode>`
-   *   is in the system prompt, because Kiro streams reasoning inline rather
-   *   than as separate `reasoningContentEvent` frames.
+   *   is in the system prompt, or when models return inline thinking tags.
    */
   transformEventStreamToSSE(
     response: Response,
     model: string,
     opts: KiroEventStreamTransformOptions = {}
   ) {
-    const thinkingExpected = !!opts.thinkingExpected;
+    const thinkingExpected = opts.thinkingExpected !== undefined ? opts.thinkingExpected : true;
     const maxEventStreamFrameBytes = resolveKiroEventStreamLimit(
       opts.maxEventStreamFrameBytes,
       KIRO_MAX_EVENTSTREAM_FRAME_BYTES
@@ -872,9 +873,29 @@ export class KiroExecutor extends BaseExecutor {
             {
               const rp = event.payload as Record<string, unknown> | undefined;
               const rt = rp?.reasoningText;
-              if (eventType === "reasoningContentEvent" || rt !== undefined) {
+              const rc = rp?.reasoningContent;
+              const red = rp?.redactedContent;
+              const hasVisibleAssistantContent =
+                eventType === "assistantResponseEvent" &&
+                typeof rp?.content === "string" &&
+                rp.content.length > 0;
+              const isReasoningEvent =
+                eventType === "reasoningContentEvent" ||
+                rt !== undefined ||
+                rc !== undefined ||
+                red !== undefined;
+              if (isReasoningEvent) {
                 let nativeReasoning = "";
-                if (rt && typeof rt === "object") {
+                if (typeof rc === "string") {
+                  nativeReasoning = rc;
+                } else if (rc && typeof rc === "object") {
+                  const rco = rc as { text?: unknown; reasoningText?: unknown };
+                  if (typeof rco.text === "string") {
+                    nativeReasoning = rco.text;
+                  } else if (typeof rco.reasoningText === "string") {
+                    nativeReasoning = rco.reasoningText;
+                  }
+                } else if (rt && typeof rt === "object") {
                   const rto = rt as { text?: unknown; Text?: unknown };
                   nativeReasoning =
                     typeof rto.text === "string"
@@ -884,7 +905,7 @@ export class KiroExecutor extends BaseExecutor {
                         : "";
                 } else if (typeof rt === "string") {
                   nativeReasoning = rt;
-                } else if (typeof rp?.text === "string") {
+                } else if (typeof rp?.text === "string" && !rp?.content) {
                   nativeReasoning = rp.text as string;
                 }
                 if (nativeReasoning) {
@@ -904,9 +925,9 @@ export class KiroExecutor extends BaseExecutor {
                   state.reasoningChunkCount = (state.reasoningChunkCount ?? 0) + 1;
                   controller.enqueue(TEXT_ENCODER.encode(`data: ${JSON.stringify(chunk)}\n\n`));
                 }
-                // Consume the reasoning frame (incl. signature-only) so it never
-                // falls through to the content handlers below.
-                continue;
+                // Consume standalone reasoning frames (including signature-only or redacted
+                // ones), but preserve visible text when Kiro combines both in one assistant frame.
+                if (!hasVisibleAssistantContent) continue;
               }
             }
 

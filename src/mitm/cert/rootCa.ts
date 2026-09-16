@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
-import { resolveMitmDataDir } from "../dataDir.ts";
-import { generateMitmCa, type CaPair } from "../tproxy/dynamicCert.ts";
+import { resolveMitmDataDir } from "../dataDir.js";
+import { generateMitmCa, type CaPair } from "../tproxy/dynamicCert.js";
 
 // #6684: persisted local root CA for the AgentBridge static server, so it can
 // issue a per-host leaf for every host in `MITM_TOOL_HOSTS` (not just the 4

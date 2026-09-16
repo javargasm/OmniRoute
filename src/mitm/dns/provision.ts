@@ -3,13 +3,13 @@
  * is guarded and unit-testable without spawning the MITM server (#6127 / #6198).
  */
 
-import { addDNSEntry, addDNSEntries, isSudoAvailable } from "./dnsConfig.ts";
-import { isRoot } from "../systemCommands.ts";
-import { ALL_TARGETS } from "../targets/index.ts";
-import { getAllAgentBridgeStates } from "@/lib/db/agentBridgeState.ts";
-import { listCustomHosts } from "@/lib/db/inspectorCustomHosts.ts";
-import { getGheCopilotHosts } from "@/lib/db/providers.ts";
-import { createLogger } from "@/shared/utils/logger.ts";
+import { addDNSEntry, addDNSEntries, isSudoAvailable } from "./dnsConfig.js";
+import { isRoot } from "../systemCommands.js";
+import { ALL_TARGETS } from "../targets/index.js";
+import { getAllAgentBridgeStates } from "@/lib/db/agentBridgeState";
+import { listCustomHosts } from "@/lib/db/inspectorCustomHosts";
+import { getGheCopilotHosts } from "@/lib/db/providers";
+import { createLogger } from "@/shared/utils/logger";
 
 const defaultLog = createLogger("mitm-dns-provision");
 

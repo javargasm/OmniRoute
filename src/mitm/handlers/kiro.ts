@@ -9,8 +9,8 @@
  * Non-regressive: see `tests/unit/mitm-handler-kiro.test.ts`.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { AgentId } from "../types";
-import { MitmHandlerBase } from "./base";
+import type { AgentId } from "../types.js";
+import { MitmHandlerBase } from "./base.js";
 
 export class KiroHandler extends MitmHandlerBase {
   readonly agentId: AgentId = "kiro";
@@ -19,7 +19,7 @@ export class KiroHandler extends MitmHandlerBase {
     req: IncomingMessage,
     res: ServerResponse,
     body: Buffer,
-    mappedModel: string,
+    mappedModel: string
   ): Promise<void> {
     const startedAt = this.now();
     const intercepted = await this.hookBufferStart(req, body, mappedModel);

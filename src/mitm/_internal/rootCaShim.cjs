@@ -30,15 +30,18 @@ async function generateMitmCa(name) {
   const { default: selfsigned } = await import("selfsigned");
   const notAfter = new Date();
   notAfter.setFullYear(notAfter.getFullYear() + 10);
-  const pems = await selfsigned.generate([{ name: "commonName", value: name || "OmniRoute MITM CA" }], {
-    keySize: 2048,
-    algorithm: "sha256",
-    notAfterDate: notAfter,
-    extensions: [
-      { name: "basicConstraints", cA: true, critical: true },
-      { name: "keyUsage", keyCertSign: true, cRLSign: true, critical: true },
-    ],
-  });
+  const pems = await selfsigned.generate(
+    [{ name: "commonName", value: name || "OmniRoute MITM CA" }],
+    {
+      keySize: 2048,
+      algorithm: "sha256",
+      notAfterDate: notAfter,
+      extensions: [
+        { name: "basicConstraints", cA: true, critical: true },
+        { name: "keyUsage", keyCertSign: true, cRLSign: true, critical: true },
+      ],
+    }
+  );
   return { key: pems.private, cert: pems.cert };
 }
 

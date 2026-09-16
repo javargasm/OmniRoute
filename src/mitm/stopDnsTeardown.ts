@@ -1,4 +1,4 @@
-import { createLogger } from "@/shared/utils/logger.ts";
+import { createLogger } from "@/shared/utils/logger";
 
 const log = createLogger("mitm-manager");
 
@@ -9,10 +9,7 @@ export type StopDnsDeps = {
 };
 
 /** DNS teardown step of stopMitm() (#1809) — extracted for file-size ratchet. */
-export async function removeStopDnsEntries(
-  deps: StopDnsDeps,
-  sudoPassword: string
-): Promise<void> {
+export async function removeStopDnsEntries(deps: StopDnsDeps, sudoPassword: string): Promise<void> {
   log.info("Removing DNS entries...");
   await deps.removeDNSEntry(sudoPassword);
   try {

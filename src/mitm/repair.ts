@@ -1,12 +1,12 @@
 import path from "path";
 import fs from "fs";
-import { resolveMitmDataDir } from "./dataDir.ts";
-import { removeDNSEntry, removeDNSEntries } from "./dns/dnsConfig.ts";
-import { uninstallCert } from "./cert/install.ts";
-import { ALL_TARGETS } from "./targets/index.ts";
-import { listCustomHosts } from "@/lib/db/inspectorCustomHosts.ts";
-import { getGheCopilotHosts } from "@/lib/db/providers.ts";
-import { createLogger } from "@/shared/utils/logger.ts";
+import { resolveMitmDataDir } from "./dataDir.js";
+import { removeDNSEntry, removeDNSEntries } from "./dns/dnsConfig.js";
+import { uninstallCert } from "./cert/install.js";
+import { ALL_TARGETS } from "./targets/index.js";
+import { listCustomHosts } from "@/lib/db/inspectorCustomHosts";
+import { getGheCopilotHosts } from "@/lib/db/providers";
+import { createLogger } from "@/shared/utils/logger";
 
 const log = createLogger("mitm-repair");
 
@@ -64,7 +64,7 @@ async function revertSystemProxyIfApplied(): Promise<boolean> {
     const { getSystemProxyState, clearSystemProxy } = await import("@/lib/inspector/captureState");
     const state = getSystemProxyState();
     if (!state.applied || !state.previousState) return false;
-    const { revert } = await import("./inspector/systemProxyConfig.ts");
+    const { revert } = await import("./inspector/systemProxyConfig.js");
     await revert(state.previousState);
     clearSystemProxy();
     return true;

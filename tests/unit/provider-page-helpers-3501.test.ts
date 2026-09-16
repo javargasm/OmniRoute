@@ -44,6 +44,8 @@ import {
   type HeaderDraftRow,
   type CompatModelRow,
   type CompatModelMap,
+  buildCompatMap,
+  isModelHiddenFn,
 } from "../../src/app/(dashboard)/dashboard/providers/[id]/providerPageHelpers.ts";
 
 const tStub = Object.assign((key: string) => key, { has: (_k: string) => false });
@@ -153,6 +155,28 @@ test("effectiveUpstreamHeadersForProtocol merges base and protocol-specific head
   const result = effectiveUpstreamHeadersForProtocol("m1", "openai", customMap, overrideMap);
   assert.equal(result["X-Base"], "base");
   assert.equal(result["X-Proto"], "proto");
+});
+
+test("isModelHiddenFn gives chat visibility overrides priority over legacy visibility", () => {
+  const customMap = buildCompatMap([]);
+  const overrideMap = buildCompatMap([
+    { id: "chat-hidden", hiddenModalities: { chat: true } },
+    { id: "chat-visible", isHidden: true, hiddenModalities: { chat: false } },
+    { id: "legacy-hidden", isHidden: true },
+    { id: "unscoped", hiddenModalities: { images: true } },
+  ]);
+
+  assert.equal(isModelHiddenFn("chat-hidden", customMap, overrideMap), true);
+  assert.equal(isModelHiddenFn("chat-visible", customMap, overrideMap), false);
+  assert.equal(isModelHiddenFn("legacy-hidden", customMap, overrideMap), true);
+  assert.equal(isModelHiddenFn("unscoped", customMap, overrideMap), false);
+});
+
+test("isModelHiddenFn keeps custom model visibility ahead of compatibility overrides", () => {
+  const customMap = buildCompatMap([{ id: "shared-id", isHidden: false }]);
+  const overrideMap = buildCompatMap([{ id: "shared-id", hiddenModalities: { chat: true } }]);
+
+  assert.equal(isModelHiddenFn("shared-id", customMap, overrideMap), false);
 });
 
 test("anyUpstreamHeadersBadge detects non-empty upstream headers", () => {

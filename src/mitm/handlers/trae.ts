@@ -7,8 +7,8 @@
  * the UI exposes the agent as `viability: "investigating"` (no Setup button).
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { AgentId } from "../types";
-import { MitmHandlerBase } from "./base";
+import type { AgentId } from "../types.js";
+import { MitmHandlerBase } from "./base.js";
 
 export class TraeHandler extends MitmHandlerBase {
   readonly agentId: AgentId = "trae";
@@ -17,7 +17,7 @@ export class TraeHandler extends MitmHandlerBase {
     _req: IncomingMessage,
     _res: ServerResponse,
     _body: Buffer,
-    _mappedModel: string,
+    _mappedModel: string
   ): Promise<void> {
     throw new Error("Not yet implemented — Trae viability under investigation. See plan 11 §5.");
   }

@@ -8,7 +8,7 @@
  *    (`targetHost`, `additionalHosts`, `targetPort`, `localPort`,
  *    `apiEndpoints`, `authHeader`, `instructions`) as an augmentation.
  */
-import type { MitmTarget } from "../types";
+import type { MitmTarget } from "../types.js";
 
 const HOSTS = [
   "daily-cloudcode-pa.googleapis.com",
@@ -45,7 +45,7 @@ export const ANTIGRAVITY_TARGET: MitmTarget = {
     detection: { command: "which antigravity", platform: "all" },
   },
   handler: () =>
-    import("../handlers/antigravity").then((m) => ({
+    import("../handlers/antigravity.js").then((m) => ({
       default: m.AntigravityHandler,
     })),
   riskNoticeKey: "providers.riskNotice.oauth",

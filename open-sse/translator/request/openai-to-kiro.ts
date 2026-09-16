@@ -19,6 +19,7 @@ import {
   resolveKiroModelAlias,
   supportsKiroAdaptiveThinking,
   supportsKiroNativeReasoning,
+  supportsKiroPromptThinking,
 } from "./openai-to-kiro/adaptiveThinking.ts";
 
 /**
@@ -922,6 +923,83 @@ function convertMessages(messages, tools, model) {
     }
   }
 
+  // Ensure every toolUse has a matching toolResult in the subsequent user turn.
+  // Kiro API (Bedrock/CodeWhisperer) strictly rejects conversations with 400
+  // "Improperly formed request" (REQUEST_BODY_INVALID) if an assistant turn defines
+  // toolUses but the following user turn fails to provide a toolResult for every
+  // advertised toolUseId (e.g. when an agent client like OpenCode omits, cancels,
+  // or fails a tool call in a parallel batch). Synthesize an error toolResult for
+  // any unfulfilled toolUse so the conversational protocol remains valid.
+  for (let i = 0; i < mergedHistory.length; i++) {
+    const item = mergedHistory[i];
+    const toolUses = item?.assistantResponseMessage?.toolUses as
+      | Array<Record<string, unknown>>
+      | undefined;
+    if (!toolUses || toolUses.length === 0) continue;
+
+    const nextItem = (i + 1 < mergedHistory.length ? mergedHistory[i + 1] : currentMessage) as
+      | (typeof mergedHistory)[number]
+      | typeof currentMessage
+      | null
+      | undefined;
+
+    if (nextItem?.userInputMessage) {
+      if (!nextItem.userInputMessage.userInputMessageContext) {
+        nextItem.userInputMessage.userInputMessageContext = {};
+      }
+      const existingResults = (
+        (nextItem.userInputMessage.userInputMessageContext.toolResults as Array<
+          Record<string, unknown>
+        >) || []
+      ).slice();
+      const answeredIds = new Set(
+        existingResults
+          .map((tr) => (typeof tr.toolUseId === "string" ? tr.toolUseId : ""))
+          .filter((id) => id.length > 0)
+      );
+
+      let addedSynthetic = false;
+      for (const tu of toolUses) {
+        const id = typeof tu.toolUseId === "string" ? tu.toolUseId : "";
+        if (id && !answeredIds.has(id)) {
+          existingResults.push({
+            toolUseId: id,
+            status: "error",
+            content: [{ text: "(tool execution omitted or cancelled by client)" }],
+          });
+          answeredIds.add(id);
+          addedSynthetic = true;
+        }
+      }
+
+      if (addedSynthetic) {
+        nextItem.userInputMessage.userInputMessageContext.toolResults = existingResults;
+      }
+    }
+  }
+
+  // If synthetic toolResults or existing tool blocks exist, but no tools were attached
+  // to currentMessage, attach KIRO_PLACEHOLDER_TOOL so Bedrock does not reject with
+  // TOOL_CONFIG_MISSING.
+  if (
+    !toolsAttached &&
+    currentMessage?.userInputMessage &&
+    (historyHasToolBlocks(mergedHistory) ||
+      Boolean(
+        currentMessage.userInputMessage.userInputMessageContext?.toolResults &&
+          Array.isArray(currentMessage.userInputMessage.userInputMessageContext.toolResults) &&
+          currentMessage.userInputMessage.userInputMessageContext.toolResults.length > 0
+      ))
+  ) {
+    if (!currentMessage.userInputMessage.userInputMessageContext) {
+      currentMessage.userInputMessage.userInputMessageContext = {};
+    }
+    if (!currentMessage.userInputMessage.userInputMessageContext.tools) {
+      currentMessage.userInputMessage.userInputMessageContext.tools = [KIRO_PLACEHOLDER_TOOL];
+      toolsAttached = true;
+    }
+  }
+
   // Ensure alternating roles by inserting synthetic assistant messages
   // between consecutive user turns that couldn't be merged.
   const alternatingHistory: typeof mergedHistory = [];
@@ -959,7 +1037,18 @@ const KIRO_EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"];
  * OpenAI's `minimal` collapses to `low` (Kiro has no `minimal`).
  */
 function resolveKiroEffort(body: Record<string, unknown>): string {
-  let effort = typeof body.reasoning_effort === "string" ? body.reasoning_effort.toLowerCase() : "";
+  const options =
+    body.options && typeof body.options === "object"
+      ? (body.options as Record<string, unknown>)
+      : undefined;
+
+  const rawEffort =
+    (typeof body.reasoning_effort === "string" ? body.reasoning_effort : "") ||
+    (typeof body.reasoningEffort === "string" ? body.reasoningEffort : "") ||
+    (typeof options?.reasoningEffort === "string" ? (options.reasoningEffort as string) : "") ||
+    (typeof options?.reasoning_effort === "string" ? (options.reasoning_effort as string) : "");
+
+  let effort = rawEffort ? rawEffort.toLowerCase().trim() : "";
 
   if (!effort) {
     const outputConfig = body.output_config as Record<string, unknown> | undefined;
@@ -968,7 +1057,7 @@ function resolveKiroEffort(body: Record<string, unknown>): string {
       typeof outputConfig === "object" &&
       typeof outputConfig.effort === "string"
     ) {
-      effort = outputConfig.effort.toLowerCase();
+      effort = outputConfig.effort.toLowerCase().trim();
     }
   }
 
@@ -983,7 +1072,12 @@ function resolveKiroEffort(body: Record<string, unknown>): string {
     }
   }
 
+  if (!effort && body.reasoning === true) {
+    effort = "high";
+  }
+
   if (effort === "minimal") effort = "low";
+  if (effort === "ultra") effort = "max";
   return KIRO_EFFORT_LEVELS.includes(effort) ? effort : "";
 }
 
@@ -1221,19 +1315,20 @@ export function buildKiroPayload(model, body, stream, credentials) {
   const requestedEffort = resolveKiroEffort(body) || (modelRequestsThinking ? "high" : "");
   const usesNativeReasoning = supportsKiroNativeReasoning(normalizedModel);
   const usesAdaptiveThinking = supportsKiroAdaptiveThinking(normalizedModel);
-  const kiroEffort = usesNativeReasoning || usesAdaptiveThinking ? requestedEffort : "";
+  const usesPromptThinking = supportsKiroPromptThinking(normalizedModel);
+  const kiroEffort =
+    usesNativeReasoning || usesAdaptiveThinking || usesPromptThinking ? requestedEffort : "";
   if (kiroEffort) {
-    const fields: {
-      reasoning?: { effort: string };
-      output_config?: { effort: string };
-      max_tokens?: number;
-    } = usesNativeReasoning
-      ? { reasoning: { effort: kiroEffort } }
-      : {
-          output_config: { effort: kiroEffort },
-        };
+    if (usesNativeReasoning) {
+      payload.additionalModelRequestFields = { reasoning: { effort: kiroEffort } };
+    } else if (usesAdaptiveThinking) {
+      const fields: {
+        output_config?: { effort: string };
+        max_tokens?: number;
+      } = {
+        output_config: { effort: kiroEffort },
+      };
 
-    if (usesAdaptiveThinking) {
       // `<thinking_mode>` / `<max_thinking_length>` are Kiro/CodeWhisperer prompt
       // conventions (NOT Anthropic API params); the length is a soft hint (the hard
       // enable signal is `<thinking_mode>`), clamped to the model's thinking cap.
@@ -1245,15 +1340,28 @@ export function buildKiroPayload(model, body, stream, credentials) {
         `<thinking_mode>enabled</thinking_mode>` +
         `<max_thinking_length>${thinkingLength}</max_thinking_length>`;
       payload.conversationState.currentMessage.userInputMessage.content = `${directive}\n\n${payload.conversationState.currentMessage.userInputMessage.content}`;
-    }
 
-    // Forward max_tokens only when the client set one, clamped to the model's
-    // output window (floor 1024) — matches pi-kiro and avoids an over-budget reject.
-    if (usesAdaptiveThinking && maxTokens > 0) {
-      const capped = capMaxOutputTokens(normalizedModel, maxTokens) ?? maxTokens;
-      fields.max_tokens = Math.max(Math.floor(capped), 1024);
+      // Forward max_tokens only when the client set one, clamped to the model's
+      // output window (floor 1024) — matches pi-kiro and avoids an over-budget reject.
+      if (maxTokens > 0) {
+        const capped = capMaxOutputTokens(normalizedModel, maxTokens) ?? maxTokens;
+        fields.max_tokens = Math.max(Math.floor(capped), 1024);
+      }
+      payload.additionalModelRequestFields = fields;
+    } else if (usesPromptThinking) {
+      // Prompt-only thinking for models like claude-sonnet-4.5 that reject
+      // additionalModelRequestFields with a 400 (issue #6576), but support
+      // reasoning via prompt directive + inline tag parsing (opencode-kiro parity).
+      const thinkingLength = capThinkingBudget(
+        normalizedModel,
+        thinkingLengthForEffort(kiroEffort)
+      );
+      const directive =
+        `<thinking_mode>enabled</thinking_mode>` +
+        `<max_thinking_length>${thinkingLength}</max_thinking_length>`;
+      payload.conversationState.currentMessage.userInputMessage.content = `${directive}\n\n${payload.conversationState.currentMessage.userInputMessage.content}`;
+      // Note: additionalModelRequestFields deliberately omitted for prompt-thinking models.
     }
-    payload.additionalModelRequestFields = fields;
 
     // Adaptive-only Claude models (Opus 4.7/4.8, Sonnet 5, Fable 5) reject a
     // non-default temperature / top_p with a 400 while thinking is active, so

@@ -1,7 +1,7 @@
 /**
  * GitHub Enterprise (GHE) Copilot — MITM target descriptor.
  */
-import type { MitmTarget } from "../types";
+import type { MitmTarget } from "../types.js";
 
 export const GHE_COPILOT_TARGET: MitmTarget = {
   id: "ghe-copilot",
@@ -29,7 +29,6 @@ export const GHE_COPILOT_TARGET: MitmTarget = {
     ],
     detection: { command: "code --list-extensions", platform: "all" },
   },
-  handler: () =>
-    import("../handlers/copilot").then((m) => ({ default: m.CopilotHandler })),
+  handler: () => import("../handlers/copilot.js").then((m) => ({ default: m.CopilotHandler })),
   riskNoticeKey: "providers.riskNotice.oauth",
 };

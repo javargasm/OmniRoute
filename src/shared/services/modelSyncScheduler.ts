@@ -83,7 +83,9 @@ const fetchWithDispatcher = undiciFetch as unknown as (
   init: RequestInit & { dispatcher: Dispatcher }
 ) => Promise<Response>;
 
-export const fetchModelSyncInternal: typeof fetch = async (input, init = {}) => {
+type ModelSyncFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+export const fetchModelSyncInternal: ModelSyncFetch = async (input, init = {}) => {
   const inputUrl =
     typeof input === "string" || input instanceof URL ? new URL(input) : new URL(input.url);
   const expectedBase = new URL(getModelSyncInternalBaseUrl());

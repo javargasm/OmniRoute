@@ -200,7 +200,10 @@ test("KiroExecutor.transformRequest defaults to DEFAULT_PROFILE_ARN for builder-
   const result = executor.transformRequest("kiro-model", body, true, {
     providerSpecificData: { authMethod: "builder-id" },
   }) as Record<string, unknown>;
-  assert.equal(result.profileArn, "arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX");
+  assert.equal(
+    result.profileArn,
+    "arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX"
+  );
 });
 
 test("KiroExecutor.transformRequest does not infer a Builder ID profile for IdC or external IdP", () => {
@@ -233,7 +236,10 @@ test("Amazon Q applies the default profile only to Builder ID credentials", () =
   const builderId = executor.transformRequest("kiro-model", body, true, {
     providerSpecificData: { authMethod: "builder-id" },
   }) as Record<string, unknown>;
-  assert.equal(builderId.profileArn, "arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX");
+  assert.equal(
+    builderId.profileArn,
+    "arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX"
+  );
 
   const idc = executor.transformRequest("kiro-model", body, true, {
     providerSpecificData: { authMethod: "idc" },
@@ -283,7 +289,11 @@ test("KiroExecutor strips historical images from prebuilt envelopes without muta
     result.conversationState.currentMessage.userInputMessage.images,
     originalBody.conversationState.currentMessage.userInputMessage.images
   );
-  assert.deepEqual(body, originalBody, "transformRequest must not mutate a caller-provided envelope");
+  assert.deepEqual(
+    body,
+    originalBody,
+    "transformRequest must not mutate a caller-provided envelope"
+  );
 });
 
 test("KiroExecutor.transformRequest removes the top-level model field", () => {
@@ -633,12 +643,14 @@ test("KiroExecutor still reports a completion estimate without a context percent
 test("KiroExecutor.transformEventStreamToSSE surfaces native reasoning frames as reasoning_content", async () => {
   const executor = new KiroExecutor();
   // Verified live wire format: Kiro streams adaptive-thinking reasoning as a
-  // dedicated `reasoningContentEvent` frame carrying `{ text, signature }`. Also
-  // cover the `reasoningText` object variant and a signature-only frame.
+  // dedicated `reasoningContentEvent` frame carrying `{ reasoningContent }` or `{ text, signature }`.
+  // Also cover the `reasoningText` object variant, `redactedContent`, and a signature-only frame.
   const response = buildEventStreamResponse([
+    buildEventFrame("reasoningContentEvent", { reasoningContent: "Deep reasoning payload... " }),
     buildEventFrame("reasoningContentEvent", { text: "Let me think... " }),
     buildEventFrame("reasoningContentEvent", { text: "step two. " }),
     buildEventFrame("reasoningContentEvent", { signature: "sig-only-frame" }),
+    buildEventFrame("reasoningContentEvent", { redactedContent: "safety-redacted-reasoning" }),
     buildEventFrame("assistantResponseEvent", { reasoningText: { text: "variant." } }),
     buildEventFrame("assistantResponseEvent", { content: "The answer is 42." }),
     buildEventFrame("metricsEvent", { inputTokens: 3, outputTokens: 5 }),
@@ -657,10 +669,48 @@ test("KiroExecutor.transformEventStreamToSSE surfaces native reasoning frames as
 
   assert.equal(
     reasoning,
-    "Let me think... step two. variant.",
-    "reasoningContentEvent frames + reasoningText variant must all surface"
+    "Deep reasoning payload... Let me think... step two. variant.",
+    "reasoningContentEvent frames (with reasoningContent / text) + reasoningText variant must all surface"
   );
   assert.match(content, /The answer is 42\./, "normal content must still flow");
+});
+
+test("KiroExecutor.transformEventStreamToSSE preserves visible content in combined reasoning frames", async () => {
+  const executor = new KiroExecutor();
+  const response = buildEventStreamResponse([
+    buildEventFrame("assistantResponseEvent", {
+      content: "Visible answer.",
+      reasoningContent: "Private plan.",
+    }),
+    buildEventFrame("assistantResponseEvent", {
+      content: " Still visible.",
+      redactedContent: "opaque-redacted-state",
+    }),
+    buildEventFrame("messageStopEvent", {}),
+    buildEventFrame("metricsEvent", { inputTokens: 3, outputTokens: 5 }),
+  ]);
+
+  const text = await executor.transformEventStreamToSSE(response, "kiro-model").text();
+  const chunks = parseSSEJsonChunks(text);
+  const deltas = chunks.map((chunk) => chunk.choices?.[0]?.delta ?? {});
+  const visibleContent = deltas.map((delta) => delta.content || "").join("");
+  const reasoning = deltas.map((delta) => delta.reasoning_content || "").join("");
+  const firstReasoningIndex = deltas.findIndex(
+    (delta) => delta.reasoning_content === "Private plan."
+  );
+  const firstContentIndex = deltas.findIndex((delta) => delta.content === "Visible answer.");
+
+  assert.equal(visibleContent, "Visible answer. Still visible.");
+  assert.equal(reasoning, "Private plan.");
+  assert.equal(chunks[0].choices[0].delta.role, "assistant");
+  assert.ok(firstReasoningIndex >= 0 && firstReasoningIndex < firstContentIndex);
+  assert.equal(
+    deltas.some((delta) => delta.content !== undefined && delta.reasoning_content !== undefined),
+    false
+  );
+  assert.doesNotMatch(text, /opaque-redacted-state/);
+  assert.equal(chunks.filter((chunk) => chunk.choices?.[0]?.finish_reason).length, 1);
+  assert.match(text, /data: \[DONE\]/);
 });
 
 test("KiroExecutor.transformEventStreamToSSE parses fragmented frames and waits for post-stop usage", async () => {

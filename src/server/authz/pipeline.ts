@@ -23,6 +23,7 @@ import {
   AUTHZ_HEADER_AUTH_KIND,
   AUTHZ_HEADER_AUTH_LABEL,
   AUTHZ_HEADER_AUTH_SCOPES,
+  AUTHZ_HEADER_CHATGPT_BRIDGE_AUTO_PAIR,
   AUTHZ_HEADER_PEER_LOCALITY,
   AUTHZ_HEADER_REQUEST_ID,
   AUTHZ_HEADER_ROUTE_CLASS,
@@ -340,6 +341,13 @@ export async function runAuthzPipeline(
     process.env.OMNIROUTE_PEER_STAMP_TOKEN
   );
   requestHeaders.set(AUTHZ_HEADER_PEER_LOCALITY, peerLocality);
+  if (
+    guardedPathname === "/api/chatgpt-bridge/pair" &&
+    method === "POST" &&
+    peerLocality === "loopback"
+  ) {
+    requestHeaders.set(AUTHZ_HEADER_CHATGPT_BRIDGE_AUTO_PAIR, "1");
+  }
   // Stamp the resolved, non-spoofable peer IP for route handlers that need
   // the real client IP (e.g. login rate-limit key). Only set when the stamp
   // token is configured and the HMAC signature validates; absent otherwise.

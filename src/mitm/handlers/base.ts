@@ -16,10 +16,10 @@
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
-import { maskSecret } from "../maskSecrets";
-import { sanitizeHeaders } from "../sanitizeHeaders";
-import type { AgentId } from "../types";
-import type { InterceptedRequest } from "../inspector/types";
+import { maskSecret } from "../maskSecrets.js";
+import { sanitizeHeaders } from "../sanitizeHeaders.js";
+import type { AgentId } from "../types.js";
+import type { InterceptedRequest } from "../inspector/types.js";
 
 /**
  * Best-effort error sanitizer.
@@ -64,12 +64,12 @@ async function loadAgentBridgeHook(): Promise<{
       responseSize: number;
       proxyLatencyMs: number;
       upstreamLatencyMs: number;
-    },
+    }
   ) => void;
   recordRequestError?: (intercepted: InterceptedRequest, err: unknown) => void;
 } | null> {
   try {
-    const mod = await import("../inspector/agentBridgeHook");
+    const mod = await import("../inspector/agentBridgeHook.js");
     return mod;
   } catch {
     return null;
@@ -93,7 +93,7 @@ export abstract class MitmHandlerBase {
     req: IncomingMessage,
     res: ServerResponse,
     body: Buffer,
-    mappedModel: string,
+    mappedModel: string
   ): Promise<void>;
 
   /**
@@ -132,7 +132,7 @@ export abstract class MitmHandlerBase {
   protected async fetchRouter(
     body: unknown,
     path: string,
-    headers: IncomingHttpHeaders,
+    headers: IncomingHttpHeaders
   ): Promise<Response> {
     const base = process.env.OMNIROUTE_BASE_URL ?? "http://127.0.0.1:20128";
     const url = `${base.replace(/\/+$/, "")}${path}`;
@@ -161,7 +161,7 @@ export abstract class MitmHandlerBase {
   protected async pipeSSE(
     upstream: Response,
     res: ServerResponse,
-    onChunk?: (c: Buffer) => void,
+    onChunk?: (c: Buffer) => void
   ): Promise<void> {
     if (!upstream.body) {
       if (!res.headersSent) res.writeHead(upstream.status, { "Content-Type": "application/json" });
@@ -210,7 +210,7 @@ export abstract class MitmHandlerBase {
   protected async hookBufferStart(
     req: IncomingMessage,
     body: Buffer,
-    mappedModel: string,
+    mappedModel: string
   ): Promise<InterceptedRequest> {
     const hook = await loadAgentBridgeHook();
     if (hook?.recordRequestStart) {
@@ -268,7 +268,7 @@ export abstract class MitmHandlerBase {
       responseSize: number;
       proxyLatencyMs: number;
       upstreamLatencyMs: number;
-    },
+    }
   ): void {
     const finalOpts = opts ?? {
       status: typeof intercepted.status === "number" ? intercepted.status : 0,
@@ -293,10 +293,7 @@ export abstract class MitmHandlerBase {
    * Report a failed request to the Traffic Inspector.
    * No-op when the inspector module is not present.
    */
-  protected async hookBufferError(
-    intercepted: InterceptedRequest,
-    err: unknown,
-  ): Promise<void> {
+  protected async hookBufferError(intercepted: InterceptedRequest, err: unknown): Promise<void> {
     const hook = await loadAgentBridgeHook();
     if (hook?.recordRequestError) {
       try {
@@ -311,11 +308,7 @@ export abstract class MitmHandlerBase {
    * Render a Hard-Rule-#12-compliant error JSON body and send via `res`.
    * Returns the sanitized error string so callers may also log it.
    */
-  protected async writeError(
-    res: ServerResponse,
-    err: unknown,
-    statusCode = 500,
-  ): Promise<string> {
+  protected async writeError(res: ServerResponse, err: unknown, statusCode = 500): Promise<string> {
     const safe = await safeErrorMessage(err);
     if (!res.headersSent) {
       res.writeHead(statusCode, { "Content-Type": "application/json" });

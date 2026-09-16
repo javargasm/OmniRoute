@@ -1303,8 +1303,52 @@ test("buildKiroPayload enables thinking mode for Claude models via reasoning_eff
   );
 });
 
-test("buildKiroPayload uses native Max reasoning for Kiro GPT-5.6 models", () => {
-  for (const model of ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]) {
+test("buildKiroPayload reads reasoningEffort from body and options (OpenCode format) and maps ultra to max", () => {
+  // Test options.reasoningEffort and ultra mapping on adaptive Claude model
+  const body1 = {
+    messages: [{ role: "user", content: "Hard task" }],
+    options: { reasoningEffort: "ultra" },
+  };
+  const result1 = buildKiroPayload("kr/claude-sonnet-5", body1, false, null);
+  assert.ok(result1.additionalModelRequestFields, "output_config must be forwarded from options");
+  assert.equal(result1.additionalModelRequestFields.output_config.effort, "max", "ultra must map to max");
+
+  // Test camelCase reasoningEffort on adaptive Claude model
+  const body2 = {
+    messages: [{ role: "user", content: "Hard task" }],
+    reasoningEffort: "max",
+  };
+  const result2 = buildKiroPayload("claude-opus-5", body2, false, null);
+  assert.ok(result2.additionalModelRequestFields, "output_config must be forwarded from camelCase");
+  assert.equal(result2.additionalModelRequestFields.output_config.effort, "max");
+  assert.match(
+    result2.conversationState.currentMessage.userInputMessage.content,
+    /<thinking_mode>enabled<\/thinking_mode>/
+  );
+});
+
+test("buildKiroPayload enables prompt-only thinking for claude-sonnet-4.5 without sending additionalModelRequestFields", () => {
+  const body = {
+    messages: [{ role: "user", content: "Solve hard puzzle" }],
+    options: { reasoningEffort: "max" },
+  };
+  const result = buildKiroPayload("claude-sonnet-4.5", body, false, null);
+  // Must NOT attach additionalModelRequestFields (Kiro rejects with 400 - issue #6576)
+  assert.equal(result.additionalModelRequestFields, undefined);
+  // MUST inject prompt directive for thinking (opencode-kiro parity)
+  assert.match(
+    result.conversationState.currentMessage.userInputMessage.content,
+    /<thinking_mode>enabled<\/thinking_mode>/,
+    "prompt thinking directive must be injected"
+  );
+  assert.match(
+    result.conversationState.currentMessage.userInputMessage.content,
+    /<max_thinking_length>\d+<\/max_thinking_length>/
+  );
+});
+
+test("buildKiroPayload does not send reasoning levels for Kiro GPT-5.6 models", () => {
+  for (const model of ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "kr/gpt-5.6-sol", "gpt-5-6-sol"]) {
     const result = buildKiroPayload(
       model,
       {
@@ -1316,11 +1360,11 @@ test("buildKiroPayload uses native Max reasoning for Kiro GPT-5.6 models", () =>
       null
     );
 
-    assert.ok(result.additionalModelRequestFields, "Max reasoning must be forwarded to Kiro");
-    assert.equal(result.additionalModelRequestFields.reasoning.effort, "max");
-    assert.equal(result.additionalModelRequestFields.output_config, undefined);
-    assert.equal(result.additionalModelRequestFields.thinking, undefined);
-    assert.equal(result.additionalModelRequestFields.max_tokens, undefined);
+    assert.equal(
+      result.additionalModelRequestFields,
+      undefined,
+      "reasoning levels must NOT be sent to Kiro for GPT models"
+    );
     assert.doesNotMatch(
       result.conversationState.currentMessage.userInputMessage.content,
       /<thinking_mode>/

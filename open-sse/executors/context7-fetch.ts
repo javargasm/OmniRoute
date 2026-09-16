@@ -125,7 +125,7 @@ async function readBodyCapped(
     let total = 0;
     let truncated = false;
     for (;;) {
-      let step: ReadableStreamReadResult<Uint8Array>;
+      let step: Awaited<ReturnType<typeof reader.read>>;
       try {
         step = await reader.read();
       } catch {

@@ -7,7 +7,7 @@
  * traffic. The concrete host list will be filled in once we confirm the
  * upstream API surface.
  */
-import type { MitmTarget } from "../types";
+import type { MitmTarget } from "../types.js";
 
 export const TRAE_TARGET: MitmTarget = {
   id: "trae",
@@ -25,8 +25,7 @@ export const TRAE_TARGET: MitmTarget = {
     ],
     detection: { command: "which trae", platform: "all" },
   },
-  handler: () =>
-    import("../handlers/trae").then((m) => ({ default: m.TraeHandler })),
+  handler: () => import("../handlers/trae.js").then((m) => ({ default: m.TraeHandler })),
   riskNoticeKey: "providers.riskNotice.investigating",
   viability: "investigating",
 };

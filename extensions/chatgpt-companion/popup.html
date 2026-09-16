@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>OmniRoute Companion</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      width: 290px;
+      margin: 0;
+      padding: 16px;
+      background: #0f172a;
+      color: #f8fafc;
+      box-sizing: border-box;
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+    .badge {
+      font-size: 10px;
+      padding: 2px 6px;
+      border-radius: 4px;
+      background: #1e293b;
+      color: #94a3b8;
+    }
+    .status-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 7px 10px;
+      background: #1e293b;
+      border-radius: 6px;
+      margin-bottom: 6px;
+      font-size: 12px;
+    }
+    .dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      display: inline-block;
+      margin-right: 6px;
+      vertical-align: middle;
+    }
+    .dot-green { background: #22c55e; box-shadow: 0 0 6px #22c55e; }
+    .dot-red { background: #ef4444; }
+    .dot-amber { background: #f59e0b; }
+    .input-group {
+      margin-top: 10px;
+    }
+    label {
+      font-size: 11px;
+      color: #94a3b8;
+      display: block;
+      margin-bottom: 4px;
+    }
+    input {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 6px 8px;
+      border-radius: 4px;
+      border: 1px solid #334155;
+      background: #090d16;
+      color: #f8fafc;
+      font-size: 12px;
+    }
+    input:focus {
+      outline: none;
+      border-color: #10a37f;
+    }
+    .btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 8px;
+      border-radius: 6px;
+      border: none;
+      background: #10a37f;
+      color: white;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+      transition: background 0.15s ease;
+    }
+    .btn:hover {
+      background: #0e8c6d;
+    }
+    .btn-secondary {
+      background: #334155;
+      color: #e2e8f0;
+    }
+    .btn-secondary:hover {
+      background: #475569;
+    }
+    .btn-danger {
+      background: #7f1d1d;
+      color: #fca5a5;
+    }
+    .btn-danger:hover {
+      background: #991b1b;
+    }
+    .message {
+      margin-top: 8px;
+      font-size: 11px;
+      text-align: center;
+      min-height: 16px;
+      color: #94a3b8;
+    }
+    .footer {
+      margin-top: 12px;
+      font-size: 10px;
+      color: #64748b;
+      text-align: center;
+      line-height: 1.4;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <h3 style="margin: 0; font-size: 14px;">OmniRoute Companion</h3>
+    <span class="badge">Web Tokens</span>
+  </div>
+
+  <div class="status-row">
+    <span>OmniRoute Server</span>
+    <span id="server-status"><span class="dot dot-amber"></span>Connecting...</span>
+  </div>
+
+  <div class="status-row">
+    <span>ChatGPT Tab</span>
+    <span id="tab-status"><span class="dot dot-amber"></span>Checking...</span>
+  </div>
+
+  <div class="status-row" id="session-row" style="display: none;">
+    <span>Session Token</span>
+    <span id="session-status" style="color: #22c55e; font-family: monospace;"></span>
+  </div>
+
+  <div class="input-group">
+    <label for="server-url">Server URL</label>
+    <input type="text" id="server-url" value="http://127.0.0.1:20128" />
+  </div>
+
+  <div id="unpaired-actions" class="input-group">
+    <label for="pairing-code">Pairing Code (optional for loopback)</label>
+    <input type="text" id="pairing-code" placeholder="Leave empty for auto-pair" />
+    <button id="pair-btn" class="btn">Pair Extension</button>
+  </div>
+
+  <div id="paired-actions" style="display: none;">
+    <button id="disconnect-btn" class="btn btn-danger">Disconnect</button>
+  </div>
+
+  <div id="msg" class="message"></div>
+
+  <div class="footer">
+    Uses your authenticated ChatGPT Web tab to serve tokens to OmniRoute at $0 API cost.
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

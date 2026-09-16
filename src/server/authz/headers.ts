@@ -62,6 +62,9 @@ export const VIA_PROXY_HEADER = "x-omniroute-via-proxy";
  */
 export const AUTHZ_HEADER_PEER_LOCALITY = "x-omniroute-peer-locality";
 
+/** A trusted pipeline verdict authorizing local Companion auto-pairing only. */
+export const AUTHZ_HEADER_CHATGPT_BRIDGE_AUTO_PAIR = "x-omniroute-chatgpt-bridge-auto-pair";
+
 /**
  * The resolved real peer IP, stamped by the pipeline AFTER verifying the
  * token-stamped PEER_IP_HEADER. This is the trusted, non-spoofable IP that
@@ -83,5 +86,6 @@ export const AUTHZ_TRUSTED_HEADERS: ReadonlyArray<string> = [
   AUTHZ_HEADER_AUTH_LABEL,
   AUTHZ_HEADER_AUTH_SCOPES,
   AUTHZ_HEADER_PEER_LOCALITY,
+  AUTHZ_HEADER_CHATGPT_BRIDGE_AUTO_PAIR,
   AUTHZ_HEADER_TRUSTED_PEER_IP,
 ];

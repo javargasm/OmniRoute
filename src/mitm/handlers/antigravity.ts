@@ -20,8 +20,8 @@
  * before (see `tests/unit/mitm-handler-antigravity.test.ts`).
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { AgentId } from "../types";
-import { MitmHandlerBase } from "./base";
+import type { AgentId } from "../types.js";
+import { MitmHandlerBase } from "./base.js";
 import { TOOL_RENAME_MAP } from "@omniroute/open-sse/services/claudeCodeToolRemapper";
 
 interface GeminiPart {
@@ -108,7 +108,7 @@ function joinPartsText(parts: GeminiPart[] | undefined): string {
 export function convertGeminiToOpenAI(
   geminiBody: GeminiRequestBody,
   model: string,
-  stream: boolean,
+  stream: boolean
 ): OpenAIChatBody {
   // Unwrap the cloudcode-pa envelope (`.request`) used by the real Antigravity IDE; fall
   // back to the top level for the legacy `/v1beta` shape. (#4294)
@@ -150,7 +150,7 @@ export class AntigravityHandler extends MitmHandlerBase {
     req: IncomingMessage,
     res: ServerResponse,
     body: Buffer,
-    mappedModel: string,
+    mappedModel: string
   ): Promise<void> {
     const startedAt = this.now();
     const intercepted = await this.hookBufferStart(req, body, mappedModel);

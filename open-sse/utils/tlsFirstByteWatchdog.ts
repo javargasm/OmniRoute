@@ -15,7 +15,7 @@ import { getTlsFirstByteWatchdogMs } from "@/shared/utils/runtimeTimeouts";
 export const TLS_FIRST_BYTE_WATCHDOG_TIMEOUT_CODE = "TLS_FIRST_BYTE_WATCHDOG_TIMEOUT";
 
 type BodyReader = ReadableStreamDefaultReader<Uint8Array>;
-type FirstReadResult = ReadableStreamReadResult<Uint8Array>;
+type FirstReadResult = Awaited<ReturnType<BodyReader["read"]>>;
 
 function createWatchdogTimeoutError(timeoutMs: number): Error & { code: string } {
   const err = new Error(
