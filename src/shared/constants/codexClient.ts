@@ -7,7 +7,7 @@
 // `minimal_client_version` — follow the real client. Setting
 // CODEX_CLIENT_VERSION pins an explicit version per deployment and disables
 // that tracking.
-export const DEFAULT_CODEX_CLIENT_VERSION = "0.154.0";
+export const DEFAULT_CODEX_CLIENT_VERSION = "0.155.0";
 export const CODEX_CLI_RS_ORIGINATOR = "codex_cli_rs";
 
 export function getCodexCliRsHeaders(

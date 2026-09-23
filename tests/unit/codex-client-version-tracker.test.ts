@@ -20,7 +20,6 @@ const REGISTRY_URL = "https://registry.npmjs.org/@openai/codex/latest";
 const TTL_MS = tracker.CODEX_CLIENT_VERSION_CHECK_TTL_MS;
 const FLOOR = codexClient.DEFAULT_CODEX_CLIENT_VERSION;
 // Derived from the built-in floor so a routine floor bump keeps these meaningful.
-// Against today's 0.154.0 floor: 0.155.0 gates gpt-6-sol/luna, npm publishes 0.156.0.
 const [floorMajor, floorMinor] = FLOOR.split(".").map(Number);
 const versionAboveFloor = (minorOffset: number) => `${floorMajor}.${floorMinor + minorOffset}.0`;
 const GATED_VERSION = versionAboveFloor(1);
@@ -400,17 +399,18 @@ test("refresh hydrates first, so an unchanged version is not re-persisted after 
 
 // ── Codex discovery ─────────────────────────────────────────────────────────
 
-test("Codex discovery imports a version-gated model once a newer CLI version is tracked", () => {
-  assert.deepEqual(modelIds(codexDiscovery.normalizeCodexModelsResponse(versionGatedCatalog)), [
-    "gpt-6-astra",
-  ]);
+test("Codex discovery activates a version-gated candidate once a newer CLI version is tracked", () => {
+  const remoteModels = codexDiscovery.normalizeCodexModelsResponse(versionGatedCatalog);
+  assert.deepEqual(modelIds(remoteModels), ["gpt-6-astra", "gpt-6-sol"]);
+  const atFloor = codexDiscovery.reconcileCodexDiscoveryCatalog(remoteModels, []);
+  assert.deepEqual(modelIds(atFloor.activeModels), ["gpt-6-astra"]);
+  assert.deepEqual(modelIds(atFloor.candidateModels), ["gpt-6-sol"]);
 
   codexClient.setTrackedCodexClientVersion(PUBLISHED_VERSION);
 
-  assert.deepEqual(modelIds(codexDiscovery.normalizeCodexModelsResponse(versionGatedCatalog)), [
-    "gpt-6-astra",
-    "gpt-6-sol",
-  ]);
+  const afterTracking = codexDiscovery.reconcileCodexDiscoveryCatalog(remoteModels, []);
+  assert.deepEqual(modelIds(afterTracking.activeModels), ["gpt-6-astra", "gpt-6-sol"]);
+  assert.deepEqual(afterTracking.candidateModels, []);
   assert.equal(
     codexDiscovery.buildCodexModelsUrl(),
     `https://chatgpt.com/backend-api/codex/models?client_version=${PUBLISHED_VERSION}`
@@ -429,7 +429,11 @@ test("Codex GitHub catalog cache is a miss once the tracked client version moves
     now: 1_000,
     cacheTtlMs: 60_000,
   });
-  assert.deepEqual(modelIds(atFloor), ["gpt-6-astra"]);
+  assert.deepEqual(modelIds(atFloor), ["gpt-6-astra", "gpt-6-sol"]);
+  assert.deepEqual(
+    modelIds(codexDiscovery.reconcileCodexDiscoveryCatalog(atFloor ?? [], []).candidateModels),
+    ["gpt-6-sol"]
+  );
 
   codexClient.setTrackedCodexClientVersion(PUBLISHED_VERSION);
   const afterTracking = await codexDiscovery.fetchCodexGithubCatalogModels({

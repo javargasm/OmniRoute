@@ -43,8 +43,8 @@ export type {
 } from "./settings/types";
 
 export const DEFAULT_REQUEST_QUEUE_MAX_WAIT_MS = (() => {
-  const parsed = Number(process.env.RATE_LIMIT_MAX_WAIT_MS || "15000");
-  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : 15000;
+  const parsed = Number(process.env.RATE_LIMIT_MAX_WAIT_MS || "30000");
+  return Number.isFinite(parsed) && parsed > 0 ? Math.trunc(parsed) : 30000;
 })();
 
 // Limiter-managed execution backstop (Bottleneck `expiration`). Deliberately
@@ -229,8 +229,7 @@ function buildLegacyFallback(settings: JsonRecord): ResilienceSettings {
         DEFAULT_RESILIENCE_SETTINGS.requestQueue.concurrentRequests,
         { min: 1, max: 10_000 }
       ),
-      globalConcurrentRequests:
-        DEFAULT_RESILIENCE_SETTINGS.requestQueue.globalConcurrentRequests,
+      globalConcurrentRequests: DEFAULT_RESILIENCE_SETTINGS.requestQueue.globalConcurrentRequests,
       maxWaitMs: DEFAULT_RESILIENCE_SETTINGS.requestQueue.maxWaitMs,
       executionMaxWaitMs: DEFAULT_RESILIENCE_SETTINGS.requestQueue.executionMaxWaitMs,
       maxQueueDepth: DEFAULT_RESILIENCE_SETTINGS.requestQueue.maxQueueDepth,

@@ -4,7 +4,10 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { useApiKey } from "../../providers/hooks/useApiKey";
 import { buildCurl } from "../../providers/utils/buildCurl";
-import { PLAYGROUND_KEY_ID_HEADER, resolvePlaygroundKeyId } from "../../providers/utils/playgroundAuth";
+import {
+  PLAYGROUND_KEY_ID_HEADER,
+  resolvePlaygroundKeyId,
+} from "../../providers/utils/playgroundAuth";
 import { PlaygroundCard } from "./PlaygroundCard";
 
 interface Props {
@@ -73,7 +76,10 @@ export function WebSearchExampleCard({ providerId }: Props) {
   const [result, setResult] = useState<{ data: unknown; latencyMs: number } | undefined>();
   const [error, setError] = useState<string | null>(null);
 
-  const buildBody = () => ({ query, max_results: numResults });
+  // #13245 — The /api/v1/search route selects providers from body.provider,
+  // not the x-connection-id header.  Send both: the body field drives the
+  // backend; the header is kept for call-log attribution.
+  const buildBody = () => ({ query, max_results: numResults, provider: providerId });
 
   const curlSnippet = buildCurl({
     endpoint:

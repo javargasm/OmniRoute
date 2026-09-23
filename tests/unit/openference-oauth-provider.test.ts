@@ -124,11 +124,14 @@ test("Openference is registered as an OAuth gateway with default executor", asyn
   assert.equal(openferenceProvider.baseUrl, "https://api.openference.com/v1/chat/completions");
   assert.deepEqual(
     openferenceProvider.models?.map((model) => model.id),
-    ["GLM-5.2"]
+    ["GLM-5.2", "Qwen3.8 27b", "Llama 3.2 3B"]
   );
   assert.equal(hasSpecializedExecutor("openference"), false);
 
-  const headers = (await getExecutor("openference")).buildHeaders({ accessToken: "oauth-access" }, false);
+  const headers = (await getExecutor("openference")).buildHeaders(
+    { accessToken: "oauth-access" },
+    false
+  );
   assert.equal(headers.Authorization, "Bearer oauth-access");
 });
 

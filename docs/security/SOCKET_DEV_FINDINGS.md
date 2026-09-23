@@ -5,6 +5,8 @@ description: "Maintainer attestation for the AI-detected potential-malware findi
 
 # Socket.dev / supply-chain finding attestation
 
+> **Scope note:** `socket.yml` configures Socket.dev's registry-side post-publish scan of the npm artifact (ignore-paths for non-shipped content such as `tests/`, `docs/`, and build reports). It does not wire a CI/PR merge gate — no workflow in `.github/workflows`, no `package.json` script, and no `Makefile` target invokes Socket.dev.
+
 This document is the maintainer-authored attestation for the six
 `AI-detected potential malware` findings raised against `omniroute@3.8.5` and
 the mitigations applied in `omniroute@3.8.6`. It exists so:
@@ -13,7 +15,7 @@ the mitigations applied in `omniroute@3.8.6`. It exists so:
    to evaluate the findings against the actual source.
 2. Future AI scanners can pick up the maintainer-signed claim that each
    flagged path is intentional, opt-in, and documented.
-3. We have a written record of *why* each call site is shaped the way it is —
+3. We have a written record of _why_ each call site is shaped the way it is —
    so a future refactor doesn't accidentally reintroduce a fingerprint that
    was deliberately removed.
 
@@ -39,12 +41,12 @@ JWT exposed via a tunnel **cannot** trigger this code path.
 
 **Privileged operations performed (per platform)**:
 
-| OS      | Command(s)                                                                                     |
-| ------- | ---------------------------------------------------------------------------------------------- |
-| Windows | `certutil -addstore Root <cert>` via UAC                                                       |
-| macOS   | `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain <cert>`  |
-| Linux   | `sudo cp <cert> <distro-trust-dir>` + `sudo update-ca-certificates` (Debian) / `sudo update-ca-trust` (RHEL/SUSE) |
-| Linux+Firefox/Chromium | per-profile NSS DB update via `certutil -d sql:<profile>`                          |
+| OS                     | Command(s)                                                                                                        |
+| ---------------------- | ----------------------------------------------------------------------------------------------------------------- |
+| Windows                | `certutil -addstore Root <cert>` via UAC                                                                          |
+| macOS                  | `sudo security add-trusted-cert -d -r trustRoot -k /Library/Keychains/System.keychain <cert>`                     |
+| Linux                  | `sudo cp <cert> <distro-trust-dir>` + `sudo update-ca-certificates` (Debian) / `sudo update-ca-trust` (RHEL/SUSE) |
+| Linux+Firefox/Chromium | per-profile NSS DB update via `certutil -d sql:<profile>`                                                         |
 
 These are the same commands used by `mitmproxy`, Charles Proxy, Fiddler, and
 Caddy. The fact that they exist in OmniRoute is documented at
@@ -71,10 +73,10 @@ it would break the agent-bridge feature set.
 
 **Source files**:
 
-- `src/app/api/providers/zed/discover/route.ts` *(new in v3.8.6)*
+- `src/app/api/providers/zed/discover/route.ts` _(new in v3.8.6)_
 - `src/app/api/providers/zed/import/route.ts`
 - `src/lib/zed-oauth/keychain-reader.ts`
-- `src/lib/zed-oauth/credentialFingerprint.ts` *(new in v3.8.6)*
+- `src/lib/zed-oauth/credentialFingerprint.ts` _(new in v3.8.6)_
 
 **Trigger**: user clicks "Import from Zed" in the local dashboard Providers
 page. Endpoint is gated by `requireManagementAuth`. The Zed editor itself
@@ -192,7 +194,7 @@ provider OAuth tokens silently.
 
 1. **HMAC verification**: `verifyCloudSignature(rawBody, sigHeader)` checks
    the `X-Cloud-Sig` header (`HMAC-SHA256(OMNIROUTE_CLOUD_SYNC_SECRET,
-   rawBody)`) before parsing the JSON. If the secret is set, the signature is
+rawBody)`) before parsing the JSON. If the secret is set, the signature is
    required. If not (legacy mode), a warning is logged and the response is
    accepted — the secret will be required in v3.9.
 2. **Secret-field opt-in**: `accessToken` / `refreshToken` /
@@ -218,12 +220,12 @@ OMNIROUTE_BUILD_PROFILE=minimal npm run build
 
 The webpack `NormalModuleReplacementPlugin` aliases four modules to stubs:
 
-| Module                                              | Stub                                                         |
-| --------------------------------------------------- | ------------------------------------------------------------ |
-| `src/mitm/cert/install.ts`                          | `src/mitm/cert/install.stub.ts`                              |
-| `src/lib/zed-oauth/keychain-reader.ts`              | `src/lib/zed-oauth/keychain-reader.stub.ts`                  |
-| `src/lib/cloudSync.ts`                              | `src/lib/cloudSync.stub.ts`                                  |
-| `src/lib/services/installers/ninerouter.ts`         | `src/lib/services/installers/ninerouter.stub.ts`             |
+| Module                                      | Stub                                             |
+| ------------------------------------------- | ------------------------------------------------ |
+| `src/mitm/cert/install.ts`                  | `src/mitm/cert/install.stub.ts`                  |
+| `src/lib/zed-oauth/keychain-reader.ts`      | `src/lib/zed-oauth/keychain-reader.stub.ts`      |
+| `src/lib/cloudSync.ts`                      | `src/lib/cloudSync.stub.ts`                      |
+| `src/lib/services/installers/ninerouter.ts` | `src/lib/services/installers/ninerouter.stub.ts` |
 
 Each stub exports the same surface but every function throws a
 `featureDisabledError(name)` at runtime. Routes that depend on the disabled

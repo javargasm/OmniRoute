@@ -89,6 +89,7 @@ export function OAuthDeviceCodePanel({
 type OAuthLoopbackMismatchPanelProps = {
   providerName: string;
   hint: PkceLoopbackMismatchHint;
+  onManualInput: () => void;
   onClose: () => void;
 };
 
@@ -103,6 +104,7 @@ type OAuthLoopbackMismatchPanelProps = {
 export function OAuthLoopbackMismatchPanel({
   providerName,
   hint,
+  onManualInput,
   onClose,
 }: OAuthLoopbackMismatchPanelProps) {
   const t = useTranslations("oauthModal");
@@ -194,6 +196,9 @@ export function OAuthLoopbackMismatchPanel({
         <p className="text-xs text-text-muted">{t("loopbackMismatchAlternative")}</p>
       </div>
       <div className="flex gap-2">
+        <Button onClick={onManualInput} fullWidth>
+          {t("popupBlocked")}
+        </Button>
         <Button onClick={onClose} variant="secondary" fullWidth>
           {t("cancel")}
         </Button>
@@ -367,8 +372,8 @@ export function OAuthManualInputPanel({
           {provider === "zed-hosted" && (
             <p className="text-xs text-amber-500 mb-2">
               After signing in, Zed redirects to a local address like{" "}
-              <code className="font-mono">http://127.0.0.1:&lt;port&gt;/?user_id=...</code> which the
-              browser may show as unreachable — that is expected. Copy the FULL URL from the
+              <code className="font-mono">http://127.0.0.1:&lt;port&gt;/?user_id=...</code> which
+              the browser may show as unreachable — that is expected. Copy the FULL URL from the
               browser address bar (the access token is inside it) and paste it above.
             </p>
           )}

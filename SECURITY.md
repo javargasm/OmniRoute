@@ -42,7 +42,7 @@ Request → CORS → Authz pipeline (classify → policies → enforce)
 | --------------------- | ----------------------------------------------------------------------------------------------------------------------------------------- |
 | **Dashboard Login**   | Password-based auth with JWT tokens (HttpOnly cookies)                                                                                    |
 | **API Key Auth**      | HMAC-signed keys with CRC validation                                                                                                      |
-| **OAuth 2.0 + PKCE**  | Provider-specific browser/device OAuth uses PKCE where supported; import-only Devin credentials are handled separately.                    |
+| **OAuth 2.0 + PKCE**  | Provider-specific browser/device OAuth uses PKCE where supported; import-only Devin credentials are handled separately.                   |
 | **Token Refresh**     | Automatic OAuth token refresh before expiry                                                                                               |
 | **Secure Cookies**    | `AUTH_COOKIE_SECURE=true` for HTTPS environments                                                                                          |
 | **Authz Pipeline**    | Route classification (PUBLIC / CLIENT_API / MANAGEMENT) — see `docs/architecture/AUTHZ_GUIDE.md`                                          |
@@ -217,6 +217,8 @@ These rules are enforced by tooling and reviewers:
 11. **Prefer secure-by-default libraries** — see [tldrsec/awesome-secure-defaults](https://github.com/tldrsec/awesome-secure-defaults) (Helmet.js, DOMPurify, ssrf-req-filter, safe-regex, Google Tink). Reach for them before rolling your own.
 
 ## Supply-chain scanner findings (Socket.dev / Snyk / similar)
+
+> **Scope note:** `socket.yml` at the repository root only shapes `projectIgnorePaths` for Socket.dev's registry-side post-publish scan of the published npm artifact — it is not an enforced CI/PR merge gate. No workflow in `.github/workflows`, no `package.json` script, and no `Makefile` target invokes Socket.dev.
 
 The published `omniroute` npm artifact bundles the Next.js `output: "standalone"`
 build, which means every route handler — including documented privileged

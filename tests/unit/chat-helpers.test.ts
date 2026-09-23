@@ -654,15 +654,30 @@ test("late Kiro stream 5xx records the provider breaker without replaying the re
   assert.equal(breaker.failureCount, 1);
 
   const excludedFailures = [
-    { status: 499, code: "client_disconnected", type: "client_disconnected", message: "Client disconnected" },
+    {
+      status: 499,
+      code: "client_disconnected",
+      type: "client_disconnected",
+      message: "Client disconnected",
+    },
     {
       status: 502,
       code: "client_disconnected",
       type: "client_disconnected",
       message: "The downstream writer closed",
     },
-    { status: 502, code: "context_length_exceeded", type: "invalid_request_error", message: "Input is too long" },
-    { status: 502, code: "stream_pipeline_error", type: "stream_error", message: "Controller is already closed" },
+    {
+      status: 502,
+      code: "context_length_exceeded",
+      type: "invalid_request_error",
+      message: "Input is too long",
+    },
+    {
+      status: 502,
+      code: "stream_pipeline_error",
+      type: "stream_error",
+      message: "Controller is already closed",
+    },
     { status: 502, code: "stream_early_eof", type: "stream_error", message: "Overloaded" },
   ];
 
@@ -884,4 +899,33 @@ test("resolveModelOrError returns model_not_found error for unrecognised bare mo
   const json = (await result.error.json()) as ApiErrorJson;
   assert.match(json.error.message, /Unable to determine provider/i);
   assert.match(json.error.message, /completely-unknown-model-xyz/i);
+});
+
+test("handleNoCredentials names the API key's connection allowlist as the reason (#13832)", async () => {
+  // #13832: connections for the provider exist and are active, but the gateway API
+  // key's allowed_connections / quota scope filtered every one of them out, so the
+  // pool arrived empty. The old generic "No active credentials for provider: nvidia"
+  // is indistinguishable from "never configured" — the reporter had a key that
+  // passed /test and synced 82 models, and no message ever mentioned the allowlist.
+  const blocked = handleNoCredentials(
+    { blockedByKeyPolicy: true, blockedCount: 2 },
+    null,
+    "nvidia",
+    "nvidia/nemotron",
+    null,
+    null,
+    undefined,
+    /* isCombo */ false
+  );
+
+  assert.equal(blocked.status, 403);
+  const blockedJson = (await blocked.json()) as { error?: { message?: string } };
+  const message = blockedJson.error?.message ?? "";
+  assert.match(message, /nvidia/);
+  assert.match(message, /2 connection\(s\)/);
+  assert.match(
+    message,
+    /allowlist|quota scope/i,
+    "the operator must be told WHICH gate hid the connections"
+  );
 });

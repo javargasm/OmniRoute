@@ -51,6 +51,7 @@ test("STREAM_RECOVERY constants mirror the free-claude-code values", () => {
   assert.equal(STREAM_RECOVERY.HOLDBACK_MS, 750);
   assert.equal(STREAM_RECOVERY.BUFFER_MAX_BYTES, 65536);
   assert.equal(STREAM_RECOVERY.EARLY_RETRY_MAX, 4);
+  assert.equal(STREAM_RECOVERY.EMPTY_TURN_RETRY_MAX, 4);
 });
 
 test("HoldbackBuffer holds chunks until flushed, then commits", () => {
@@ -137,7 +138,7 @@ test("isRetryableStreamError: client aborts and unknown errors are NOT retryable
 test("hasTerminalMarker detects OpenAI and Anthropic stream terminators", () => {
   assert.equal(hasTerminalMarker(enc("data: {...}\n\ndata: [DONE]\n\n")), true);
   assert.equal(hasTerminalMarker(enc("event: message_stop\ndata: {}\n\n")), true);
-  assert.equal(hasTerminalMarker(enc("data: {\"choices\":[]}\n\n")), false);
+  assert.equal(hasTerminalMarker(enc('data: {"choices":[]}\n\n')), false);
   assert.equal(hasTerminalMarker(enc("")), false);
 });
 

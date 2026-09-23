@@ -90,6 +90,11 @@
       "configSource": "<custom-config>",
       "provider": "chatgpt-web-codex"
     },
+    "cgpt-companion": {
+      "className": "ChatGptWebCompanionExecutor",
+      "configSource": "<custom-config>",
+      "provider": "chatgpt-web-companion"
+    },
     "chatgpt-web": {
       "className": "ChatGptWebExecutor",
       "configSource": "<custom-config>",
@@ -109,11 +114,6 @@
       "className": "CheaperInferenceExecutor",
       "configSource": "cheaperinference",
       "provider": "cheaperinference"
-    },
-    "chipotle": {
-      "className": "ChipotleExecutor",
-      "configSource": "<custom-config>",
-      "provider": "chipotle"
     },
     "cinf": {
       "className": "CheaperInferenceExecutor",
@@ -495,11 +495,6 @@
       "configSource": "opencode-zen",
       "provider": "opencode-zen"
     },
-    "pepper": {
-      "className": "ChipotleExecutor",
-      "configSource": "<custom-config>",
-      "provider": "chipotle"
-    },
     "perplexity-web": {
       "className": "PerplexityWebExecutor",
       "configSource": "<custom-config>",
@@ -681,6 +676,6 @@
       "provider": "zai-web"
     }
   },
-  "keyCount": 136,
+  "keyCount": 135,
   "sharedInstances": []
 }

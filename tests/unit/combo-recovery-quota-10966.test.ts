@@ -41,7 +41,9 @@ test("buildRecoveryHint: the raw upstream message (pre-fix behavior) still falls
 
 test("isQuotaExhaustionResponse: HTTP 403 insufficient_quota code is classified as quota exhaustion (#10966 repro)", async () => {
   const response = new Response(
-    JSON.stringify({ error: { code: "insufficient_quota", message: "Insufficient account balance." } }),
+    JSON.stringify({
+      error: { code: "insufficient_quota", message: "Insufficient account balance." },
+    }),
     { status: 403 }
   );
   const exhausted = await isQuotaExhaustionResponse(response, "some-provider", "some-model", null);
@@ -53,7 +55,8 @@ test("isQuotaExhaustionResponse: HTTP 403 AUTHZ_INSUFFICIENT_BALANCE type is cla
     JSON.stringify({
       error: {
         type: "AUTHZ_INSUFFICIENT_BALANCE",
-        message: "Insufficient account balance. Top up your account at https://example.invalid/billing",
+        message:
+          "Insufficient account balance. Top up your account at https://example.invalid/billing",
       },
     }),
     { status: 403 }
@@ -65,6 +68,15 @@ test("isQuotaExhaustionResponse: HTTP 403 AUTHZ_INSUFFICIENT_BALANCE type is cla
 test("isQuotaExhaustionResponse: a generic 403 with no quota signal stays false (no over-widening)", async () => {
   const response = new Response(
     JSON.stringify({ error: { code: "invalid_api_key", message: "Invalid API key provided." } }),
+    { status: 403 }
+  );
+  const exhausted = await isQuotaExhaustionResponse(response, "some-provider", "some-model", null);
+  assert.equal(exhausted, false);
+});
+
+test("isQuotaExhaustionResponse: a bare 403 (no body signal at all) stays false — only the emitted client code changed, not the upstream classification", async () => {
+  const response = new Response(
+    JSON.stringify({ error: { code: "permission_denied", message: "Permission denied." } }),
     { status: 403 }
   );
   const exhausted = await isQuotaExhaustionResponse(response, "some-provider", "some-model", null);

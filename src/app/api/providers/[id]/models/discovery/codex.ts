@@ -1,7 +1,6 @@
 import { z } from "zod";
 import {
   CODEX_CLI_RS_ORIGINATOR,
-  compareCodexClientVersions,
   getCodexClientVersion,
   getCodexDefaultHeaders,
 } from "@omniroute/open-sse/config/codexClient.ts";
@@ -11,7 +10,13 @@ import {
   splitCodexReasoningSuffix,
   type CodexEffortLevel,
 } from "@omniroute/open-sse/services/codexReasoningLevelTable.ts";
-import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
+import {
+  classifyCodexDiscoveryModel,
+  isCodexDiscoveryModelExcluded,
+  type CodexDiscoveryMode,
+  type CodexDiscoverySource,
+  type CodexDiscoveryStatus,
+} from "@/shared/services/codexDiscoveryPolicy";
 
 export {
   CODEX_DISCOVERY_EXCLUDED_IDS,
@@ -39,6 +44,12 @@ export type CodexDiscoveryModel = {
   supportsVision?: boolean;
   // Upstream `supported_reasoning_levels`, canonical order; drives the effort variants.
   supportedThinkingEfforts?: string[];
+  visibility?: string;
+  supportedInApi?: boolean;
+  minimalClientVersion?: string;
+  discoverySource?: CodexDiscoverySource;
+  discoveryStatus?: CodexDiscoveryStatus;
+  compatibilityReason?: string;
 };
 
 export type CodexModelsFetch = (
@@ -53,7 +64,7 @@ type CodexGithubCatalogCache = {
   models: CodexDiscoveryModel[];
   etag?: string;
   expiresAt: number;
-  // Client version the models were filtered against (minimal_client_version).
+  // Invalidate on tracked client-version changes so compatibility is reconsidered.
   clientVersion: string;
 };
 
@@ -94,21 +105,27 @@ function getCodexModelItems(payload: unknown): unknown[] {
   return objectItems.length > 0 ? objectItems : [];
 }
 
-function shouldImportCodexModel(record: JsonRecord): boolean {
-  if (toNonEmptyString(record.visibility)?.toLowerCase() === "hide") return false;
-  if (record.supported_in_api === false || record.supportedInApi === false) return false;
-
+function getCodexModelMetadata(record: JsonRecord): {
+  visibility?: string;
+  supportedInApi?: boolean;
+  minimalClientVersion?: string;
+} {
+  const visibility = toNonEmptyString(record.visibility)?.toLowerCase();
+  const supportedInApi =
+    typeof record.supported_in_api === "boolean"
+      ? record.supported_in_api
+      : typeof record.supportedInApi === "boolean"
+        ? record.supportedInApi
+        : undefined;
   const minimalClientVersion =
     toNonEmptyString(record.minimal_client_version) ||
-    toNonEmptyString(record.minimalClientVersion);
-  if (
-    minimalClientVersion &&
-    compareCodexClientVersions(minimalClientVersion, getCodexClientVersion()) > 0
-  ) {
-    return false;
-  }
-
-  return true;
+    toNonEmptyString(record.minimalClientVersion) ||
+    undefined;
+  return {
+    ...(visibility ? { visibility } : {}),
+    ...(typeof supportedInApi === "boolean" ? { supportedInApi } : {}),
+    ...(minimalClientVersion ? { minimalClientVersion } : {}),
+  };
 }
 
 function getCodexModelId(record: JsonRecord): string | null {
@@ -158,11 +175,15 @@ function recordSupportsVision(record: JsonRecord): boolean {
   return Array.isArray(record.input_modalities) && record.input_modalities.some(isImageModality);
 }
 
-function buildCodexDiscoveryModel(record: JsonRecord): CodexDiscoveryModel | null {
-  if (!shouldImportCodexModel(record)) return null;
-
+function buildCodexDiscoveryModel(
+  record: JsonRecord,
+  source: CodexDiscoverySource = "live"
+): CodexDiscoveryModel | null {
   const id = getCodexModelId(record);
   if (!id) return null;
+
+  const metadata = getCodexModelMetadata(record);
+  if (metadata.visibility === "hide" || metadata.supportedInApi === false) return null;
 
   const topProvider = asRecord(record.top_provider);
   const limits = asRecord(record.limits);
@@ -172,6 +193,8 @@ function buildCodexDiscoveryModel(record: JsonRecord): CodexDiscoveryModel | nul
     owned_by: "codex",
     apiFormat: "responses",
     supportedEndpoints: ["responses"],
+    ...(source === "github" ? { discoverySource: source } : {}),
+    ...metadata,
   };
   // The live Codex OAuth catalog reports BOTH `context_window` (the first
   // pricing tier, ~272K) and `max_context_window` (the real usable window,
@@ -213,11 +236,14 @@ function buildCodexDiscoveryModel(record: JsonRecord): CodexDiscoveryModel | nul
   return model;
 }
 
-export function normalizeCodexModelsResponse(payload: unknown): CodexDiscoveryModel[] {
+export function normalizeCodexModelsResponse(
+  payload: unknown,
+  source: CodexDiscoverySource = "live"
+): CodexDiscoveryModel[] {
   const deduped = new Map<string, CodexDiscoveryModel>();
 
   for (const item of getCodexModelItems(payload)) {
-    const model = buildCodexDiscoveryModel(asRecord(item));
+    const model = buildCodexDiscoveryModel(asRecord(item), source);
     if (model) deduped.set(model.id, model);
   }
 
@@ -225,19 +251,14 @@ export function normalizeCodexModelsResponse(payload: unknown): CodexDiscoveryMo
 }
 
 export function normalizeCodexGithubCatalogResponse(payload: unknown): CodexDiscoveryModel[] {
-  return normalizeCodexModelsResponse(payload);
+  return normalizeCodexModelsResponse(payload, "github");
 }
 
 export function clearCodexGithubCatalogCacheForTests(): void {
   codexGithubCatalogCache = null;
 }
 
-/**
- * The cached models were filtered against the client version current when they
- * were stored. Once that version moves (a newer Codex CLI got tracked) the entry
- * is a miss — no fresh hit, no If-None-Match, no 304 reuse — so models the new
- * version unlocks are not hidden until the TTL runs out.
- */
+/** A client-version change invalidates cached catalog compatibility metadata. */
 function getCodexGithubCatalogCacheForCurrentVersion(): CodexGithubCatalogCache | null {
   const cache = codexGithubCatalogCache;
   return cache && cache.clientVersion === getCodexClientVersion() ? cache : null;
@@ -470,24 +491,64 @@ function appendCodexEffortVariants(models: CodexDiscoveryModel[]): CodexDiscover
   });
 }
 
-/**
- * Convenience: merge live/local, apply the default (+ optional) filters, synthesize the
- * kept models' declared effort variants, then filter again so an excluded variant id is
- * dropped too. Side effect: registers the kept models' reasoning levels with the
- * executor's runtime table (-max/-ultra aliases, effort clamp, delegation tier), keeping
- * it in sync with every catalog the route serves (live, GitHub, cache).
- */
-export function buildCodexDiscoveryCatalog(
+export type CodexDiscoveryCatalogResult = {
+  activeModels: CodexDiscoveryModel[];
+  candidateModels: CodexDiscoveryModel[];
+};
+
+/** Reconciles remote metadata with the pinned local fallback without auto-trusting it. */
+export function reconcileCodexDiscoveryCatalog(
   remoteModels: CodexDiscoveryModel[],
   localCatalogModels: CodexLocalCatalogModel[],
+  mode: CodexDiscoveryMode = "all",
+  implementedClientVersion = getCodexClientVersion(),
   extraFilters: readonly CodexDiscoveryModelFilter[] = []
-): CodexDiscoveryModel[] {
+): CodexDiscoveryCatalogResult {
+  const activeRemoteModels: CodexDiscoveryModel[] = [];
+  const candidateModels: CodexDiscoveryModel[] = [];
+
+  for (const remoteModel of remoteModels) {
+    const compatibility = classifyCodexDiscoveryModel(remoteModel, {
+      source: remoteModel.discoverySource || "live",
+      mode,
+      implementedClientVersion,
+    });
+    if (compatibility.status === "active") {
+      activeRemoteModels.push({ ...remoteModel, discoveryStatus: "active" });
+    } else if (compatibility.status === "candidate") {
+      candidateModels.push({
+        ...remoteModel,
+        discoveryStatus: "candidate",
+        compatibilityReason: compatibility.reason,
+      });
+    }
+  }
+
   const keptModels = applyCodexDiscoveryFilters(
-    mergeCodexLiveModelsWithLocalCatalog(remoteModels, localCatalogModels),
+    mergeCodexLiveModelsWithLocalCatalog(activeRemoteModels, localCatalogModels),
     extraFilters
   );
   registerCodexReasoningLevels(keptModels);
-  return applyCodexDiscoveryFilters(appendCodexEffortVariants(keptModels), extraFilters);
+  return {
+    activeModels: applyCodexDiscoveryFilters(appendCodexEffortVariants(keptModels), extraFilters),
+    candidateModels,
+  };
+}
+
+/** Convenience: return only the active models for existing callers. */
+export function buildCodexDiscoveryCatalog(
+  remoteModels: CodexDiscoveryModel[],
+  localCatalogModels: CodexLocalCatalogModel[],
+  extraFilters: readonly CodexDiscoveryModelFilter[] = [],
+  mode: CodexDiscoveryMode = "all"
+): CodexDiscoveryModel[] {
+  return reconcileCodexDiscoveryCatalog(
+    remoteModels,
+    localCatalogModels,
+    mode,
+    undefined,
+    extraFilters
+  ).activeModels;
 }
 
 export type CuratedCodexCatalogResult = {

@@ -4,11 +4,11 @@ import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
 import { resetDbInstance } from "../../src/lib/db/core.ts";
+import { createProviderConnection, getProviderConnectionById } from "../../src/models/index.ts";
 import {
-  createProviderConnection,
-  getProviderConnectionById,
-} from "../../src/models/index.ts";
-import { detectPlan, __testing as bindingTesting } from "../../src/lib/providers/volcenginePlanBinding.ts";
+  detectPlan,
+  __testing as bindingTesting,
+} from "../../src/lib/providers/volcenginePlanBinding.ts";
 
 test("detectPlan returns available: false when account has no active quota windows (unsubscribed)", async (t) => {
   const originalFetch = globalThis.fetch;
@@ -87,8 +87,16 @@ test("volcenginePlanBinding upsert rules with SQLite temp isolation", async (t) 
   assert.equal(updated1.id, conn1.id);
   assert.equal(updated1.name, "main", "Preserves original custom name 'main'");
   assert.equal(updated1.apiKey, "ark-new-key-1");
-  assert.equal(updated1.providerSpecificData?.autoFetchModels, true, "Preserves existing PSD autoFetchModels");
-  assert.equal(updated1.providerSpecificData?.customTag, "keep-me", "Preserves existing PSD customTag");
+  assert.equal(
+    updated1.providerSpecificData?.autoFetchModels,
+    true,
+    "Preserves existing PSD autoFetchModels"
+  );
+  assert.equal(
+    updated1.providerSpecificData?.customTag,
+    "keep-me",
+    "Preserves existing PSD customTag"
+  );
   assert.equal(updated1.providerSpecificData?.volcConsoleCookie, "new-cookie-1");
   assert.equal(updated1.providerSpecificData?.volcApiKeyId, 123);
 
@@ -175,7 +183,8 @@ test("findTargetConnection pure matching logic and single-connection adoption in
     { id: "c2", provider: "volcengine-coding-plan", providerSpecificData: { volcApiKeyId: 888 } },
   ];
   assert.equal(
-    bindingTesting.findTargetConnection(list3, { ...criteria, apiKey: undefined, apiKeyId: 888 })?.id,
+    bindingTesting.findTargetConnection(list3, { ...criteria, apiKey: undefined, apiKeyId: 888 })
+      ?.id,
     "c2"
   );
 

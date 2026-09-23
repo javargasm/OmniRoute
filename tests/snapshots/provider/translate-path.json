@@ -111,6 +111,29 @@
       "stream": "https://apihub.agnes-ai.com/v1/chat/completions"
     }
   },
+  "agnes-cn": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://api.agnes-ai.cn/v1/chat/completions",
+      "stream": "https://api.agnes-ai.cn/v1/chat/completions"
+    }
+  },
   "agy": {
     "format": "antigravity",
     "headers": {
@@ -426,6 +449,29 @@
     "url": {
       "nonStream": "https://api.airforce/v1/chat/completions",
       "stream": "https://api.airforce/v1/chat/completions"
+    }
+  },
+  "arcee-ai": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://api.arcee.ai/api/v1/chat/completions",
+      "stream": "https://api.arcee.ai/api/v1/chat/completions"
     }
   },
   "auggie": {
@@ -888,6 +934,29 @@
       "stream": "https://chatgpt.com"
     }
   },
+  "chatgpt-web-companion": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "companion://local-bridge",
+      "stream": "companion://local-bridge"
+    }
+  },
   "cheaperinference": {
     "format": "openai",
     "headers": {
@@ -932,29 +1001,6 @@
     "url": {
       "nonStream": "https://chenzk.top/v1/chat/completions",
       "stream": "https://chenzk.top/v1/chat/completions"
-    }
-  },
-  "chipotle": {
-    "format": "openai",
-    "headers": {
-      "apiKey": {
-        "Accept": "text/event-stream",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      },
-      "nonStream": {
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      },
-      "oauth": {
-        "Accept": "text/event-stream",
-        "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
-      }
-    },
-    "url": {
-      "nonStream": "https://amelia.chipotle.com",
-      "stream": "https://amelia.chipotle.com"
     }
   },
   "chutes": {
@@ -1311,16 +1357,16 @@
         "Authorization": "Bearer <TOK>",
         "Content-Type": "application/json",
         "Openai-Beta": "responses=experimental",
-        "User-Agent": "codex-cli/0.154.0 (<OS>; <ARCH>)",
-        "Version": "0.154.0",
+        "User-Agent": "codex-cli/0.155.0 (<OS>; <ARCH>)",
+        "Version": "0.155.0",
         "X-Codex-Beta-Features": "responses_websockets"
       },
       "nonStream": {
         "Authorization": "Bearer <TOK>",
         "Content-Type": "application/json",
         "Openai-Beta": "responses=experimental",
-        "User-Agent": "codex-cli/0.154.0 (<OS>; <ARCH>)",
-        "Version": "0.154.0",
+        "User-Agent": "codex-cli/0.155.0 (<OS>; <ARCH>)",
+        "Version": "0.155.0",
         "X-Codex-Beta-Features": "responses_websockets"
       },
       "oauth": {
@@ -1328,8 +1374,8 @@
         "Authorization": "Bearer <TOK>",
         "Content-Type": "application/json",
         "Openai-Beta": "responses=experimental",
-        "User-Agent": "codex-cli/0.154.0 (<OS>; <ARCH>)",
-        "Version": "0.154.0",
+        "User-Agent": "codex-cli/0.155.0 (<OS>; <ARCH>)",
+        "Version": "0.155.0",
         "X-Codex-Beta-Features": "responses_websockets"
       }
     },
@@ -1679,7 +1725,7 @@
     }
   },
   "deepseek": {
-    "format": "openai-responses",
+    "format": "openai",
     "headers": {
       "apiKey": {
         "Accept": "text/event-stream",
@@ -1697,8 +1743,8 @@
       }
     },
     "url": {
-      "nonStream": "https://api.deepseek.com/responses",
-      "stream": "https://api.deepseek.com/responses"
+      "nonStream": "https://api.deepseek.com/chat/completions",
+      "stream": "https://api.deepseek.com/chat/completions"
     }
   },
   "deepseek-web": {
@@ -3402,32 +3448,44 @@
     "headers": {
       "apiKey": {
         "Accept": "text/event-stream",
+        "Accept-Encoding": "gzip",
         "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json",
-        "User-Agent": "AWS-SDK-JS/3.0.0 kiro-ide/1.0.0",
+        "Cache-Control": "no-cache",
+        "Content-Type": "application/x-amz-json-1.0",
+        "Pragma": "no-cache",
+        "User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 md/appVersion-2.21.4 app/AmazonQ-For-CLI",
         "X-Amz-Target": "AmazonCodeWhispererStreamingService.GenerateAssistantResponse",
-        "X-Amz-User-Agent": "aws-sdk-js/3.0.0 kiro-ide/1.0.0"
+        "X-Amz-User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 m/F,C md/appVersion-2.21.4 app/AmazonQ-For-CLI",
+        "x-amzn-codewhisperer-optout": "true"
       },
       "nonStream": {
-        "Accept": "application/vnd.amazon.eventstream",
+        "Accept": "*/*",
+        "Accept-Encoding": "gzip",
         "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json",
-        "User-Agent": "AWS-SDK-JS/3.0.0 kiro-ide/1.0.0",
+        "Cache-Control": "no-cache",
+        "Content-Type": "application/x-amz-json-1.0",
+        "Pragma": "no-cache",
+        "User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 md/appVersion-2.21.4 app/AmazonQ-For-CLI",
         "X-Amz-Target": "AmazonCodeWhispererStreamingService.GenerateAssistantResponse",
-        "X-Amz-User-Agent": "aws-sdk-js/3.0.0 kiro-ide/1.0.0"
+        "X-Amz-User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 m/F,C md/appVersion-2.21.4 app/AmazonQ-For-CLI",
+        "x-amzn-codewhisperer-optout": "true"
       },
       "oauth": {
         "Accept": "text/event-stream",
+        "Accept-Encoding": "gzip",
         "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json",
-        "User-Agent": "AWS-SDK-JS/3.0.0 kiro-ide/1.0.0",
+        "Cache-Control": "no-cache",
+        "Content-Type": "application/x-amz-json-1.0",
+        "Pragma": "no-cache",
+        "User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 md/appVersion-2.21.4 app/AmazonQ-For-CLI",
         "X-Amz-Target": "AmazonCodeWhispererStreamingService.GenerateAssistantResponse",
-        "X-Amz-User-Agent": "aws-sdk-js/3.0.0 kiro-ide/1.0.0"
+        "X-Amz-User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 m/F,C md/appVersion-2.21.4 app/AmazonQ-For-CLI",
+        "x-amzn-codewhisperer-optout": "true"
       }
     },
     "url": {
-      "nonStream": "https://codewhisperer.us-east-1.amazonaws.com/generateAssistantResponse",
-      "stream": "https://codewhisperer.us-east-1.amazonaws.com/generateAssistantResponse"
+      "nonStream": "https://runtime.us-east-1.kiro.dev",
+      "stream": "https://runtime.us-east-1.kiro.dev"
     }
   },
   "lambda-ai": {
@@ -3681,6 +3739,29 @@
     "url": {
       "nonStream": "https://api.longcat.chat/openai/v1/chat/completions",
       "stream": "https://api.longcat.chat/openai/v1/chat/completions"
+    }
+  },
+  "lyceum": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://api.lyceum.technology/openai/v1/chat/completions",
+      "stream": "https://api.lyceum.technology/openai/v1/chat/completions"
     }
   },
   "maritalk": {
@@ -4057,19 +4138,25 @@
       "apiKey": {
         "Accept": "text/event-stream",
         "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "User-Agent": "muse-build/1.3.0 (interactive; macos-aarch64; build ac7280f2aca67769d1455a8847bb502b617d50f6)"
       },
       "nonStream": {
         "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "User-Agent": "muse-build/1.3.0 (interactive; macos-aarch64; build ac7280f2aca67769d1455a8847bb502b617d50f6)"
       },
       "oauth": {
         "Accept": "text/event-stream",
         "Authorization": "Bearer <TOK>",
-        "Content-Type": "application/json"
+        "Content-Type": "application/json",
+        "User-Agent": "muse-build/1.3.0 (interactive; macos-aarch64; build ac7280f2aca67769d1455a8847bb502b617d50f6)"
       }
     },
-    "url": {}
+    "url": {
+      "nonStream": "https://api.meta.ai/v1/responses",
+      "stream": "https://api.meta.ai/v1/responses"
+    }
   },
   "muse-spark-web": {
     "format": "openai",
@@ -4254,8 +4341,8 @@
       }
     },
     "url": {
-      "nonStream": "https://api.nlpcloud.io/v1/chat/completions",
-      "stream": "https://api.nlpcloud.io/v1/chat/completions"
+      "nonStream": "https://api.nlpcloud.io/v1/gpu",
+      "stream": "https://api.nlpcloud.io/v1/gpu"
     }
   },
   "notion-web": {
@@ -6373,6 +6460,29 @@
     "url": {
       "nonStream": "https://token-plan-sgp.xiaomimimo.com/v1",
       "stream": "https://token-plan-sgp.xiaomimimo.com/v1"
+    }
+  },
+  "xkiro": {
+    "format": "openai",
+    "headers": {
+      "apiKey": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "nonStream": {
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      },
+      "oauth": {
+        "Accept": "text/event-stream",
+        "Authorization": "Bearer <TOK>",
+        "Content-Type": "application/json"
+      }
+    },
+    "url": {
+      "nonStream": "https://api.xkiro.com/v1/chat/completions",
+      "stream": "https://api.xkiro.com/v1/chat/completions"
     }
   },
   "yi": {
