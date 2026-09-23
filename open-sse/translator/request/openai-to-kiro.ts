@@ -66,8 +66,7 @@ const KIRO_IMAGE_FORMATS = new Set(["png", "jpeg", "gif", "webp"]);
 type KiroImageCandidate = { mimeType: string; data: string };
 type KiroImage = { format: string; source: { bytes: string } };
 type KiroReplayReasoning =
-  | { reasoningText: { text: string; signature: string } }
-  | { redactedContent: string };
+  { reasoningText: { text: string; signature: string } } | { redactedContent: string };
 
 function asKiroRecord(value: unknown): Record<string, unknown> | null {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -98,7 +97,8 @@ function extractKiroReplayReasoning(message: Record<string, unknown>): KiroRepla
   const directReasoning = asKiroRecord(message.reasoningContent);
   const contentBlocks = Array.isArray(message.content) ? message.content : [];
 
-  const directRedaction = redactedKiroReasoning(message) ??
+  const directRedaction =
+    redactedKiroReasoning(message) ??
     (directReasoning ? redactedKiroReasoning(directReasoning) : null);
   if (directRedaction !== null) return { redactedContent: directRedaction };
 
@@ -443,9 +443,7 @@ function convertMessages(messages, tools, model) {
             pendingAssistantSource || lastAssistantMsg || { content },
             history.length
           ),
-          ...(pendingAssistantReasoning
-            ? { reasoningContent: pendingAssistantReasoning }
-            : {}),
+          ...(pendingAssistantReasoning ? { reasoningContent: pendingAssistantReasoning } : {}),
         },
       };
       history.push(assistantMsg);
@@ -728,11 +726,7 @@ function convertMessages(messages, tools, model) {
 
   // If no tools were attached to currentMessage, but history contains tool calls/results,
   // Bedrock will reject the request with TOOL_CONFIG_MISSING. Attach a placeholder tool.
-  if (
-    !toolsAttached &&
-    historyHasToolBlocks(history) &&
-    currentMessage?.userInputMessage
-  ) {
+  if (!toolsAttached && historyHasToolBlocks(history) && currentMessage?.userInputMessage) {
     if (!currentMessage.userInputMessage.userInputMessageContext) {
       currentMessage.userInputMessage.userInputMessageContext = {};
     }
@@ -933,15 +927,11 @@ function convertMessages(messages, tools, model) {
   for (let i = 0; i < mergedHistory.length; i++) {
     const item = mergedHistory[i];
     const toolUses = item?.assistantResponseMessage?.toolUses as
-      | Array<Record<string, unknown>>
-      | undefined;
+      Array<Record<string, unknown>> | undefined;
     if (!toolUses || toolUses.length === 0) continue;
 
     const nextItem = (i + 1 < mergedHistory.length ? mergedHistory[i + 1] : currentMessage) as
-      | (typeof mergedHistory)[number]
-      | typeof currentMessage
-      | null
-      | undefined;
+      (typeof mergedHistory)[number] | typeof currentMessage | null | undefined;
 
     if (nextItem?.userInputMessage) {
       if (!nextItem.userInputMessage.userInputMessageContext) {
@@ -987,8 +977,8 @@ function convertMessages(messages, tools, model) {
     (historyHasToolBlocks(mergedHistory) ||
       Boolean(
         currentMessage.userInputMessage.userInputMessageContext?.toolResults &&
-          Array.isArray(currentMessage.userInputMessage.userInputMessageContext.toolResults) &&
-          currentMessage.userInputMessage.userInputMessageContext.toolResults.length > 0
+        Array.isArray(currentMessage.userInputMessage.userInputMessageContext.toolResults) &&
+        currentMessage.userInputMessage.userInputMessageContext.toolResults.length > 0
       ))
   ) {
     if (!currentMessage.userInputMessage.userInputMessageContext) {
@@ -1023,7 +1013,7 @@ function convertMessages(messages, tools, model) {
 }
 
 /** Kiro's accepted reasoning-effort levels (`output_config.effort`). */
-const KIRO_EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"];
+const KIRO_EFFORT_LEVELS = ["none", "low", "medium", "high", "xhigh", "max"];
 
 /**
  * Resolve the Kiro effort level for a request, or "" when no reasoning was asked
@@ -1129,8 +1119,17 @@ export function buildKiroPayload(model, body, stream, credentials) {
   // The supported `-thinking` selector is a local alias: strip it before the request leaves
   // OmniRoute so Kiro only receives a real upstream model ID. Non-functional agentic and
   // auto-kiro aliases are rejected above instead of silently degrading to another model.
-  const { upstream: normalizedModel, thinking: modelRequestsThinking } =
-    resolveKiroModelAlias(model);
+  const {
+    upstream: normalizedModel,
+    thinking: modelRequestsThinking,
+    effort: modelRequestedEffort,
+  } = resolveKiroModelAlias(model);
+  // chatCore passes the resolved base model to the translator but retains the original
+  // public model alias in `body.model`; preserve an effort encoded in that alias.
+  const bodyModelAlias =
+    typeof body?.model === "string" ? resolveKiroModelAlias(body.model) : undefined;
+  const bodyRequestedEffort =
+    bodyModelAlias?.upstream === normalizedModel ? bodyModelAlias.effort : undefined;
   const messages = body.messages || [];
   let tools = body.tools || [];
   const maxTokens = body.max_tokens ?? body.max_completion_tokens ?? 32000;
@@ -1181,11 +1180,7 @@ export function buildKiroPayload(model, body, stream, credentials) {
     }
   }
 
-  const { history, currentMessage, toolDocs } = convertMessages(
-    messages,
-    tools,
-    normalizedModel
-  );
+  const { history, currentMessage, toolDocs } = convertMessages(messages, tools, normalizedModel);
 
   const profileArn = credentials?.providerSpecificData?.profileArn || "";
 
@@ -1312,7 +1307,11 @@ export function buildKiroPayload(model, body, stream, credentials) {
   // GPT-5.6 models use the native `reasoning:{effort}` field instead. They must
   // not receive the Claude `output_config`/`thinking` envelope: Kiro rejects it
   // as an unknown field for the GPT-5.6 family.
-  const requestedEffort = resolveKiroEffort(body) || (modelRequestsThinking ? "high" : "");
+  const requestedEffort =
+    resolveKiroEffort(body) ||
+    modelRequestedEffort ||
+    bodyRequestedEffort ||
+    (modelRequestsThinking ? "high" : "");
   const usesNativeReasoning = supportsKiroNativeReasoning(normalizedModel);
   const usesAdaptiveThinking = supportsKiroAdaptiveThinking(normalizedModel);
   const usesPromptThinking = supportsKiroPromptThinking(normalizedModel);
@@ -1321,6 +1320,16 @@ export function buildKiroPayload(model, body, stream, credentials) {
   if (kiroEffort) {
     if (usesNativeReasoning) {
       payload.additionalModelRequestFields = { reasoning: { effort: kiroEffort } };
+      if (kiroEffort !== "none") {
+        const thinkingLength = capThinkingBudget(
+          normalizedModel,
+          thinkingLengthForEffort(kiroEffort)
+        );
+        const directive =
+          `<thinking_mode>enabled</thinking_mode>` +
+          `<max_thinking_length>${thinkingLength}</max_thinking_length>`;
+        payload.conversationState.currentMessage.userInputMessage.content = `${directive}\n\n${payload.conversationState.currentMessage.userInputMessage.content}`;
+      }
     } else if (usesAdaptiveThinking) {
       const fields: {
         output_config?: { effort: string };

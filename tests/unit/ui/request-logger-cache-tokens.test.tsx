@@ -17,6 +17,9 @@ vi.mock("next-intl", () => {
     reasoning: "Reasoning: {value}",
     notAvailable: "N/A",
   };
+  const loggerLabels: Record<string, string> = {
+    "detail.reasoning": "Reasoning: {value}",
+  };
   const interpolate = (template: string, params: Record<string, string> = {}) =>
     template.replace(/\{(\w+)\}/g, (_, k) => (k in params ? String(params[k]) : `{${k}}`));
   return {
@@ -26,7 +29,9 @@ vi.mock("next-intl", () => {
         ? interpolate(cacheLabels[key] ?? key, params)
         : namespace === "requestLogger.detail"
           ? interpolate(detailLabels[key] ?? key, params)
-          : interpolate(key, params),
+          : namespace === "requestLogger"
+            ? interpolate(loggerLabels[key] ?? key, params)
+            : interpolate(key, params),
   };
 });
 
@@ -128,6 +133,51 @@ describe("request log cache token metrics (#9620)", () => {
     expect(emptyRow?.textContent).toContain("TO: 250");
     expect(emptyRow?.textContent).not.toContain("CR:");
     expect(emptyRow?.textContent).not.toContain("CW:");
+  });
+
+  it("shows Kiro's persisted effective effort beside the model without affecting other rows", async () => {
+    const kiroLog = {
+      ...populatedLog,
+      id: "log-kiro-effort",
+      model: "gpt-5.6-sol",
+      provider: "kiro",
+      tokens: { ...populatedLog.tokens, reasoning: null },
+      effectiveReasoningEffort: "max",
+    };
+    const nonKiroLog = {
+      ...populatedLog,
+      id: "log-openai-effort",
+      model: "gpt-openai",
+      effectiveReasoningEffort: "max",
+    };
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async (input: RequestInfo | URL) => {
+        const url = String(input);
+        if (url.startsWith("/api/usage/call-logs")) return Response.json([kiroLog, nonKiroLog]);
+        if (url.startsWith("/api/provider-nodes")) return Response.json({ nodes: [] });
+        if (url.startsWith("/api/logs/detail")) return Response.json({ enabled: false });
+        return Response.json({});
+      })
+    );
+
+    await render(<RequestLoggerV2 />);
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const kiroRow = Array.from(container.querySelectorAll("tbody tr")).find((candidate) =>
+      candidate.textContent?.includes("gpt-5.6-sol")
+    );
+    const effortBadge = kiroRow?.querySelector('[data-testid="kiro-reasoning-effort-badge"]');
+    expect(effortBadge?.textContent).toBe("max");
+    expect(effortBadge?.getAttribute("title")).toBe("Reasoning: max");
+    expect(kiroRow?.textContent).not.toContain("Reasoning: 50");
+
+    const nonKiroRow = Array.from(container.querySelectorAll("tbody tr")).find((candidate) =>
+      candidate.textContent?.includes("gpt-openai")
+    );
+    expect(nonKiroRow?.querySelector('[data-testid="kiro-reasoning-effort-badge"]')).toBeNull();
   });
 
   it("distinguishes cache read from cache write in the detail view", async () => {

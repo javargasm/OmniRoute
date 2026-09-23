@@ -1,8 +1,16 @@
+import { z } from "zod";
 import {
   CODEX_CLI_RS_ORIGINATOR,
+  compareCodexClientVersions,
   getCodexClientVersion,
   getCodexDefaultHeaders,
 } from "@omniroute/open-sse/config/codexClient.ts";
+import {
+  normalizeCodexEffortLevels,
+  registerCodexReasoningLevels,
+  splitCodexReasoningSuffix,
+  type CodexEffortLevel,
+} from "@omniroute/open-sse/services/codexReasoningLevelTable.ts";
 import { isCodexDiscoveryModelExcluded } from "@/shared/services/codexDiscoveryPolicy";
 
 export {
@@ -29,6 +37,8 @@ export type CodexDiscoveryModel = {
   description?: string;
   supportsThinking?: boolean;
   supportsVision?: boolean;
+  // Upstream `supported_reasoning_levels`, canonical order; drives the effort variants.
+  supportedThinkingEfforts?: string[];
 };
 
 export type CodexModelsFetch = (
@@ -43,6 +53,8 @@ type CodexGithubCatalogCache = {
   models: CodexDiscoveryModel[];
   etag?: string;
   expiresAt: number;
+  // Client version the models were filtered against (minimal_client_version).
+  clientVersion: string;
 };
 
 let codexGithubCatalogCache: CodexGithubCatalogCache | null = null;
@@ -62,30 +74,6 @@ function firstPositiveNumber(...candidates: unknown[]): number | undefined {
     }
   }
   return undefined;
-}
-
-function parseVersionParts(version: string): number[] | null {
-  const parts = version
-    .trim()
-    .split(".")
-    .map((part) => Number(part));
-  return parts.length > 0 && parts.every((part) => Number.isInteger(part) && part >= 0)
-    ? parts
-    : null;
-}
-
-function compareVersions(left: string, right: string): number {
-  const leftParts = parseVersionParts(left);
-  const rightParts = parseVersionParts(right);
-  if (!leftParts || !rightParts) return 0;
-
-  const length = Math.max(leftParts.length, rightParts.length);
-  for (let index = 0; index < length; index += 1) {
-    const a = leftParts[index] || 0;
-    const b = rightParts[index] || 0;
-    if (a !== b) return a - b;
-  }
-  return 0;
 }
 
 export function buildCodexModelsUrl(clientVersion = getCodexClientVersion()): string {
@@ -113,7 +101,10 @@ function shouldImportCodexModel(record: JsonRecord): boolean {
   const minimalClientVersion =
     toNonEmptyString(record.minimal_client_version) ||
     toNonEmptyString(record.minimalClientVersion);
-  if (minimalClientVersion && compareVersions(minimalClientVersion, getCodexClientVersion()) > 0) {
+  if (
+    minimalClientVersion &&
+    compareCodexClientVersions(minimalClientVersion, getCodexClientVersion()) > 0
+  ) {
     return false;
   }
 
@@ -139,6 +130,23 @@ function getCodexModelName(record: JsonRecord, id: string): string {
 function recordSupportsThinking(record: JsonRecord): boolean {
   return (
     Array.isArray(record.supported_reasoning_levels) && record.supported_reasoning_levels.length > 0
+  );
+}
+
+// Hard Rule #7: `supported_reasoning_levels` entries are untrusted upstream data — each
+// is either an effort string or `{ effort, description }`; a malformed entry is dropped
+// on its own. `default_reasoning_level` is deliberately not captured (it would inject a
+// request default).
+const CodexReasoningLevelEntrySchema = z.union([z.string(), z.object({ effort: z.string() })]);
+
+function recordReasoningEfforts(record: JsonRecord): CodexEffortLevel[] {
+  if (!Array.isArray(record.supported_reasoning_levels)) return [];
+  return normalizeCodexEffortLevels(
+    record.supported_reasoning_levels.flatMap((entry) => {
+      const parsed = CodexReasoningLevelEntrySchema.safeParse(entry);
+      if (!parsed.success) return [];
+      return [typeof parsed.data === "string" ? parsed.data : parsed.data.effort];
+    })
   );
 }
 
@@ -193,12 +201,14 @@ function buildCodexDiscoveryModel(record: JsonRecord): CodexDiscoveryModel | nul
     limits.max_output_tokens
   );
   const description = toNonEmptyString(record.description);
+  const reasoningEfforts = recordReasoningEfforts(record);
 
   if (typeof inputTokenLimit === "number") model.inputTokenLimit = inputTokenLimit;
   if (typeof outputTokenLimit === "number") model.outputTokenLimit = outputTokenLimit;
   if (description) model.description = description;
   if (recordSupportsThinking(record)) model.supportsThinking = true;
   if (recordSupportsVision(record)) model.supportsVision = true;
+  if (reasoningEfforts.length > 0) model.supportedThinkingEfforts = reasoningEfforts;
 
   return model;
 }
@@ -222,11 +232,22 @@ export function clearCodexGithubCatalogCacheForTests(): void {
   codexGithubCatalogCache = null;
 }
 
+/**
+ * The cached models were filtered against the client version current when they
+ * were stored. Once that version moves (a newer Codex CLI got tracked) the entry
+ * is a miss — no fresh hit, no If-None-Match, no 304 reuse — so models the new
+ * version unlocks are not hidden until the TTL runs out.
+ */
+function getCodexGithubCatalogCacheForCurrentVersion(): CodexGithubCatalogCache | null {
+  const cache = codexGithubCatalogCache;
+  return cache && cache.clientVersion === getCodexClientVersion() ? cache : null;
+}
+
 function getFreshCodexGithubCatalogCache(
   now: number,
   cacheTtlMs: number
 ): CodexDiscoveryModel[] | null {
-  const cache = codexGithubCatalogCache;
+  const cache = getCodexGithubCatalogCacheForCurrentVersion();
   if (cacheTtlMs > 0 && cache && cache.expiresAt > now) {
     return cache.models;
   }
@@ -238,8 +259,9 @@ function buildCodexGithubCatalogHeaders(): Record<string, string> {
     Accept: "application/json",
     "Content-Type": "application/json",
   };
-  if (codexGithubCatalogCache?.etag) {
-    headers["If-None-Match"] = codexGithubCatalogCache.etag;
+  const etag = getCodexGithubCatalogCacheForCurrentVersion()?.etag;
+  if (etag) {
+    headers["If-None-Match"] = etag;
   }
   return headers;
 }
@@ -249,10 +271,11 @@ function getNotModifiedCodexGithubCatalog(
   now: number,
   cacheTtlMs: number
 ): CodexDiscoveryModel[] | null {
-  if (response.status !== 304 || !codexGithubCatalogCache) return null;
+  const cache = getCodexGithubCatalogCacheForCurrentVersion();
+  if (response.status !== 304 || !cache) return null;
 
   codexGithubCatalogCache = {
-    ...codexGithubCatalogCache,
+    ...cache,
     expiresAt: now + cacheTtlMs,
   };
   return codexGithubCatalogCache.models;
@@ -269,6 +292,7 @@ function storeCodexGithubCatalogCache(
     models,
     ...(etag ? { etag } : {}),
     expiresAt: now + cacheTtlMs,
+    clientVersion: getCodexClientVersion(),
   };
 }
 
@@ -397,16 +421,73 @@ export function applyCodexDiscoveryFilters(
   });
 }
 
-/** Convenience: merge live/local then apply default (+ optional) filters. */
+const CODEX_EFFORT_LABELS: Record<CodexEffortLevel, string> = {
+  none: "None",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "xHigh",
+  max: "Max",
+  ultra: "Ultra",
+};
+
+function buildCodexEffortVariant(
+  base: CodexDiscoveryModel,
+  level: CodexEffortLevel
+): CodexDiscoveryModel {
+  const variant: CodexDiscoveryModel = {
+    id: `${base.id}-${level}`,
+    name: `${base.name} (${CODEX_EFFORT_LABELS[level]})`,
+    owned_by: "codex",
+    apiFormat: "responses",
+    supportedEndpoints: ["responses"],
+  };
+  if (typeof base.inputTokenLimit === "number") variant.inputTokenLimit = base.inputTokenLimit;
+  if (typeof base.outputTokenLimit === "number") variant.outputTokenLimit = base.outputTokenLimit;
+  if (base.description) variant.description = base.description;
+  if (typeof base.supportsThinking === "boolean") variant.supportsThinking = base.supportsThinking;
+  if (typeof base.supportsVision === "boolean") variant.supportsVision = base.supportsVision;
+  return variant;
+}
+
+/**
+ * Upstream declares every model's reasoning levels, but only some models have
+ * hand-written registry variants. Synthesize `${id}-${level}` for each declared level
+ * that is not listed yet (registry rows always win), right after its base and highest
+ * effort first — the registry convention. Variants carry no levels of their own, so the
+ * result fed back in (the cached path) yields the same ids in the same order.
+ */
+function appendCodexEffortVariants(models: CodexDiscoveryModel[]): CodexDiscoveryModel[] {
+  const listedIds = new Set(models.map((model) => model.id));
+  return models.flatMap((model) => {
+    // An effort variant (e.g. `gpt-6-sol-max`) never gets variants of its own.
+    if (splitCodexReasoningSuffix(model.id).effort !== null) return [model];
+    const variants = normalizeCodexEffortLevels(model.supportedThinkingEfforts)
+      .reverse()
+      .filter((level) => !listedIds.has(`${model.id}-${level}`))
+      .map((level) => buildCodexEffortVariant(model, level));
+    return [model, ...variants];
+  });
+}
+
+/**
+ * Convenience: merge live/local, apply the default (+ optional) filters, synthesize the
+ * kept models' declared effort variants, then filter again so an excluded variant id is
+ * dropped too. Side effect: registers the kept models' reasoning levels with the
+ * executor's runtime table (-max/-ultra aliases, effort clamp, delegation tier), keeping
+ * it in sync with every catalog the route serves (live, GitHub, cache).
+ */
 export function buildCodexDiscoveryCatalog(
   remoteModels: CodexDiscoveryModel[],
   localCatalogModels: CodexLocalCatalogModel[],
   extraFilters: readonly CodexDiscoveryModelFilter[] = []
 ): CodexDiscoveryModel[] {
-  return applyCodexDiscoveryFilters(
+  const keptModels = applyCodexDiscoveryFilters(
     mergeCodexLiveModelsWithLocalCatalog(remoteModels, localCatalogModels),
     extraFilters
   );
+  registerCodexReasoningLevels(keptModels);
+  return applyCodexDiscoveryFilters(appendCodexEffortVariants(keptModels), extraFilters);
 }
 
 export type CuratedCodexCatalogResult = {

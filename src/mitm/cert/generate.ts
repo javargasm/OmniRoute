@@ -1,7 +1,7 @@
 import path from "path";
 import fs from "fs";
-import { resolveMitmDataDir } from "../dataDir.js";
-import { ANTIGRAVITY_TARGET } from "../targets/antigravity.js";
+import { resolveMitmDataDir } from "../dataDir.ts";
+import { ANTIGRAVITY_TARGET } from "../targets/antigravity.ts";
 
 // #6494: the proxy terminates TLS locally for all 4 antigravity/cloudcode
 // hosts (see `TARGET_HOSTS` in server.cjs), but the generated cert previously

@@ -1,6 +1,7 @@
 import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
+import { kiroProvider } from "../../open-sse/config/providers/registry/kiro/index.ts";
 import {
   parseKiroModels,
   resolveKiroRegion,
@@ -9,6 +10,7 @@ import {
   clearKiroModelCache,
   isObsoleteKiroModelAlias,
 } from "../../open-sse/services/kiroModels.ts";
+import { getThinkingCapabilityFields } from "../../src/app/api/v1/models/catalogHelpers.ts";
 
 const FALLBACK = [{ id: "claude-sonnet-4.5" }, { id: "deepseek-3.2" }];
 
@@ -22,6 +24,34 @@ function jsonResponse(body: unknown, status = 200): Response {
     headers: { "Content-Type": "application/json" },
   });
 }
+
+test("static Kiro GPT-5.6 models publish native thinking capabilities", () => {
+  const modelIds = ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"];
+  const effortTiers = ["none", "low", "medium", "high", "xhigh", "max"];
+  const models = kiroProvider.models.filter((model) => modelIds.includes(model.id));
+
+  assert.deepEqual(
+    models.map((model) => model.id),
+    modelIds
+  );
+
+  for (const model of models) {
+    assert.deepEqual(
+      getThinkingCapabilityFields(
+        "kiro",
+        model.id,
+        model.supportsReasoning,
+        model.supportedThinkingEfforts,
+        false
+      ),
+      {
+        thinking: true,
+        supportsThinking: true,
+        effort_tiers: effortTiers,
+      }
+    );
+  }
+});
 
 test("parseKiroModels reads CodeWhisperer ListAvailableModels shape", () => {
   const models = parseKiroModels({
@@ -154,7 +184,6 @@ test("fetchKiroAvailableModels: simple (Builder ID) account, us-east-1, origin K
   assert.equal(result.source, "api");
   assert.deepEqual(result.models.map((m) => m.id).sort(), [
     "claude-sonnet-4.6",
-    "claude-sonnet-4.6-thinking",
   ]);
   assert.ok(calls.some((c) => c.startsWith("https://management.us-east-1.kiro.dev/?origin=KIRO_CLI&profileArn=")));
 });
@@ -177,7 +206,7 @@ test("fetchKiroAvailableModels: IAM Identity Center account, region-matched endp
   assert.equal(result.source, "api");
   assert.deepEqual(
     result.models.map((m) => m.id),
-    ["claude-opus-4.8", "claude-opus-4.8-thinking"]
+    ["claude-opus-4.8"]
   );
   assert.ok(
     calls.some((c) => c.startsWith("https://management.eu-central-1.kiro.dev/?origin=KIRO_CLI&profileArn="))
@@ -207,14 +236,14 @@ test("fetchKiroAvailableModels: retries with fallback endpoint when primary fail
   assert.equal(result.source, "api");
   assert.deepEqual(
     result.models.map((m) => m.id),
-    ["claude-sonnet-4.6", "claude-sonnet-4.6-thinking"]
+    ["claude-sonnet-4.6"]
   );
   assert.equal(calls.length, 2);
   assert.ok(calls[0].includes("management.eu-central-1.kiro.dev"));
   assert.ok(calls[1].includes("management.us-east-1.kiro.dev"));
 });
 
-test("fetchKiroAvailableModels only exposes a functional Thinking alias and filters fable", async () => {
+test("fetchKiroAvailableModels filters fable and unusable models", async () => {
   const fetchImpl = (async () =>
     jsonResponse({
       models: [
@@ -234,7 +263,12 @@ test("fetchKiroAvailableModels only exposes a functional Thinking alias and filt
 
   assert.deepEqual(
     result.models.map((model) => model.id),
-    ["claude-sonnet-5", "claude-sonnet-5-thinking", "claude-sonnet-4.5", "deepseek-3.2", "gpt-5.6-sol"]
+    [
+      "claude-sonnet-5",
+      "claude-sonnet-4.5",
+      "deepseek-3.2",
+      "gpt-5.6-sol",
+    ]
   );
 });
 
@@ -245,7 +279,8 @@ test("isObsoleteKiroModelAlias filters stale cached aliases and fable", () => {
   assert.equal(isObsoleteKiroModelAlias("claude-fable-5-thinking"), true);
   assert.equal(isObsoleteKiroModelAlias("claude-sonnet-5-agentic"), true);
   assert.equal(isObsoleteKiroModelAlias("claude-sonnet-4.5-thinking"), true);
-  assert.equal(isObsoleteKiroModelAlias("claude-sonnet-5-thinking"), false);
+  assert.equal(isObsoleteKiroModelAlias("claude-sonnet-5-thinking"), true);
+  assert.equal(isObsoleteKiroModelAlias("gpt-5.6-sol-thinking"), true);
   assert.equal(isObsoleteKiroModelAlias("claude-sonnet-4.5"), false);
 });
 

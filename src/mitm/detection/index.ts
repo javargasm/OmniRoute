@@ -9,15 +9,15 @@
  * under investigation, so callers receive `{ installed: false }` until the
  * upstream surface is confirmed (see `targets/trae.ts`).
  */
-import type { AgentId, DetectionResult } from "../types.js";
-import { detectAntigravity } from "./antigravity.js";
-import { detectKiro } from "./kiro.js";
-import { detectCopilot } from "./copilot.js";
-import { detectCodex } from "./codex.js";
-import { detectCursor } from "./cursor.js";
-import { detectZed } from "./zed.js";
-import { detectClaudeCode } from "./claudeCode.js";
-import { detectOpenCode } from "./openCode.js";
+import type { AgentId, DetectionResult } from "../types.ts";
+import { detectAntigravity } from "./antigravity.ts";
+import { detectKiro } from "./kiro.ts";
+import { detectCopilot } from "./copilot.ts";
+import { detectCodex } from "./codex.ts";
+import { detectCursor } from "./cursor.ts";
+import { detectZed } from "./zed.ts";
+import { detectClaudeCode } from "./claudeCode.ts";
+import { detectOpenCode } from "./openCode.ts";
 
 export const DETECTORS: Record<AgentId, () => DetectionResult> = {
   antigravity: detectAntigravity,

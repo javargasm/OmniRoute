@@ -86,10 +86,15 @@ test("computeLogsSignature: non-array input collapses to empty", () => {
 });
 
 test("computeLogsSignature: missing tokens defaults out to 0", () => {
-  assert.equal(
-    computeLogsSignature([{ id: "a", status: 200, duration: 5 }]),
-    "a:200:5:0"
-  );
+  assert.equal(computeLogsSignature([{ id: "a", status: 200, duration: 5 }]), "a:200:5:0");
+});
+
+test("computeLogsSignature: changes when Kiro effort becomes available", () => {
+  const pending = [
+    { id: "kiro", status: 200, duration: 5, tokens: { out: 1 }, effectiveReasoningEffort: null },
+  ];
+  const resolved = [{ ...pending[0], effectiveReasoningEffort: "max" }];
+  assert.notEqual(computeLogsSignature(pending), computeLogsSignature(resolved));
 });
 
 test("resolveInitialVisibility: visible by default when document is absent (SSR)", () => {

@@ -9,11 +9,11 @@
 import { randomUUID } from "node:crypto";
 import type { IncomingMessage } from "node:http";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
-import { maskSecret } from "../maskSecrets.js";
-import { sanitizeHeaders } from "../sanitizeHeaders.js";
-import type { AgentId } from "../types.js";
-import { globalTrafficBuffer } from "./buffer.js";
-import type { InterceptedRequest } from "./types.js";
+import { maskSecret } from "../maskSecrets.ts";
+import { sanitizeHeaders } from "../sanitizeHeaders.ts";
+import type { AgentId } from "../types.ts";
+import { globalTrafficBuffer } from "./buffer.ts";
+import type { InterceptedRequest } from "./types.ts";
 import { isCustomHost } from "@/lib/db/inspectorCustomHosts";
 
 export interface RecordRequestStartOpts {
@@ -83,7 +83,7 @@ export async function recordRequestStart(
   // which is what appears in that process's /proc/net/tcp local_address. Never
   // blocks capture — any failure leaves pid/processName unset. (Gap 1.)
   try {
-    const { attributeProcess } = await import("./processAttribution.js");
+    const { attributeProcess } = await import("./processAttribution.ts");
     const remotePort = opts.req.socket?.remotePort;
     if (typeof remotePort === "number") {
       const info = attributeProcess(remotePort);

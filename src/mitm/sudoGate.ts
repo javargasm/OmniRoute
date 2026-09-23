@@ -1,6 +1,6 @@
 import os from "os";
-import { isSudoPasswordRequired } from "./dns/dnsConfig.js";
-import { isRoot } from "./systemCommands.js";
+import { isSudoPasswordRequired } from "./dns/dnsConfig.ts";
+import { isRoot } from "./systemCommands.ts";
 
 /** Trim and treat whitespace-only sudo passwords as missing (#7865 review). */
 export function normalizeMitmSudoPasswordInput(value?: string | null): string {

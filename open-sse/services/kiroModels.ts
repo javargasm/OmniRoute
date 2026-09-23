@@ -31,7 +31,7 @@ import {
   KIRO_EXTERNAL_IDP_TOKEN_TYPE_VALUE,
 } from "./kiroExternalIdp.ts";
 import { DEFAULT_PROFILE_ARN, resolveKiroRuntimeRegion } from "./kiroRegion.ts";
-import { supportsKiroAdaptiveThinking } from "../translator/request/openai-to-kiro/adaptiveThinking.ts";
+import { supportsKiroNativeReasoning } from "../translator/request/openai-to-kiro/adaptiveThinking.ts";
 
 type RawRecord = Record<string, unknown>;
 
@@ -95,12 +95,14 @@ export type KiroModel = {
   capabilities?: {
     thinking: boolean;
     agentic: boolean;
+    effort_tiers?: string[];
   };
   contextLength?: number;
   rateMultiplier?: number;
   upstreamModelId?: string;
   description?: string;
   promptCaching?: KiroPromptCaching;
+  supportedThinkingEfforts?: string[];
 };
 
 function toNonNegativeInteger(value: unknown): number | null {
@@ -166,37 +168,51 @@ function formatDisplayName(modelName: unknown, modelId: string, rateMultiplier: 
   return `Kiro ${base} (${rate.toFixed(1)}x credit)`;
 }
 
+export const KIRO_GPT_EFFORT_TIERS = [
+  "none",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
+
 function buildVariants(upstream: string, displayName: string): KiroModel[] {
   const display = displayName || `Kiro ${upstream}`;
+  const isNativeReasoning = supportsKiroNativeReasoning(upstream);
+
+  const baseCapabilities: { thinking: boolean; agentic: boolean; effort_tiers?: string[] } = {
+    thinking: false,
+    agentic: false,
+  };
+  if (isNativeReasoning) {
+    baseCapabilities.effort_tiers = [...KIRO_GPT_EFFORT_TIERS];
+  }
+
   const variants: KiroModel[] = [
     {
       id: upstream,
       name: display,
       owned_by: "kiro",
-      capabilities: { thinking: false, agentic: false },
+      capabilities: baseCapabilities,
+      ...(isNativeReasoning ? { supportedThinkingEfforts: [...KIRO_GPT_EFFORT_TIERS] } : {}),
     },
   ];
-
-  if (supportsKiroAdaptiveThinking(upstream)) {
-    variants.push({
-      id: `${upstream}-thinking`,
-      name: `${display} (Thinking)`,
-      owned_by: "kiro",
-      capabilities: { thinking: true, agentic: false },
-    });
-  }
 
   return variants;
 }
 
 export function isObsoleteKiroModelAlias(modelId: unknown): boolean {
   if (typeof modelId !== "string") return false;
-  if (isUnusableKiroCatalogModelId(modelId) || modelId === "auto-kiro" || modelId.endsWith("-agentic")) {
+  if (
+    isUnusableKiroCatalogModelId(modelId) ||
+    modelId === "auto-kiro" ||
+    modelId.endsWith("-agentic") ||
+    modelId.endsWith("-thinking")
+  ) {
     return true;
   }
-  if (!modelId.endsWith("-thinking")) return false;
-  const upstream = modelId.slice(0, -"-thinking".length);
-  return !supportsKiroAdaptiveThinking(upstream);
+  return false;
 }
 
 function expandKiroModels(data: unknown): KiroModel[] {

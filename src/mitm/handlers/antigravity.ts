@@ -20,8 +20,8 @@
  * before (see `tests/unit/mitm-handler-antigravity.test.ts`).
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { AgentId } from "../types.js";
-import { MitmHandlerBase } from "./base.js";
+import type { AgentId } from "../types.ts";
+import { MitmHandlerBase } from "./base.ts";
 import { TOOL_RENAME_MAP } from "@omniroute/open-sse/services/claudeCodeToolRemapper";
 
 interface GeminiPart {

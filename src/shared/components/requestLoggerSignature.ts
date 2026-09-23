@@ -44,13 +44,24 @@ export function shouldTriggerInfiniteScroll(params: {
 
 /**
  * Change-detection signature over the log rows. Captures id + status + duration
- * + tokens_out so in-progress updates (a request finishing, duration/token
- * growth) still trigger a re-render, while an identical snapshot is skipped
- * (#1369 GPU perf). Non-array input collapses to an empty signature.
+ * + tokens_out and effective reasoning effort so in-progress updates (a request
+ * finishing, duration/token growth, or late Kiro effort summary) still trigger
+ * a re-render, while an identical snapshot is skipped (#1369 GPU perf).
+ * Non-array input collapses to an empty signature.
  */
 export function computeLogsSignature(data: unknown): string {
   const arr = Array.isArray(data) ? data : [];
   return arr
-    .map((l: any) => l.id + ":" + l.status + ":" + l.duration + ":" + (l.tokens?.out || 0))
+    .map(
+      (l: any) =>
+        l.id +
+        ":" +
+        l.status +
+        ":" +
+        l.duration +
+        ":" +
+        (l.tokens?.out || 0) +
+        (l.effectiveReasoningEffort ? `:${l.effectiveReasoningEffort}` : "")
+    )
     .join("|");
 }

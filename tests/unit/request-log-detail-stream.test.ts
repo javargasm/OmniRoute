@@ -250,3 +250,203 @@ test("request logger detail renders stream chunks correctly", () => {
     "Stream content (message_start) should be present in rendered HTML"
   );
 });
+
+test("Kiro detail displays the stored wire request and its native reasoning effort", () => {
+  const translatedKiroRequest = {
+    conversationState: {
+      currentMessage: {
+        userInputMessage: {
+          content: "Explain the payload",
+          modelId: "gpt-5.6-sol",
+          origin: "KIRO_CLI",
+        },
+      },
+      history: [],
+    },
+    additionalModelRequestFields: { reasoning: { effort: "max" } },
+  };
+  const html = renderToStaticMarkup(
+    React.createElement(RequestLoggerDetail, {
+      log: {
+        status: 200,
+        method: "POST",
+        path: "/v1/chat/completions",
+        timestamp: "2026-09-17T13:00:00.000Z",
+        duration: 100,
+        provider: "kiro",
+        sourceFormat: "openai-chat",
+        model: "gpt-5.6-sol",
+        tokens: { in: 1, out: 1 },
+      },
+      detail: {
+        pipelinePayloads: {
+          providerRequest: {
+            url: "https://kiro.example.test/generateAssistantResponse",
+            headers: { authorization: "[REDACTED]" },
+            body: translatedKiroRequest,
+          },
+        },
+      },
+      loading: false,
+      debugEnabled: false,
+      onClose: () => {},
+      onCopy: async () => true,
+    })
+  );
+
+  assert.notEqual(html.indexOf("Kiro Provider Request"), -1);
+  assert.notEqual(html.indexOf("Reasoning: max"), -1);
+  assert.notEqual(html.indexOf("additionalModelRequestFields"), -1);
+  assert.notEqual(html.indexOf("gpt-5.6-sol"), -1);
+  assert.equal(
+    html.includes("kiro.example.test"),
+    false,
+    "Kiro detail should display the translated request body, not its capture envelope"
+  );
+});
+
+test("Kiro active detail surfaces native reasoning effort", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(RequestLoggerDetail, {
+      log: {
+        active: true,
+        status: 0,
+        method: "POST",
+        path: "/v1/chat/completions",
+        timestamp: "2026-09-17T13:00:00.000Z",
+        duration: 100,
+        provider: "kiro",
+        sourceFormat: "openai-chat",
+        model: "gpt-5.6-terra",
+        tokens: { in: 1, out: 1 },
+      },
+      detail: {
+        pipelinePayloads: {
+          providerRequest: {
+            conversationState: {
+              currentMessage: { userInputMessage: { modelId: "gpt-5.6-terra" } },
+            },
+            additionalModelRequestFields: { reasoning: { effort: "max" } },
+          },
+        },
+      },
+      loading: false,
+      debugEnabled: false,
+      onClose: () => {},
+      onCopy: async () => true,
+    })
+  );
+
+  assert.match(html, /data-testid="kiro-reasoning-effort"/);
+  assert.match(html, /Reasoning: max/);
+});
+
+test("Kiro detail surfaces output_config reasoning effort", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(RequestLoggerDetail, {
+      log: {
+        status: 200,
+        method: "POST",
+        path: "/v1/chat/completions",
+        timestamp: "2026-09-17T13:00:00.000Z",
+        duration: 100,
+        provider: "kiro",
+        sourceFormat: "openai-chat",
+        model: "claude-sonnet-4.6",
+        tokens: { in: 1, out: 1 },
+      },
+      detail: {
+        pipelinePayloads: {
+          providerRequest: {
+            body: {
+              conversationState: {
+                currentMessage: { userInputMessage: { modelId: "claude-sonnet-4.6" } },
+              },
+              additionalModelRequestFields: { output_config: { effort: "high" } },
+            },
+          },
+        },
+      },
+      loading: false,
+      debugEnabled: false,
+      onClose: () => {},
+      onCopy: async () => true,
+    })
+  );
+
+  assert.match(html, /Kiro Provider Request/);
+  assert.match(html, /Reasoning: high/);
+});
+
+test("Kiro detail surfaces recorded reasoning when a historical log lacks its wire payload", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(RequestLoggerDetail, {
+      log: {
+        status: 200,
+        method: "POST",
+        path: "/v1/chat/completions",
+        timestamp: "2026-09-17T13:00:00.000Z",
+        duration: 100,
+        provider: "kiro",
+        sourceFormat: "openai-chat",
+        model: "gpt-5.6-terra",
+        tokens: { in: 1, out: 1 },
+      },
+      detail: {
+        requestBody: {
+          model: "gpt-5.6-terra",
+          reasoning_effort: "max",
+        },
+      },
+      loading: false,
+      debugEnabled: false,
+      onClose: () => {},
+      onCopy: async () => true,
+    })
+  );
+
+  assert.match(html, /data-testid="kiro-reasoning-effort"/);
+  assert.match(html, /Reasoning: max/);
+  assert.match(html, /Kiro Request Payload \(Legacy\)/);
+  assert.match(html, /Enable detailed logging first/);
+  assert.equal(
+    html.includes("Kiro Provider Request"),
+    false,
+    "A historical normalized request must not be presented as the captured Kiro wire payload"
+  );
+});
+
+test("non-Kiro details retain the captured provider request envelope", () => {
+  const html = renderToStaticMarkup(
+    React.createElement(RequestLoggerDetail, {
+      log: {
+        status: 200,
+        method: "POST",
+        path: "/v1/chat/completions",
+        timestamp: "2026-09-17T13:00:00.000Z",
+        duration: 100,
+        provider: "openai",
+        sourceFormat: "openai-chat",
+        model: "gpt-4o-mini",
+        tokens: { in: 1, out: 1 },
+      },
+      detail: {
+        pipelinePayloads: {
+          providerRequest: {
+            url: "https://api.openai.example/v1/chat/completions",
+            headers: { authorization: "[REDACTED]" },
+            body: { model: "gpt-4o-mini", messages: [{ role: "user", content: "hello" }] },
+          },
+        },
+      },
+      loading: false,
+      debugEnabled: false,
+      onClose: () => {},
+      onCopy: async () => true,
+    })
+  );
+
+  assert.match(html, /Provider Request/);
+  assert.match(html, /api\.openai\.example/);
+  assert.equal(html.includes("Kiro Provider Request"), false);
+});

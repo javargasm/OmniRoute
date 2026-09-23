@@ -1,34 +1,34 @@
 import { spawn, type ChildProcess } from "child_process";
 import path from "path";
 import fs from "fs";
-import { resolveMitmDataDir } from "./dataDir.js";
+import { resolveMitmDataDir } from "./dataDir.ts";
 import {
   removeDNSEntry,
   removeDNSEntries,
   checkDNSEntryForAgent,
   checkDNSEntry,
-} from "./dns/dnsConfig.js";
-import { provisionDnsEntries } from "./dns/provision.js";
-import { generateCert } from "./cert/generate.js";
-import { installCertResult, installCaCert } from "./cert/install.js";
-import { loadOrCreateMitmCa, resolveMitmCertDir } from "./cert/rootCa.js";
-import { decideCertMigration } from "./cert/migration.js";
-import { ALL_TARGETS } from "./targets/index.js";
-import { detectAgent } from "./detection/index.js";
-import type { AgentId, DetectionResult, MitmTarget } from "./types.js";
+} from "./dns/dnsConfig.ts";
+import { provisionDnsEntries } from "./dns/provision.ts";
+import { generateCert } from "./cert/generate.ts";
+import { installCertResult, installCaCert } from "./cert/install.ts";
+import { loadOrCreateMitmCa, resolveMitmCertDir } from "./cert/rootCa.ts";
+import { decideCertMigration } from "./cert/migration.ts";
+import { ALL_TARGETS } from "./targets/index.ts";
+import { detectAgent } from "./detection/index.ts";
+import type { AgentId, DetectionResult, MitmTarget } from "./types.ts";
 import { getAllAgentBridgeStates } from "@/lib/db/agentBridgeState";
 import { getUserBypassPatterns } from "@/lib/db/agentBridgeBypass";
 import { getGheCopilotHosts } from "@/lib/db/providers";
-import { configureUpstreamCa } from "./upstreamTrust.js";
+import { configureUpstreamCa } from "./upstreamTrust.ts";
 import { createLogger } from "@/shared/utils/logger";
 import {
   buildRepairPlan,
   collectManagedHosts,
   performRepairSteps,
   type RepairPlan,
-} from "./repair.js";
-import { runPrivilegedMitmStep } from "./privilegedMitmStep.js";
-import { removeStopDnsEntries } from "./stopDnsTeardown.js";
+} from "./repair.ts";
+import { runPrivilegedMitmStep } from "./privilegedMitmStep.ts";
+import { removeStopDnsEntries } from "./stopDnsTeardown.ts";
 
 export { buildRepairPlan, collectManagedHosts, type RepairPlan };
 

@@ -2,9 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 const { buildKiroPayload } = await import("../../open-sse/translator/request/openai-to-kiro.ts");
-const { toKiroToolUseId, resolveKiroAssistantMessageId } = await import(
-  "../../open-sse/translator/request/openai-to-kiro/messageHelpers.ts"
-);
+const { toKiroToolUseId, resolveKiroAssistantMessageId } =
+  await import("../../open-sse/translator/request/openai-to-kiro/messageHelpers.ts");
 
 function buildSamplePayload() {
   return buildKiroPayload(
@@ -569,7 +568,9 @@ test("OpenAI -> Kiro converts orphaned tool results to text", () => {
   const currentMsg = result.conversationState.currentMessage.userInputMessage;
   assert.match(
     currentMsg.content,
-    new RegExp(`Follow-up\\n\\n\\[Tool Result \\(${toKiroToolUseId("orphan_1")}\\)\\]\\nresult data$`)
+    new RegExp(
+      `Follow-up\\n\\n\\[Tool Result \\(${toKiroToolUseId("orphan_1")}\\)\\]\\nresult data$`
+    )
   );
   assert.equal(
     currentMsg.userInputMessageContext,
@@ -786,7 +787,9 @@ test("OpenAI -> Kiro uses placeholder text when tool_result content is empty arr
   const ctx = result.conversationState.currentMessage.userInputMessage.userInputMessageContext as {
     toolResults?: Array<{ toolUseId: string; content: Array<{ text: string }> }>;
   };
-  const emptyResult = ctx?.toolResults?.find((tr) => tr.toolUseId === toKiroToolUseId("call_empty"));
+  const emptyResult = ctx?.toolResults?.find(
+    (tr) => tr.toolUseId === toKiroToolUseId("call_empty")
+  );
   assert.ok(emptyResult, "tool result should exist");
   const text = emptyResult!.content[0].text;
   assert.ok(text && text.length > 0, `placeholder text must be non-empty, got: '${text}'`);
@@ -967,7 +970,9 @@ test("OpenAI -> Kiro serializes non-string role:tool content to non-empty text (
   ];
   const toolResults = contexts
     .map((c) => c?.toolResults)
-    .find((tr) => Array.isArray(tr) && tr.some((r: any) => r.toolUseId === toKiroToolUseId("call_mem")));
+    .find(
+      (tr) => Array.isArray(tr) && tr.some((r: any) => r.toolUseId === toKiroToolUseId("call_mem"))
+    );
   assert.ok(toolResults, "tool role must produce a toolResult");
   const result0 = toolResults.find((r: any) => r.toolUseId === toKiroToolUseId("call_mem"));
   const text = result0.content[0].text as string;
@@ -1168,14 +1173,11 @@ test("OpenAI -> Kiro strips images from history to prevent IMAGE_FORMAT_UNSUPPOR
     ],
   };
   const originalBody = structuredClone(body);
-  const result = buildKiroPayload(
-    "claude-sonnet-4.6",
-    body,
-    false,
-    null
-  );
+  const result = buildKiroPayload("claude-sonnet-4.6", body, false, null);
 
-  const historicalUsers = result.conversationState.history.filter((entry) => entry.userInputMessage);
+  const historicalUsers = result.conversationState.history.filter(
+    (entry) => entry.userInputMessage
+  );
   assert.equal(historicalUsers.length, 2);
   for (const historyUser of historicalUsers) {
     assert.equal(
@@ -1311,7 +1313,11 @@ test("buildKiroPayload reads reasoningEffort from body and options (OpenCode for
   };
   const result1 = buildKiroPayload("kr/claude-sonnet-5", body1, false, null);
   assert.ok(result1.additionalModelRequestFields, "output_config must be forwarded from options");
-  assert.equal(result1.additionalModelRequestFields.output_config.effort, "max", "ultra must map to max");
+  assert.equal(
+    result1.additionalModelRequestFields.output_config.effort,
+    "max",
+    "ultra must map to max"
+  );
 
   // Test camelCase reasoningEffort on adaptive Claude model
   const body2 = {
@@ -1347,8 +1353,14 @@ test("buildKiroPayload enables prompt-only thinking for claude-sonnet-4.5 withou
   );
 });
 
-test("buildKiroPayload does not send reasoning levels for Kiro GPT-5.6 models", () => {
-  for (const model of ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna", "kr/gpt-5.6-sol", "gpt-5-6-sol"]) {
+test("buildKiroPayload uses native Max reasoning for Kiro GPT-5.6 models", () => {
+  for (const model of [
+    "gpt-5.6-sol",
+    "gpt-5.6-terra",
+    "gpt-5.6-luna",
+    "kr/gpt-5.6-sol",
+    "gpt-5-6-sol",
+  ]) {
     const result = buildKiroPayload(
       model,
       {
@@ -1360,16 +1372,61 @@ test("buildKiroPayload does not send reasoning levels for Kiro GPT-5.6 models", 
       null
     );
 
-    assert.equal(
+    assert.ok(
       result.additionalModelRequestFields,
-      undefined,
-      "reasoning levels must NOT be sent to Kiro for GPT models"
+      "reasoning levels must be forwarded to Kiro for GPT models"
     );
-    assert.doesNotMatch(
+    assert.equal(result.additionalModelRequestFields.reasoning.effort, "max");
+    assert.match(
       result.conversationState.currentMessage.userInputMessage.content,
-      /<thinking_mode>/
+      /<thinking_mode>enabled<\/thinking_mode>/
     );
   }
+});
+
+test("buildKiroPayload preserves a native Kiro GPT-5.6 effort suffix after model resolution", () => {
+  const result = buildKiroPayload(
+    "gpt-5.6-sol",
+    {
+      model: "kr/gpt-5.6-sol-max",
+      messages: [{ role: "user", content: "Solve a hard problem" }],
+    },
+    false,
+    null
+  );
+
+  assert.equal(result.conversationState.currentMessage.userInputMessage.modelId, "gpt-5.6-sol");
+  assert.equal(result.additionalModelRequestFields?.reasoning?.effort, "max");
+});
+
+test("buildKiroPayload sends native Kiro GPT-5.6 none without a thinking directive", () => {
+  const result = buildKiroPayload(
+    "gpt-5.6-sol-none",
+    { messages: [{ role: "user", content: "Answer directly" }] },
+    false,
+    null
+  );
+
+  assert.equal(result.additionalModelRequestFields?.reasoning?.effort, "none");
+  assert.doesNotMatch(
+    result.conversationState.currentMessage.userInputMessage.content,
+    /<thinking_mode>enabled<\/thinking_mode>/
+  );
+});
+
+test("buildKiroPayload keeps explicit reasoning_effort ahead of a native Kiro GPT-5.6 effort suffix", () => {
+  const result = buildKiroPayload(
+    "gpt-5.6-sol",
+    {
+      model: "kr/gpt-5.6-sol-max",
+      messages: [{ role: "user", content: "Solve a hard problem" }],
+      reasoning_effort: "low",
+    },
+    false,
+    null
+  );
+
+  assert.equal(result.additionalModelRequestFields?.reasoning?.effort, "low");
 });
 
 test("buildKiroPayload drops temperature when thinking is enabled", () => {
@@ -1486,7 +1543,12 @@ test("buildKiroPayload drops both temperature and top_p when thinking is enabled
 });
 
 test("buildKiroPayload includes agentTaskType vibe on conversationState", () => {
-  const result = buildKiroPayload("claude-sonnet-4.5", { messages: [{ role: "user", content: "hi" }] }, false, null);
+  const result = buildKiroPayload(
+    "claude-sonnet-4.5",
+    { messages: [{ role: "user", content: "hi" }] },
+    false,
+    null
+  );
   assert.equal(result.conversationState.agentTaskType, "vibe");
 });
 
@@ -1499,7 +1561,11 @@ test("buildKiroPayload sanitizes malformed toolCall IDs containing pipe characte
         {
           role: "assistant",
           tool_calls: [
-            { id: "call_abc|fc_def", type: "function", function: { name: "test", arguments: "{}" } },
+            {
+              id: "call_abc|fc_def",
+              type: "function",
+              function: { name: "test", arguments: "{}" },
+            },
           ],
         },
         { role: "tool", tool_call_id: "call_abc|fc_def", content: "ok" },
@@ -1536,7 +1602,10 @@ test("buildKiroPayload attaches KIRO_PLACEHOLDER_TOOL when history has tool bloc
   );
   const tools = result.conversationState.currentMessage.userInputMessage.userInputMessageContext
     ?.tools as Array<{ toolSpecification: { name: string } }> | undefined;
-  assert.ok(tools && tools.length > 0, "tools must be present in context to prevent TOOL_CONFIG_MISSING");
+  assert.ok(
+    tools && tools.length > 0,
+    "tools must be present in context to prevent TOOL_CONFIG_MISSING"
+  );
   assert.equal(tools[0].toolSpecification.name, "noop");
 });
 
@@ -1550,9 +1619,15 @@ test("buildKiroPayload enables adaptive thinking for claude-opus-4.8", () => {
     false,
     null
   );
-  assert.ok(result.additionalModelRequestFields, "additionalModelRequestFields must be set for opus 4.8");
+  assert.ok(
+    result.additionalModelRequestFields,
+    "additionalModelRequestFields must be set for opus 4.8"
+  );
   assert.equal(result.additionalModelRequestFields.output_config?.effort, "high");
-  assert.match(result.conversationState.currentMessage.userInputMessage.content, /<thinking_mode>enabled<\/thinking_mode>/);
+  assert.match(
+    result.conversationState.currentMessage.userInputMessage.content,
+    /<thinking_mode>enabled<\/thinking_mode>/
+  );
 });
 
 test("buildKiroPayload sets messageId on assistant message when responseId is provided", () => {
@@ -1561,7 +1636,11 @@ test("buildKiroPayload sets messageId on assistant message when responseId is pr
     {
       messages: [
         { role: "user", content: "Hello" },
-        { role: "assistant", content: "Answer", responseId: "msg_01234567-89ab-4cde-8f01-23456789abcd" },
+        {
+          role: "assistant",
+          content: "Answer",
+          responseId: "msg_01234567-89ab-4cde-8f01-23456789abcd",
+        },
         { role: "user", content: "Followup" },
       ],
     },
@@ -1595,7 +1674,10 @@ test("buildKiroPayload generates valid UUID messageId for assistant messages wit
     /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i,
     "assistant turn must receive valid UUID messageId"
   );
-  assert.equal(asst.messageId, resolveKiroAssistantMessageId({ content: "Deterministic reply" }, 1));
+  assert.equal(
+    asst.messageId,
+    resolveKiroAssistantMessageId({ content: "Deterministic reply" }, 1)
+  );
 });
 
 test("buildKiroPayload replays native signed Kiro reasoning with its assistant linkage", () => {
@@ -1765,8 +1847,14 @@ test("buildKiroPayload keeps signed reasoning attached to its own adjacent assis
     };
   }>;
   assert.equal(assistants.length, 2, "reasoning metadata keeps adjacent assistant turns distinct");
-  assert.equal(assistants[0]?.assistantResponseMessage.messageId, "01234567-89ab-4cde-8f01-23456789abcd");
-  assert.equal(assistants[1]?.assistantResponseMessage.messageId, "89abcdef-0123-4abc-8def-0123456789ab");
+  assert.equal(
+    assistants[0]?.assistantResponseMessage.messageId,
+    "01234567-89ab-4cde-8f01-23456789abcd"
+  );
+  assert.equal(
+    assistants[1]?.assistantResponseMessage.messageId,
+    "89abcdef-0123-4abc-8def-0123456789ab"
+  );
   assert.deepEqual(assistants[0]?.assistantResponseMessage.reasoningContent, {
     reasoningText: { text: "First reasoning", signature: "first-signature" },
   });
@@ -1775,11 +1863,23 @@ test("buildKiroPayload keeps signed reasoning attached to its own adjacent assis
 
 test("toKiroToolUseId strictly canonicalizes call_123 and empty IDs deterministically", () => {
   const canonicalCall = toKiroToolUseId("call_123");
-  assert.match(canonicalCall, /^tooluse_[a-f0-9]{22}$/, "call_123 must be hashed to tooluse_<sha256>");
-  assert.equal(canonicalCall, toKiroToolUseId("call_123"), "hash must be deterministic across calls");
+  assert.match(
+    canonicalCall,
+    /^tooluse_[a-f0-9]{22}$/,
+    "call_123 must be hashed to tooluse_<sha256>"
+  );
+  assert.equal(
+    canonicalCall,
+    toKiroToolUseId("call_123"),
+    "hash must be deterministic across calls"
+  );
 
   const validKiroId = "tooluse_abc123DEF";
-  assert.equal(toKiroToolUseId(validKiroId), validKiroId, "already valid tooluse_* ID must be preserved");
+  assert.equal(
+    toKiroToolUseId(validKiroId),
+    validKiroId,
+    "already valid tooluse_* ID must be preserved"
+  );
 
   const fallback1 = toKiroToolUseId("");
   const fallback2 = toKiroToolUseId("");

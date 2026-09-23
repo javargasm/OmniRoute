@@ -15,6 +15,14 @@ const CODEX_USER_AGENT_OVERRIDE_ENV = "CODEX_USER_AGENT";
 const SAFE_HEADER_TOKEN_PATTERN = /^[A-Za-z0-9][A-Za-z0-9._-]{0,31}$/;
 const SAFE_HEADER_VALUE_PATTERN = /^[\x20-\x7E]{1,200}$/;
 const SAFE_CODEX_SESSION_ID_PATTERN = /^[A-Za-z0-9._:-]{1,200}$/;
+const TRACKED_CODEX_CLIENT_VERSION_PATTERN = /^\d+\.\d+\.\d+$/;
+
+// Next.js route bundles, executors and background schedulers can load this
+// module as separate instances in one process, so the tracked version lives on
+// globalThis where every instance reads the same value.
+const codexClientVersionState = globalThis as typeof globalThis & {
+  __omnirouteCodexTrackedClientVersion?: string | null;
+};
 
 function getSafeEnvValue(name: string, pattern: RegExp): string | null {
   const raw = process.env[name];
@@ -26,11 +34,74 @@ function getSafeEnvValue(name: string, pattern: RegExp): string | null {
   return normalized;
 }
 
+function parseVersionParts(version: string): number[] | null {
+  const parts = version
+    .trim()
+    .split(".")
+    .map((part) => Number(part));
+  return parts.length > 0 && parts.every((part) => Number.isInteger(part) && part >= 0)
+    ? parts
+    : null;
+}
+
+/** Numeric dot-separated comparison; 0 when either side is unparsable. */
+export function compareCodexClientVersions(left: string, right: string): number {
+  const leftParts = parseVersionParts(left);
+  const rightParts = parseVersionParts(right);
+  if (!leftParts || !rightParts) return 0;
+
+  const length = Math.max(leftParts.length, rightParts.length);
+  for (let index = 0; index < length; index += 1) {
+    const a = leftParts[index] || 0;
+    const b = rightParts[index] || 0;
+    if (a !== b) return a - b;
+  }
+  return 0;
+}
+
+function toTrackedCodexClientVersion(value: unknown): string | null {
+  return typeof value === "string" &&
+    TRACKED_CODEX_CLIENT_VERSION_PATTERN.test(value) &&
+    SAFE_HEADER_TOKEN_PATTERN.test(value)
+    ? value
+    : null;
+}
+
+/**
+ * Record the latest published Codex CLI version (x.y.z only; anything else is
+ * ignored). `null` clears it.
+ */
+export function setTrackedCodexClientVersion(version: string | null): void {
+  if (version === null) {
+    codexClientVersionState.__omnirouteCodexTrackedClientVersion = null;
+    return;
+  }
+  const tracked = toTrackedCodexClientVersion(version);
+  if (tracked) codexClientVersionState.__omnirouteCodexTrackedClientVersion = tracked;
+}
+
+export function getTrackedCodexClientVersion(): string | null {
+  return toTrackedCodexClientVersion(codexClientVersionState.__omnirouteCodexTrackedClientVersion);
+}
+
+/** True when CODEX_CLIENT_VERSION pins the version (tracking is then disabled). */
+export function isCodexClientVersionPinnedByEnv(): boolean {
+  return getSafeEnvValue(CODEX_VERSION_OVERRIDE_ENV, SAFE_HEADER_TOKEN_PATTERN) !== null;
+}
+
+/**
+ * Effective Codex client version: an explicit CODEX_CLIENT_VERSION pin wins
+ * (even when lower); otherwise the higher of the built-in floor and the
+ * tracked published CLI version.
+ */
 export function getCodexClientVersion(): string {
-  return (
-    getSafeEnvValue(CODEX_VERSION_OVERRIDE_ENV, SAFE_HEADER_TOKEN_PATTERN) ||
-    DEFAULT_CODEX_CLIENT_VERSION
-  );
+  const pinned = getSafeEnvValue(CODEX_VERSION_OVERRIDE_ENV, SAFE_HEADER_TOKEN_PATTERN);
+  if (pinned) return pinned;
+
+  const tracked = getTrackedCodexClientVersion();
+  return tracked && compareCodexClientVersions(tracked, DEFAULT_CODEX_CLIENT_VERSION) > 0
+    ? tracked
+    : DEFAULT_CODEX_CLIENT_VERSION;
 }
 
 export function getCodexUserAgent(): string {

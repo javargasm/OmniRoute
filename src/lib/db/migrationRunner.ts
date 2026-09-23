@@ -593,6 +593,8 @@ function isSchemaAlreadyApplied(
         hasColumn(db, "provider_nodes", "daily_quota_reset_timezone") &&
         hasColumn(db, "provider_nodes", "daily_quota_reset_hour")
       );
+    case "177":
+      return hasColumn(db, "call_logs", "effective_reasoning_effort");
     default:
       return false;
   }

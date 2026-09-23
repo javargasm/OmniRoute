@@ -14,7 +14,7 @@ const testDataDir = fs.mkdtempSync(path.join(os.tmpdir(), "omni-attempt-logging-
 process.env.DATA_DIR = testDataDir;
 
 const coreDb = await import("../../src/lib/db/core.ts");
-const { getCallLogById } = await import("../../src/lib/usage/callLogs.ts");
+const { getCallLogById, getCallLogs } = await import("../../src/lib/usage/callLogs.ts");
 const { persistAttemptLogs } = await import("../../open-sse/handlers/chatCore/attemptLogging.ts");
 const { getAuditLog } = await import("../../src/lib/compliance/index.ts");
 
@@ -194,4 +194,94 @@ test("unique tool_calls do not write provider.spec_violation audit", () => {
     requestId: "skill-spec-clean-1",
   });
   assert.equal(rows.length, 0);
+});
+
+test("Kiro persists final wire reasoning effort independently of token telemetry", async () => {
+  const id = "attempt-kiro-wire-effort";
+  persistAttemptLogs(
+    {
+      status: 200,
+      tokens: { input: 1, output: 2 },
+      providerRequest: {
+        additionalModelRequestFields: {
+          reasoning: { effort: "max" },
+          output_config: { effort: "low" },
+        },
+      },
+    },
+    baseCtx({
+      pendingRequestId: id,
+      provider: "kiro",
+      model: "gpt-5.6-sol",
+      body: { reasoning_effort: "medium" },
+    })
+  );
+
+  const row = await pollForCallLog(id);
+  assert.ok(row);
+  assert.equal(row.effectiveReasoningEffort, "max");
+  assert.equal((row.tokens as { reasoning?: unknown }).reasoning, null);
+
+  const listRow = (await getCallLogs({ provider: "kiro", limit: 100 })).find(
+    (entry) => entry.id === id
+  );
+  assert.equal(listRow?.effectiveReasoningEffort, "max");
+});
+
+test("Kiro summary effort falls back from wire output_config to normalized request and honors no-log", async () => {
+  const outputConfigId = "attempt-kiro-output-config-effort";
+  persistAttemptLogs(
+    {
+      status: 200,
+      providerRequest: { additionalModelRequestFields: { output_config: { effort: "xhigh" } } },
+    },
+    baseCtx({
+      pendingRequestId: outputConfigId,
+      provider: "kiro",
+      body: { reasoning_effort: "low" },
+    })
+  );
+  const outputConfigRow = await pollForCallLog(outputConfigId);
+  assert.ok(outputConfigRow);
+  assert.equal(outputConfigRow.effectiveReasoningEffort, "xhigh");
+
+  const normalizedId = "attempt-kiro-normalized-effort";
+  persistAttemptLogs(
+    { status: 200, providerRequest: { conversationState: {} } },
+    baseCtx({
+      pendingRequestId: normalizedId,
+      provider: "kiro",
+      body: { reasoning: { effort: "high" } },
+    })
+  );
+  const normalizedRow = await pollForCallLog(normalizedId);
+  assert.ok(normalizedRow);
+  assert.equal(normalizedRow.effectiveReasoningEffort, "high");
+
+  const noLogId = "attempt-kiro-no-log-effort";
+  persistAttemptLogs(
+    {
+      status: 200,
+      providerRequest: { additionalModelRequestFields: { reasoning: { effort: "max" } } },
+    },
+    baseCtx({ pendingRequestId: noLogId, provider: "kiro", noLogEnabled: true })
+  );
+  const noLogRow = await pollForCallLog(noLogId);
+  assert.ok(noLogRow);
+  assert.equal(noLogRow.effectiveReasoningEffort, null);
+});
+
+test("non-Kiro attempts never persist an effective Kiro reasoning effort", async () => {
+  const id = "attempt-non-kiro-effort";
+  persistAttemptLogs(
+    {
+      status: 200,
+      providerRequest: { additionalModelRequestFields: { reasoning: { effort: "max" } } },
+    },
+    baseCtx({ pendingRequestId: id, provider: "openai", body: { reasoning_effort: "max" } })
+  );
+
+  const row = await pollForCallLog(id);
+  assert.ok(row);
+  assert.equal(row.effectiveReasoningEffort, null);
 });

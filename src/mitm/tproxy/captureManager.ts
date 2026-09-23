@@ -12,10 +12,10 @@
  * static MITM cert). This keeps the manager unit-testable without root and means
  * it never mutates the trust store on its own.
  */
-import { DynamicCertStore } from "./dynamicCert.js";
-import { startTproxyCapture, type TproxyCaptureHandle } from "./captureMode.js";
-import { isTransparentSocketAvailable } from "./transparentSocket.js";
-import type { TproxyConfig } from "./commands.js";
+import { DynamicCertStore } from "./dynamicCert.ts";
+import { startTproxyCapture, type TproxyCaptureHandle } from "./captureMode.ts";
+import { isTransparentSocketAvailable } from "./transparentSocket.ts";
+import type { TproxyConfig } from "./commands.ts";
 
 export interface CaptureManagerStatus {
   /** Whether a capture session is currently running. */
@@ -62,6 +62,8 @@ interface ActiveCapture {
 }
 
 let active: ActiveCapture | null = null;
+let starting: Promise<TproxyCaptureHandle> | null = null;
+let startStopRequested = false;
 
 /**
  * Start the decrypt-capable TPROXY capture mode. Rejects if a session is already
@@ -71,7 +73,7 @@ let active: ActiveCapture | null = null;
 export async function startCaptureMode(
   options: StartCaptureModeOptions
 ): Promise<CaptureManagerStatus> {
-  if (active) throw new Error("TPROXY capture mode is already running");
+  if (active || starting) throw new Error("TPROXY capture mode is already running");
 
   const deps: CaptureManagerDeps = { ...realDeps, ...options.deps };
   if (!deps.isAvailable()) {
@@ -80,14 +82,26 @@ export async function startCaptureMode(
 
   const certStore = deps.createCertStore();
   const intercepts = { count: 0 };
-  const handle = await deps.startTproxyCapture(options.cfg, {
+  const capture = deps.startTproxyCapture(options.cfg, {
     decrypt: { certStore, installCa: options.installCa, uninstallCa: options.uninstallCa },
     onIntercept: () => {
       intercepts.count += 1;
     },
   });
-  active = { handle, startedAt: deps.now(), intercepts };
-  return getCaptureStatus();
+  starting = capture;
+  startStopRequested = false;
+
+  try {
+    const handle = await capture;
+    if (startStopRequested) {
+      await handle.stop();
+      return getCaptureStatus();
+    }
+    active = { handle, startedAt: deps.now(), intercepts };
+    return getCaptureStatus();
+  } finally {
+    if (starting === capture) starting = null;
+  }
 }
 
 /** Stop the running capture session (closes the listener, uninstalls the CA, and
@@ -95,6 +109,7 @@ export async function startCaptureMode(
 export async function stopCaptureMode(): Promise<CaptureManagerStatus> {
   const current = active;
   active = null;
+  if (starting) startStopRequested = true;
   if (current) await current.handle.stop();
   return getCaptureStatus();
 }
@@ -112,7 +127,9 @@ export function getCaptureStatus(): CaptureManagerStatus {
   };
 }
 
-/** Test-only: clear the singleton without invoking teardown. */
+/** Test-only: clear lifecycle state without invoking teardown. */
 export function __resetCaptureManager(): void {
   active = null;
+  starting = null;
+  startStopRequested = false;
 }

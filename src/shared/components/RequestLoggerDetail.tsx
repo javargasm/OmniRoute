@@ -10,6 +10,10 @@ import {
 } from "@/shared/constants/colors";
 import { formatDuration, formatApiKeyLabel, maskAccount } from "@/shared/utils/formatting";
 import { formatErrorForDisplay } from "@/shared/utils/formatting";
+import {
+  getKiroWireReasoningEffort,
+  getNormalizedReasoningEffort,
+} from "@/shared/utils/kiroReasoningEffort";
 import { useTheme } from "@/shared/hooks/useTheme";
 import {
   useTimestampTitles,
@@ -382,25 +386,102 @@ export default function RequestLoggerDetail({
   };
 
   const pipelinePayloads = detail?.pipelinePayloads || null;
-  const payloadSections = pipelinePayloads
+  const asRecord = (value: unknown): Record<string, unknown> | null =>
+    value && typeof value === "object" && !Array.isArray(value)
+      ? (value as Record<string, unknown>)
+      : null;
+  const loggedProvider = detail?.provider ?? log.provider;
+  const isKiro = typeof loggedProvider === "string" && loggedProvider.toLowerCase() === "kiro";
+  const requestBody = asRecord(detail?.requestBody);
+  const providerRequest = asRecord(pipelinePayloads?.providerRequest);
+  const providerRequestBody = asRecord(providerRequest?.body);
+  const isKiroWireRequest = (payload: Record<string, unknown> | null) =>
+    Boolean(asRecord(payload?.conversationState));
+  const kiroWireRequest = isKiro
+    ? isKiroWireRequest(providerRequestBody)
+      ? providerRequestBody
+      : isKiroWireRequest(providerRequest)
+        ? providerRequest
+        : null
+    : null;
+  const kiroReasoningEffort =
+    getKiroWireReasoningEffort(kiroWireRequest) ??
+    getNormalizedReasoningEffort(kiroWireRequest) ??
+    (isKiro
+      ? (getKiroWireReasoningEffort(requestBody) ?? getNormalizedReasoningEffort(requestBody))
+      : null);
+  const providerRequestTitle = kiroWireRequest
     ? [
-        ["clientRawRequest", t("payload.clientRawRequest")],
-        ["clientRequest", t("payload.clientRequest")],
-        ["openaiRequest", t("payload.openaiRequest")],
-        ["providerRequest", t("payload.providerRequest")],
-        ["providerResponse", t("payload.providerResponse")],
-        ["clientResponse", t("payload.clientResponse")],
-        ["error", t("payload.pipelineError")],
+        `Kiro ${t("payload.providerRequest")}`,
+        kiroReasoningEffort ? t("reasoning", { value: kiroReasoningEffort }) : null,
       ]
-        .map(([key, title]) => ({
-          key,
-          title,
-          json: toPrettyJson(pipelinePayloads[key]),
-        }))
-        .filter((section) => section.json)
-    : [];
+        .filter(Boolean)
+        .join(" · ")
+    : t("payload.providerRequest");
   const requestJson = detail?.requestBody ? toPrettyJson(detail.requestBody) : null;
   const responseJson = detail?.responseBody ? toPrettyJson(detail.responseBody) : null;
+  const pipelineSections = pipelinePayloads
+    ? [
+        {
+          key: "clientRawRequest",
+          title: t("payload.clientRawRequest"),
+          payload: pipelinePayloads.clientRawRequest,
+        },
+        {
+          key: "clientRequest",
+          title: t("payload.clientRequest"),
+          payload: pipelinePayloads.clientRequest,
+        },
+        {
+          key: "openaiRequest",
+          title: t("payload.openaiRequest"),
+          payload: pipelinePayloads.openaiRequest,
+        },
+        {
+          key: "providerRequest",
+          title: providerRequestTitle,
+          payload: kiroWireRequest ?? pipelinePayloads.providerRequest,
+        },
+        {
+          key: "providerResponse",
+          title: t("payload.providerResponse"),
+          payload: pipelinePayloads.providerResponse,
+        },
+        {
+          key: "clientResponse",
+          title: t("payload.clientResponse"),
+          payload: pipelinePayloads.clientResponse,
+        },
+        { key: "error", title: t("payload.pipelineError"), payload: pipelinePayloads.error },
+      ]
+        .map(({ key, title, payload }) => ({ key, title, json: toPrettyJson(payload) }))
+        .filter((section) => section.json)
+    : [];
+  const kiroLegacyRequestJson = isKiro && !kiroWireRequest ? requestJson : null;
+  const payloadSections = kiroLegacyRequestJson
+    ? [
+        ...(pipelineSections.length === 0 && responseJson
+          ? [
+              {
+                key: "responsePayloadLegacy",
+                title: t("responsePayloadLegacy"),
+                json: responseJson,
+              },
+            ]
+          : []),
+        ...pipelineSections,
+        {
+          key: "kiroRequestPayloadLegacy",
+          title: [
+            `Kiro ${t("requestPayloadLegacy")}`,
+            kiroReasoningEffort ? t("reasoning", { value: kiroReasoningEffort }) : null,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+          json: kiroLegacyRequestJson,
+        },
+      ]
+    : pipelineSections;
   const streamChunks = (() => {
     if (!debugEnabled || !detail?.pipelinePayloads?.streamChunks) return null;
     let chunks: StreamChunks = detail.pipelinePayloads.streamChunks;
@@ -593,6 +674,16 @@ export default function RequestLoggerDetail({
                 </div>
                 <div className="text-sm font-medium text-primary font-mono">{log.model}</div>
               </div>
+              {isKiro && kiroReasoningEffort && (
+                <div className="min-w-[120px] flex-1" data-testid="kiro-reasoning-effort">
+                  <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                    Kiro
+                  </div>
+                  <span className="inline-block px-2.5 py-1 rounded text-[10px] font-bold bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                    {t("reasoning", { value: kiroReasoningEffort })}
+                  </span>
+                </div>
+              )}
               <div className="min-w-[120px] flex-1">
                 <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
                   {t("provider")}
@@ -698,6 +789,16 @@ export default function RequestLoggerDetail({
                   </span>
                 </div>
               </div>
+              {isKiro && kiroReasoningEffort && (
+                <div data-testid="kiro-reasoning-effort">
+                  <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
+                    Kiro
+                  </div>
+                  <span className="inline-block px-2.5 py-1 rounded text-[10px] font-bold bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-500/30">
+                    {t("reasoning", { value: kiroReasoningEffort })}
+                  </span>
+                </div>
+              )}
               <div>
                 <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
                   {t("model")}
@@ -1060,6 +1161,16 @@ export default function RequestLoggerDetail({
                     }
                   />
                 )}
+
+              {kiroLegacyRequestJson && (
+                <div
+                  className="flex items-start gap-2 rounded-xl border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-700 dark:text-amber-300"
+                  data-testid="kiro-wire-payload-unavailable"
+                >
+                  <span className="material-symbols-outlined text-[16px]">info</span>
+                  <p>{t("detailedPayloadInfo")}</p>
+                </div>
+              )}
 
               {payloadSections.length > 0 &&
                 payloadSections.map((section) => (

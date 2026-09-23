@@ -96,6 +96,7 @@ type CallLogSummaryRow = {
   tokens_cache_creation: number | null;
   tokens_reasoning: number | null;
   tokens_compressed: number | null;
+  effective_reasoning_effort: string | null;
   cache_source: string | null;
   request_type: string | null;
   source_format: string | null;
@@ -397,6 +398,7 @@ function mapSummaryRow(row: CallLogSummaryRow) {
       reasoning: row.tokens_reasoning != null ? toNumber(row.tokens_reasoning) : null,
       compressed: row.tokens_compressed != null ? toNumber(row.tokens_compressed) : null,
     },
+    effectiveReasoningEffort: row.effective_reasoning_effort || null,
     cacheSource: row.cache_source || "upstream",
     requestType: row.request_type,
     sourceFormat: row.source_format,
@@ -507,6 +509,10 @@ async function saveCallLogOperation(entry: any): Promise<void> {
     // while reasoning source/char-count are recorded separately for observability.
     const tokensReasoning = getReasoningTokensOrNull(entry.tokens);
     const reasoningObservation = resolveReasoningObservation(tokensReasoning, entry.responseBody);
+    const effectiveReasoningEffort =
+      !noLogEnabled && rawProvider.trim().toLowerCase() === "kiro"
+        ? (toStringOrNull(entry.effectiveReasoningEffort)?.trim() ?? null)
+        : null;
     const errorType = classifyCallLogError(entry.status, entry.error, entry.provider);
     const logEntry = {
       id: typeof entry.id === "string" && entry.id.length > 0 ? entry.id : generateLogId(),
@@ -528,6 +534,7 @@ async function saveCallLogOperation(entry: any): Promise<void> {
       tokensReasoning,
       reasoningSource: reasoningObservation.source,
       reasoningChars: reasoningObservation.chars,
+      effectiveReasoningEffort,
       tokensCompressed: entry.tokensCompressed != null ? toNumber(entry.tokensCompressed) : null,
       cacheSource: entry.cacheSource === "semantic" ? "semantic" : "upstream",
       requestType: entry.requestType || null,
@@ -595,7 +602,7 @@ async function saveCallLogOperation(entry: any): Promise<void> {
         id, timestamp, method, path, status, model, requested_model, provider,
         account, connection_id, duration, tokens_in, tokens_out,
         tokens_cache_read, tokens_cache_creation, tokens_reasoning, tokens_compressed,
-        reasoning_source, reasoning_chars,
+        reasoning_source, reasoning_chars, effective_reasoning_effort,
         cache_source, request_type, source_format, target_format, api_key_id, api_key_name,
         combo_name, combo_step_id, combo_execution_key, error_summary, detail_state,
         artifact_relpath, artifact_size_bytes, artifact_sha256,
@@ -607,7 +614,7 @@ async function saveCallLogOperation(entry: any): Promise<void> {
         @id, @timestamp, @method, @path, @status, @model, @requestedModel, @provider,
         @account, @connectionId, @duration, @tokensIn, @tokensOut,
         @tokensCacheRead, @tokensCacheCreation, @tokensReasoning, @tokensCompressed,
-        @reasoningSource, @reasoningChars,
+        @reasoningSource, @reasoningChars, @effectiveReasoningEffort,
         @cacheSource, @requestType, @sourceFormat, @targetFormat, @apiKeyId, @apiKeyName,
         @comboName, @comboStepId, @comboExecutionKey, @errorSummary, @detailState,
         @artifactRelPath, @artifactSizeBytes, @artifactSha256,

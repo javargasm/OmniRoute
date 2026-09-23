@@ -1014,7 +1014,15 @@ async function handleChatImplementation(
       if (isComboLiveTest) return true;
       // #12886: combo-name allow-list must not skip inner targets (#9057 still
       // checks auto/* / disableNonPublic via comboTargetPassesKeyModelPolicy).
-      if (!(await comboTargetPassesKeyModelPolicy({ apiKey, apiKeyInfo, requestedModelStr: resolvedModelStr, targetModelStr: modelString, isModelAllowedForKey }))) {
+      if (
+        !(await comboTargetPassesKeyModelPolicy({
+          apiKey,
+          apiKeyInfo,
+          requestedModelStr: resolvedModelStr,
+          targetModelStr: modelString,
+          isModelAllowedForKey,
+        }))
+      ) {
         return false;
       }
 
@@ -1496,6 +1504,7 @@ async function handleSingleModelChat(
     customModelTargetFormat,
     extendedContext,
     apiFormat,
+    resolvedThinkingEffort,
   } = resolved;
   // Prefer the combo target's providerId when available — the model string's
   // provider prefix may differ from the credential provider ID (e.g. model
@@ -1824,6 +1833,15 @@ async function handleSingleModelChat(
         resolveBareModelToConnectionDefault(modelStr, model, credentials.defaultModel) ?? model;
       let requestBody =
         effectiveModel !== model ? { ...body, model: `${provider}/${effectiveModel}` } : body;
+      if (
+        provider === "kiro" &&
+        resolvedThinkingEffort &&
+        requestBody.reasoning_effort === undefined &&
+        requestBody.reasoning === undefined &&
+        requestBody.thinking === undefined
+      ) {
+        requestBody = { ...requestBody, reasoning_effort: resolvedThinkingEffort };
+      }
 
       // If the combo explicitly overrode the provider to a passthrough provider, we
       // must preserve the original unstripped modelStr so that proxy providers
@@ -1950,6 +1968,7 @@ async function handleSingleModelChat(
             // resolved without credentials; forwarding it would let a stale
             // provider-id fallback override the credential-aware resolution.
             modelTargetFormat: customModelTargetFormat,
+            resolvedThinkingEffort,
             providerProfile,
             cachedSettings: runtimeOptions.cachedSettings,
             skipUpstreamRetry: runtimeOptions.skipUpstreamRetry ?? false,

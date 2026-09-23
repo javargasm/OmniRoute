@@ -16,7 +16,7 @@
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import { execFileWithPassword } from "../systemCommands.js";
+import { execFileWithPassword } from "../systemCommands.ts";
 
 /** Dedicated trust-store filename — distinct from the static MITM cert's slot. */
 export const TPROXY_CA_CERT_NAME = "omniroute-tproxy-ca.crt";

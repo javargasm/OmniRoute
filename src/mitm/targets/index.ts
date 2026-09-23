@@ -8,20 +8,20 @@
  *   - `routeConnection(hostname, userBypass)`: bypass > target > passthrough
  *     decision per plan 11 §4.6.
  */
-import { shouldBypass } from "../passthrough.js";
-import type { MitmTarget } from "../types.js";
-import { ANTIGRAVITY_TARGET } from "./antigravity.js";
-import { KIRO_TARGET } from "./kiro.js";
-import { COPILOT_TARGET } from "./copilot.js";
-import { GHE_COPILOT_TARGET } from "./ghe-copilot.js";
-import { CODEX_TARGET } from "./codex.js";
-import { CURSOR_TARGET } from "./cursor.js";
-import { ZED_TARGET } from "./zed.js";
-import { CLAUDE_CODE_TARGET } from "./claudeCode.js";
-import { OPEN_CODE_TARGET } from "./openCode.js";
-import { TRAE_TARGET } from "./trae.js";
+import { shouldBypass } from "../passthrough.ts";
+import type { MitmTarget } from "../types.ts";
+import { ANTIGRAVITY_TARGET } from "./antigravity.ts";
+import { KIRO_TARGET } from "./kiro.ts";
+import { COPILOT_TARGET } from "./copilot.ts";
+import { GHE_COPILOT_TARGET } from "./ghe-copilot.ts";
+import { CODEX_TARGET } from "./codex.ts";
+import { CURSOR_TARGET } from "./cursor.ts";
+import { ZED_TARGET } from "./zed.ts";
+import { CLAUDE_CODE_TARGET } from "./claudeCode.ts";
+import { OPEN_CODE_TARGET } from "./openCode.ts";
+import { TRAE_TARGET } from "./trae.ts";
 
-export { GHE_COPILOT_TARGET } from "./ghe-copilot.js";
+export { GHE_COPILOT_TARGET } from "./ghe-copilot.ts";
 
 export const ALL_TARGETS: MitmTarget[] = [
   ANTIGRAVITY_TARGET,

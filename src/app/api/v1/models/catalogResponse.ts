@@ -259,6 +259,43 @@ export async function finalizeCatalogResponse(
         : entry;
       listedModel = maybeOmitCatalogModelName(listedModel, includeModelNames);
     }
+    const modelId = typeof listedModel.id === "string" ? listedModel.id : "";
+    const isNoThink = modelId.startsWith("no-think/");
+    const hasFixedEffortOrThinking =
+      /-(?:none|minimal|low|medium|high|xhigh|max|ultra|tiered|thinking|nothinking)$/i.test(modelId) ||
+      modelId.includes("-thinking-");
+
+    // Dynamic reasoning effort is for models whose model family or explicit sync
+    // supports parameterized reasoning effort, provided the model does not already
+    // have a static effort tier burned into its name.
+    const rawModel =
+      (typeof listedModel.root === "string" && listedModel.root) ||
+      modelId.replace(/^[^/]+\//, "");
+
+    const isDynamicReasoningFamily =
+      /^(?:gpt-(?:5\.6|6)|o[134]|deepseek-(?:r1|v4|reasoner)|grok-(?:3|4))(?:-|$)/i.test(rawModel);
+
+    const caps = (listedModel.capabilities as Record<string, unknown> | undefined) || {};
+    const hasExplicitEfforts =
+      Array.isArray(caps.effort_tiers) &&
+      caps.effort_tiers.length > 0 &&
+      caps.supportsThinking === true;
+
+    const hasThinking =
+      !isNoThink &&
+      !hasFixedEffortOrThinking &&
+      (isDynamicReasoningFamily || hasExplicitEfforts);
+
+    if (hasThinking) {
+      listedModel.supportsReasoningEffort = true;
+      listedModel.supports_reasoning_effort = true;
+      const effortTiers =
+        Array.isArray(caps.effort_tiers) && caps.effort_tiers.length > 0
+          ? caps.effort_tiers
+          : ["none", "low", "medium", "high", "xhigh", "max"];
+      listedModel.reasoningEfforts = effortTiers;
+      listedModel.reasoning_efforts = effortTiers;
+    }
     enriched.push(listedModel);
     catEnrichCount++;
     if (catEnrichCount % catYIELD_EVERY === 0) {

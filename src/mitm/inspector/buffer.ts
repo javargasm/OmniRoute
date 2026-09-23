@@ -13,9 +13,9 @@
  * `12-traffic-inspector.plan.md` §4.1.
  */
 
-import { computeContextKey } from "./contextKey.js";
-import { detectKind } from "./kindDetector.js";
-import type { InterceptedRequest, ListFilters, WsEvent } from "./types.js";
+import { computeContextKey } from "./contextKey.ts";
+import { detectKind } from "./kindDetector.ts";
+import type { InterceptedRequest, ListFilters, WsEvent } from "./types.ts";
 
 const TRUNCATION_MARKER = "\n…(truncated for performance)";
 

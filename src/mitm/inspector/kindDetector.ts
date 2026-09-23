@@ -1,4 +1,4 @@
-import type { InterceptedRequest } from "./types.js";
+import type { InterceptedRequest } from "./types.ts";
 
 /**
  * LLM host patterns — 18+ known LLM API hostnames.

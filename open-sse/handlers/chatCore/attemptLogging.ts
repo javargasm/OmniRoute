@@ -17,6 +17,10 @@ import { maybeLogToolCallSpecViolation } from "./toolCallSpecViolationAudit.ts";
 import type { RequestCompletedPayload, RequestFailedPayload } from "@/lib/events/types";
 import { saveCallLog } from "@/lib/usageDb";
 import type { VideoBridgeLogRedactionEntry } from "@/lib/guardrails/videoBridge";
+import {
+  getKiroWireReasoningEffort,
+  getNormalizedReasoningEffort,
+} from "@/shared/utils/kiroReasoningEffort";
 import { FORMATS } from "../../translator/formats.ts";
 import { takeEarlyKeepaliveBytes } from "../../utils/earlyKeepaliveByteBuffer.ts";
 import { sanitizeErrorMessage } from "../../utils/error.ts";
@@ -458,6 +462,11 @@ export function persistAttemptLogs(args: PersistAttemptLogsArgs, ctx: PersistAtt
     }
   }
 
+  const effectiveReasoningEffort =
+    provider?.trim().toLowerCase() === "kiro" && !Boolean(noLogEnabled)
+      ? (getKiroWireReasoningEffort(providerRequest) ?? getNormalizedReasoningEffort(body))
+      : null;
+
   saveCallLog({
     id: pendingRequestId,
     method: "POST",
@@ -469,6 +478,7 @@ export function persistAttemptLogs(args: PersistAttemptLogsArgs, ctx: PersistAtt
     connectionId: finalConnectionId || undefined,
     duration: Date.now() - startTime,
     tokens: tokens || {},
+    effectiveReasoningEffort,
     requestBody: cloneBoundedChatLogPayload(
       attachLogMeta(
         truncateForLog(

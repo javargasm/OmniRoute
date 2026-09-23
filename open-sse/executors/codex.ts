@@ -54,7 +54,8 @@ export {
 import { isCodexFreePlan, normalizeCodexTools } from "./codex/tools.ts";
 import {
   CODEX_EFFORT_ORDER as EFFORT_ORDER,
-  CODEX_ULTRA_ALIAS_MODELS,
+  getCodexMaxEffort,
+  isCodexDelegationEffort,
   splitCodexReasoningSuffix,
   type CodexEffortLevel as EffortLevel,
 } from "./codex/reasoningSuffix.ts";
@@ -167,15 +168,13 @@ function isCodexResponsesLiteRequest(
   );
 }
 
-// Astra/Sol/Terra at "ultra" and Luna at "max" coordinate delegation to
-// sub-agents via parallel tool calls (see the effort-clamp comment near clampEffort()).
+// A model's Max/Ultra top tier (Astra/Sol/Terra "ultra", Luna "max", discovered models'
+// highest declared level) coordinates delegation to sub-agents via parallel tool calls.
 // Responses Lite must not strip parallel_tool_calls for those model/effort combos, or
 // delegation silently breaks while the request still returns HTTP 200 (issue #7821).
 function isCodexDelegationDependentModel(model: unknown): boolean {
   const { baseModel, effort } = splitCodexReasoningSuffix(model);
-  if (effort === "ultra" && CODEX_ULTRA_ALIAS_MODELS.has(baseModel)) return true;
-  if (effort === "max" && baseModel === "gpt-5.6-luna") return true;
-  return false;
+  return isCodexDelegationEffort(baseModel, effort);
 }
 
 function enforceCodexResponsesLiteParallelToolCalls(
@@ -324,7 +323,7 @@ function normalizeServiceTierValue(value: unknown): string | undefined {
   return normalized;
 }
 
-/** Maximum reasoning effort per Codex model; unlisted models keep the xhigh cap. */
+/** Static max effort per Codex model; unlisted ones use their discovered top level, else xhigh. */
 const MAX_EFFORT_BY_MODEL: Record<string, EffortLevel> = {
   "gpt-6-astra": "ultra",
   "gpt-5.6-sol": "ultra",
@@ -342,7 +341,7 @@ const MAX_EFFORT_BY_MODEL: Record<string, EffortLevel> = {
  * Returns the original value if within limits, or the cap if it exceeds it.
  */
 function clampEffort(model: string, requested: string): string {
-  const max: EffortLevel = MAX_EFFORT_BY_MODEL[model] ?? "xhigh";
+  const max: EffortLevel = MAX_EFFORT_BY_MODEL[model] ?? getCodexMaxEffort(model) ?? "xhigh";
   const reqIdx = EFFORT_ORDER.indexOf(requested as EffortLevel);
   const maxIdx = EFFORT_ORDER.indexOf(max);
   if (reqIdx > maxIdx) {

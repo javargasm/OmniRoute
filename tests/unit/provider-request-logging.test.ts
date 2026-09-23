@@ -51,6 +51,58 @@ test("runWithCapture captures the actual JSON provider fetch body", async () => 
   }
 });
 
+test("runWithCapture captures the native Kiro provider request body", async () => {
+  const originalFetch = globalThis.fetch;
+  const prepared: ProviderRequestPrepared[] = [];
+  const nativeKiroRequest = {
+    conversationState: {
+      currentMessage: {
+        userInputMessage: {
+          content: "Explain the payload",
+          modelId: "gpt-5.6-terra",
+          origin: "KIRO_CLI",
+        },
+      },
+      history: [],
+    },
+    additionalModelRequestFields: { reasoning: { effort: "max" } },
+  };
+  const capture: Capture = {
+    capture(request) {
+      prepared.push(request);
+    },
+    body(fallback) {
+      return prepared.at(-1)?.body ?? fallback;
+    },
+  };
+
+  globalThis.fetch = async () =>
+    new Response(JSON.stringify({ ok: true }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+
+  try {
+    await runWithCapture(capture, () =>
+      fetch("https://kiro.example.test/generateAssistantResponse", {
+        method: "POST",
+        body: JSON.stringify(nativeKiroRequest),
+      })
+    );
+
+    assert.equal(prepared.length, 1);
+    assert.deepEqual(prepared[0].body, nativeKiroRequest);
+    const additionalFields = (
+      prepared[0].body as {
+        additionalModelRequestFields?: { reasoning?: { effort?: string } };
+      }
+    ).additionalModelRequestFields;
+    assert.equal(additionalFields?.reasoning?.effort, "max");
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
 test("runWithCapture ignores auth fetch bodies in the same executor scope", async () => {
   const originalFetch = globalThis.fetch;
   const prepared: ProviderRequestPrepared[] = [];

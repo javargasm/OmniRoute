@@ -1,6 +1,6 @@
 import type { IncomingHttpHeaders } from "node:http";
-import { isForbiddenUpstreamHeaderName } from "../shared/constants/upstreamHeaders.js";
-import { maskSecret } from "./maskSecrets.js";
+import { isForbiddenUpstreamHeaderName } from "../shared/constants/upstreamHeaders.ts";
+import { maskSecret } from "./maskSecrets.ts";
 
 const MASKED_CREDENTIAL_HEADERS = new Set([
   "authorization",

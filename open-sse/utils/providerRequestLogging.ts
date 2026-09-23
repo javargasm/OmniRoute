@@ -61,6 +61,7 @@ const AUTH_BODY_KEYS = new Set([
 const REQUEST_BODY_KEYS = new Set([
   "conversationId",
   "conversation_id",
+  "conversationState",
   "contents",
   "input",
   "messages",

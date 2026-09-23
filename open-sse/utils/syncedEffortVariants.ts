@@ -78,6 +78,7 @@ export function shouldExposeSyncedEffortVariants(
     return false;
   }
   if (endsWithKnownEffortToken(id)) return false;
+  if (id.endsWith("-thinking") || id.includes("-thinking-")) return false;
   return extractEffortTiers(model).length > 0;
 }
 

@@ -1205,16 +1205,14 @@ export class KiroExecutor extends BaseExecutor {
 
                 // Bedrock-style (`inputTokens`) and OpenAI-style
                 // (`prompt_tokens`) spellings both appear across Kiro frames.
-                const inputTokens =
-                  readNumber(
-                    (metrics as JsonRecord).inputTokens,
-                    (metrics as JsonRecord).prompt_tokens
-                  ) || 0;
-                const outputTokens =
-                  readNumber(
-                    (metrics as JsonRecord).outputTokens,
-                    (metrics as JsonRecord).completion_tokens
-                  ) || 0;
+                const inputTokens = readNumber(
+                  (metrics as JsonRecord).inputTokens,
+                  (metrics as JsonRecord).prompt_tokens
+                );
+                const outputTokens = readNumber(
+                  (metrics as JsonRecord).outputTokens,
+                  (metrics as JsonRecord).completion_tokens
+                );
 
                 const cacheReadTokens = readNumber(
                   (metrics as JsonRecord).cacheReadInputTokens,
@@ -1228,32 +1226,31 @@ export class KiroExecutor extends BaseExecutor {
                   (metrics as JsonRecord).cache_creation_input_tokens
                 );
 
-                if (inputTokens > 0 || outputTokens > 0) {
-                  state.usage = {
-                    prompt_tokens: inputTokens,
-                    completion_tokens: outputTokens,
-                    total_tokens: inputTokens + outputTokens,
-                    ...((cacheReadTokens || 0) > 0 && {
-                      cache_read_input_tokens: cacheReadTokens,
-                    }),
-                    ...((cacheCreationTokens || 0) > 0 && {
-                      cache_creation_input_tokens: cacheCreationTokens,
-                    }),
-                  };
-                } else if ((cacheReadTokens || 0) > 0 || (cacheCreationTokens || 0) > 0) {
-                  // Cache counts can arrive on a frame that carries no
-                  // input/output totals. Preserve them instead of dropping the
-                  // whole frame, and let ensureKiroUsage() fill the totals from
-                  // contextUsagePercentage.
-                  state.usage = {
-                    ...(state.usage || {}),
-                    ...((cacheReadTokens || 0) > 0 && {
-                      cache_read_input_tokens: cacheReadTokens,
-                    }),
-                    ...((cacheCreationTokens || 0) > 0 && {
-                      cache_creation_input_tokens: cacheCreationTokens,
-                    }),
-                  };
+                const hasNewTotals = inputTokens !== undefined || outputTokens !== undefined;
+                const previousUsage = state.usage || {};
+                const mergedInputTokens = inputTokens ?? previousUsage.prompt_tokens;
+                const mergedOutputTokens = outputTokens ?? previousUsage.completion_tokens;
+                const usage: Partial<UsageSummary> = {
+                  ...previousUsage,
+                  ...(hasNewTotals && {
+                    prompt_tokens: mergedInputTokens ?? 0,
+                    completion_tokens: mergedOutputTokens ?? 0,
+                    total_tokens: (mergedInputTokens ?? 0) + (mergedOutputTokens ?? 0),
+                  }),
+                  ...(cacheReadTokens !== undefined && {
+                    cache_read_input_tokens: cacheReadTokens,
+                  }),
+                  ...(cacheCreationTokens !== undefined && {
+                    cache_creation_input_tokens: cacheCreationTokens,
+                  }),
+                };
+
+                if (
+                  hasNewTotals ||
+                  cacheReadTokens !== undefined ||
+                  cacheCreationTokens !== undefined
+                ) {
+                  state.usage = usage;
                 }
               }
             }

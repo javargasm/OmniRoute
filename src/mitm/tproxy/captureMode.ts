@@ -30,15 +30,15 @@
  * per-connection logic are unit-testable without root.
  */
 import net from "node:net";
-import { applyTproxy, revertTproxy, type CommandRunner } from "./setup.js";
+import { applyTproxy, revertTproxy, type CommandRunner } from "./setup.ts";
 import {
   createTransparentListenerFd,
   connectMarked,
   isTransparentSocketAvailable,
-} from "./transparentSocket.js";
-import { validateTproxyConfig, type TproxyConfig } from "./commands.js";
-import { createForward, createTlsCaptureServer, type TlsCaptureServer } from "./tlsCapture.js";
-import type { DynamicCertStore } from "./dynamicCert.js";
+} from "./transparentSocket.ts";
+import { validateTproxyConfig, type TproxyConfig } from "./commands.ts";
+import { createForward, createTlsCaptureServer, type TlsCaptureServer } from "./tlsCapture.ts";
+import type { DynamicCertStore } from "./dynamicCert.ts";
 
 /** Default bypass SO_MARK when `cfg.bypassMark` is unset (anti-loop). */
 const DEFAULT_BYPASS_MARK = 0x539;
@@ -186,10 +186,10 @@ export async function startTproxyCapture(
         deps.createUpstreamSocket(deps.connectMarked(ip, port, mark))
       );
       engine = createTlsCaptureServer(options.decrypt.certStore, { forward });
+      uninstallCa = options.decrypt.uninstallCa;
       if (options.decrypt.installCa) {
         await options.decrypt.installCa(await options.decrypt.certStore.getCaCertPem());
       }
-      uninstallCa = options.decrypt.uninstallCa;
     }
 
     const terminate = engine

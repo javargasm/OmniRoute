@@ -304,6 +304,24 @@ export function startModelSyncScheduler(
       // silent
     });
 
+  // Codex-only: restore the last tracked Codex CLI version so inference uses it
+  // right after a restart, before any discovery refreshes it.
+  void import("./codexClientVersionTracker")
+    .then(({ hydrateCodexClientVersionFromSettings }) => hydrateCodexClientVersionFromSettings())
+    .catch(() => {
+      // silent
+    });
+
+  // Codex-only: re-register the reasoning levels stored on the synced Codex catalog so
+  // discovered effort variants (e.g. gpt-6-sol-max) resolve right after a restart.
+  void import("./codexReasoningLevels")
+    .then(({ hydrateCodexReasoningLevelsFromSyncedModels }) =>
+      hydrateCodexReasoningLevelsFromSyncedModels()
+    )
+    .catch(() => {
+      // silent
+    });
+
   // Then run on the regular interval
   schedulerTimer = setInterval(() => runSyncCycle(trustedApiBaseUrl), effectiveIntervalMs);
   schedulerTimer.unref?.();

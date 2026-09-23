@@ -6,8 +6,8 @@
  * the mapped target and the request is forwarded to the OmniRoute router.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { AgentId } from "../types.js";
-import { MitmHandlerBase } from "./base.js";
+import type { AgentId } from "../types.ts";
+import { MitmHandlerBase } from "./base.ts";
 
 export class CopilotHandler extends MitmHandlerBase {
   readonly agentId: AgentId = "copilot";

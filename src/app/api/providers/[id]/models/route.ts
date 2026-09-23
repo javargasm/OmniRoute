@@ -17,6 +17,7 @@ import { resolveProxyForProvider } from "@/lib/db/proxies";
 import {
   SAFE_OUTBOUND_FETCH_PRESETS,
   SafeOutboundFetchError,
+  type SafeOutboundFetchOptions,
   getSafeOutboundFetchErrorStatus,
   safeOutboundFetch,
 } from "@/shared/network/safeOutboundFetch";
@@ -94,6 +95,7 @@ import { fetchCursorAgentModels } from "@/lib/providerModels/cursorAgent";
 import { fetchCursorAvailableModels } from "@/lib/providerModels/cursorAvailableModels";
 import { ensureCursorAutoCatalogEntry } from "@/lib/providerModels/cursorAutoCatalog";
 import { resolveCopilotDiscoveryToken } from "@/lib/providerModels/copilotDiscoveryToken";
+import { refreshCodexClientVersion } from "@/shared/services/codexClientVersionTracker";
 import {
   type JsonRecord,
   asRecord,
@@ -616,9 +618,7 @@ export async function GET(
       try {
         const discovery = await discoverMaxaiModels({
           providerSpecificData: connection.providerSpecificData as
-            | Record<string, unknown>
-            | null
-            | undefined,
+            Record<string, unknown> | null | undefined,
           accessToken: apiKey || accessToken,
           fetchImpl: (url, init) =>
             safeOutboundFetch(url, {
@@ -2127,25 +2127,25 @@ export async function GET(
         });
       }
 
+      const codexFetch = (options: SafeOutboundFetchOptions) => (url: string, init: RequestInit) =>
+        safeOutboundFetch(url, {
+          ...SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery,
+          proxyConfig: proxy,
+          ...options,
+          ...init,
+        });
+      // New Codex models are gated on `minimal_client_version`: learn the latest published
+      // Codex CLI version (bounded: 5s, no retry) before discovery advertises `client_version`.
+      await refreshCodexClientVersion({
+        fetchImpl: codexFetch({ guard: "public-only", timeoutMs: 5000, retry: false }),
+      });
       const liveModels = await fetchCodexDiscoveryModels({
         accessToken: accessToken || null,
         providerSpecificData: connection.providerSpecificData,
-        fetchImpl: (url, init) =>
-          safeOutboundFetch(url, {
-            ...SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery,
-            guard: getProviderOutboundGuard(),
-            proxyConfig: proxy,
-            ...init,
-          }),
+        fetchImpl: codexFetch({ guard: getProviderOutboundGuard() }),
       });
       const githubCatalogModels = await fetchCodexGithubCatalogModels({
-        fetchImpl: (url, init) =>
-          safeOutboundFetch(url, {
-            ...SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery,
-            guard: "public-only",
-            proxyConfig: proxy,
-            ...init,
-          }),
+        fetchImpl: codexFetch({ guard: "public-only" }),
       });
       if (liveModels && liveModels.length > 0) {
         const enrichedLiveModels =

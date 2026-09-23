@@ -1,4 +1,8 @@
 import { generateModels, generateAliasMap, type RegistryModel } from "./providerRegistry.ts";
+import {
+  getCodexReasoningLevels,
+  splitCodexReasoningSuffix,
+} from "../executors/codex/reasoningSuffix.ts";
 
 // Lazy PROVIDER_MODELS: deferred until first property access to speed up startup.
 // The Proxy defers `generateModels()` from module-evaluation time to the first read.
@@ -253,11 +257,17 @@ export function getModelsByProviderId(providerId: string): RegistryModel[] {
   return PROVIDER_MODELS[alias] || [];
 }
 
+// #6354: reasoning-heavy tier — more header-wait room than the global default. The
+// registry sets it on hand-written Codex -high/-xhigh variants; variants derived from
+// discovered reasoning levels (no registry row) get the same value.
+const CODEX_REASONING_HEAVY_TIMEOUT_MS = 1200000;
+
 /**
  * Model-level upstream header-response timeout override, when the registry
- * entry for `modelId` sets one (#6354). Returns `undefined` when the model
- * isn't found or has no override, so callers can fall through to the
- * provider-level/global defaults unchanged.
+ * entry for `modelId` sets one (#6354), or when `modelId` is a Codex -high/-xhigh
+ * variant of a model whose discovered reasoning levels declare that tier.
+ * Returns `undefined` when the model isn't found or has no override, so callers
+ * can fall through to the provider-level/global defaults unchanged.
  */
 export function getModelTimeoutMs(aliasOrId: string, modelId: string): number | undefined {
   // Callers (e.g. chatCore's timeout resolution) pass the raw provider id
@@ -265,7 +275,14 @@ export function getModelTimeoutMs(aliasOrId: string, modelId: string): number | 
   // — resolve id→alias the same way getProviderModels()/getModelsByProviderId()
   // do, so the override actually resolves (#6354).
   const alias = PROVIDER_ID_TO_ALIAS[aliasOrId] || aliasOrId;
-  return getProviderModel(alias, modelId)?.timeoutMs;
+  const registryTimeoutMs = getProviderModel(alias, modelId)?.timeoutMs;
+  if (registryTimeoutMs !== undefined || alias !== "cx") return registryTimeoutMs;
+
+  const { baseModel, effort } = splitCodexReasoningSuffix(modelId.replace(/^(?:codex|cx)\//, ""));
+  return (effort === "high" || effort === "xhigh") &&
+    getCodexReasoningLevels(baseModel)?.includes(effort)
+    ? CODEX_REASONING_HEAVY_TIMEOUT_MS
+    : undefined;
 }
 
 const CLAUDE_MODEL_PATTERN = /(?:^|[\/._-])claude(?:[._-]|$)/;

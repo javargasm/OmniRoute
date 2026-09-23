@@ -7,8 +7,8 @@ import {
   isRoot,
   quotePowerShell,
   runElevatedPowerShell,
-} from "../systemCommands.js";
-import { ALL_TARGETS } from "../targets/index.js";
+} from "../systemCommands.ts";
+import { ALL_TARGETS } from "../targets/index.ts";
 
 // Legacy Antigravity defaults preserved for backward compat.
 const ANTIGRAVITY_HOSTS = [

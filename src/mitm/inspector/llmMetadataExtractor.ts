@@ -7,10 +7,10 @@
  * Cost estimation uses the minimal pricing table in `pricing.ts` (R5-11).
  */
 
-import { detectKind } from "./kindDetector.js";
-import { estimateCost } from "./pricing.js";
-import { mergeStream, parseSseStream } from "./sseMerger.js";
-import type { InterceptedRequest, LlmMetadata } from "./types.js";
+import { detectKind } from "./kindDetector.ts";
+import { estimateCost } from "./pricing.ts";
+import { mergeStream, parseSseStream } from "./sseMerger.ts";
+import type { InterceptedRequest, LlmMetadata } from "./types.ts";
 
 interface ProviderMatch {
   pattern: RegExp;

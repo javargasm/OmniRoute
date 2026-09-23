@@ -559,6 +559,114 @@ test("KiroExecutor accepts snake_case cache token spellings", async () => {
   });
 });
 
+test("KiroExecutor preserves explicit zero cache usage fields", async () => {
+  const executor = new KiroExecutor();
+  const response = buildEventStreamResponse([
+    buildEventFrame("metadataEvent", {
+      usage: {
+        inputTokens: 12,
+        outputTokens: 3,
+        cacheReadInputTokens: 0,
+        cacheWriteInputTokens: 0,
+      },
+    }),
+  ]);
+
+  const chunks = parseSSEJsonChunks(
+    await executor.transformEventStreamToSSE(response, "kiro-model").text()
+  );
+  const finish = chunks.find((chunk) => chunk.choices?.[0]?.finish_reason);
+
+  assert.deepEqual(finish.usage, {
+    prompt_tokens: 12,
+    completion_tokens: 3,
+    total_tokens: 15,
+    cache_read_input_tokens: 0,
+    cache_creation_input_tokens: 0,
+  });
+});
+
+test("KiroExecutor merges cache-only metadata usage with later metrics totals", async () => {
+  const executor = new KiroExecutor();
+  const response = buildEventStreamResponse([
+    buildEventFrame("metadataEvent", { usage: { cacheReadInputTokens: 900 } }),
+    buildEventFrame("metricsEvent", { inputTokens: 12, outputTokens: 3 }),
+  ]);
+
+  const chunks = parseSSEJsonChunks(
+    await executor.transformEventStreamToSSE(response, "kiro-model").text()
+  );
+  const finish = chunks.find((chunk) => chunk.choices?.[0]?.finish_reason);
+
+  assert.deepEqual(finish.usage, {
+    prompt_tokens: 12,
+    completion_tokens: 3,
+    total_tokens: 15,
+    cache_read_input_tokens: 900,
+  });
+});
+
+test("KiroExecutor merges partial usage fields regardless of event order", async () => {
+  const executor = new KiroExecutor();
+  const response = buildEventStreamResponse([
+    buildEventFrame("metricsEvent", { inputTokens: 12, outputTokens: 3 }),
+    buildEventFrame("metadataEvent", { usage: { cacheReadInputTokens: 900 } }),
+    buildEventFrame("metricsEvent", { cacheWriteInputTokens: 24 }),
+  ]);
+
+  const chunks = parseSSEJsonChunks(
+    await executor.transformEventStreamToSSE(response, "kiro-model").text()
+  );
+  const finish = chunks.find((chunk) => chunk.choices?.[0]?.finish_reason);
+
+  assert.deepEqual(finish.usage, {
+    prompt_tokens: 12,
+    completion_tokens: 3,
+    total_tokens: 15,
+    cache_read_input_tokens: 900,
+    cache_creation_input_tokens: 24,
+  });
+});
+
+test("KiroExecutor keeps previously reported totals when a later frame is partial", async () => {
+  const executor = new KiroExecutor();
+  const response = buildEventStreamResponse([
+    buildEventFrame("metricsEvent", { inputTokens: 12, outputTokens: 3 }),
+    buildEventFrame("metadataEvent", { usage: { outputTokens: 4 } }),
+  ]);
+
+  const chunks = parseSSEJsonChunks(
+    await executor.transformEventStreamToSSE(response, "kiro-model").text()
+  );
+  const finish = chunks.find((chunk) => chunk.choices?.[0]?.finish_reason);
+
+  assert.deepEqual(finish.usage, {
+    prompt_tokens: 12,
+    completion_tokens: 4,
+    total_tokens: 16,
+  });
+});
+
+test("KiroExecutor treats explicit zero input and output tokens as authoritative", async () => {
+  const executor = new KiroExecutor();
+  const response = buildEventStreamResponse([
+    buildEventFrame("assistantResponseEvent", { content: "response that must not be estimated" }),
+    buildEventFrame("contextUsageEvent", { contextUsagePercentage: 10 }),
+    buildEventFrame("metricsEvent", { inputTokens: 0, outputTokens: 0 }),
+  ]);
+
+  const chunks = parseSSEJsonChunks(
+    await executor.transformEventStreamToSSE(response, "kiro-model").text()
+  );
+  const finish = chunks.find((chunk) => chunk.choices?.[0]?.finish_reason);
+
+  assert.deepEqual(finish.usage, {
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    total_tokens: 0,
+  });
+});
+
 // Live generateAssistantResponse sends NO token counts — only
 // contextUsageEvent.contextUsagePercentage plus a meteringEvent credit figure.
 // The synthesized usage is therefore an estimate, and the context budget the

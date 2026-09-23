@@ -7,7 +7,7 @@
  *  - `KIRO_MITM_PROFILE`: legacy alias retained for back-compat with
  *    `src/app/api/settings/mitm/route.ts`.
  */
-import type { MitmTarget } from "../types.js";
+import type { MitmTarget } from "../types.ts";
 
 const HOSTS = ["api.anthropic.com"];
 const ENDPOINTS = ["/v1/messages"];
@@ -33,7 +33,7 @@ export const KIRO_TARGET: MitmTarget = {
     detection: { command: "which kiro", platform: "all" },
   },
   handler: () =>
-    import("../handlers/kiro.js").then((m) => ({
+    import("../handlers/kiro.ts").then((m) => ({
       default: m.KiroHandler,
     })),
   riskNoticeKey: "providers.riskNotice.oauth",

@@ -17,11 +17,11 @@ import http from "node:http";
 import net from "node:net";
 import { randomUUID } from "node:crypto";
 import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
-import { sanitizeHeaders } from "../sanitizeHeaders.js";
-import { maskSecret } from "../maskSecrets.js";
-import { applyIdleTimeout, MITM_IDLE_TIMEOUT_MS } from "../socketTimeouts.js";
-import { globalTrafficBuffer } from "./buffer.js";
-import type { InterceptedRequest } from "./types.js";
+import { sanitizeHeaders } from "../sanitizeHeaders.ts";
+import { maskSecret } from "../maskSecrets.ts";
+import { applyIdleTimeout, MITM_IDLE_TIMEOUT_MS } from "../socketTimeouts.ts";
+import { globalTrafficBuffer } from "./buffer.ts";
+import type { InterceptedRequest } from "./types.ts";
 
 const DEFAULT_PORT = parseEnvNumber(process.env.INSPECTOR_HTTP_PROXY_PORT, 8080);
 

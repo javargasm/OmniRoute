@@ -19,9 +19,11 @@ const KIRO_ADAPTIVE_THINKING_MODELS = new Set([
   "claude-opus-4.6",
   "claude-sonnet-4.6",
 ]);
-// Kiro upstream does not support sending reasoning levels on GPT models (HTTP 400).
-// Do not send reasoning levels / additionalModelRequestFields for GPT models.
-const KIRO_NATIVE_REASONING_MODELS = new Set<string>();
+const KIRO_NATIVE_REASONING_MODELS = new Set([
+  "gpt-5.6-sol",
+  "gpt-5.6-terra",
+  "gpt-5.6-luna",
+]);
 const KIRO_PROMPT_THINKING_MODELS = new Set([
   "claude-sonnet-4.5",
   "claude-opus-4.5",
@@ -50,10 +52,45 @@ const KIRO_UNSUPPORTED_THINKING_MESSAGE =
 const KIRO_REMOVED_AUTO_ALIAS_MESSAGE =
   "'auto-kiro' is not a real Kiro upstream model. Select a model returned by the live catalog.";
 
-export function resolveKiroModelAlias(model: unknown): { upstream: string; thinking: boolean } {
+const KIRO_NATIVE_EFFORT_TIERS = [
+  "none",
+  "low",
+  "medium",
+  "high",
+  "xhigh",
+  "max",
+] as const;
+
+export function resolveKiroModelAlias(model: unknown): {
+  upstream: string;
+  thinking: boolean;
+  effort?: string;
+} {
   let upstream = String(model || "").replace(/^(?:kr|kiro)\//, "");
   if (upstream.endsWith("-agentic")) throw new Error(KIRO_UNSUPPORTED_AGENTIC_MESSAGE);
   if (upstream === "auto-kiro") throw new Error(KIRO_REMOVED_AUTO_ALIAS_MESSAGE);
+
+  let effort: string | undefined;
+  for (const tier of KIRO_NATIVE_EFFORT_TIERS) {
+    const suffix = `-${tier}`;
+    if (upstream.length > suffix.length && upstream.endsWith(suffix)) {
+      const candidateBase = upstream.slice(0, -suffix.length);
+      const testBase = candidateBase.endsWith("-thinking")
+        ? candidateBase.slice(0, -"-thinking".length)
+        : candidateBase;
+      const normalizedTestBase = testBase
+        .replace(/^(claude-(?:opus|sonnet|haiku|3-\d+)-\d+)-(\d{1,2})$/, "$1.$2")
+        .replace(/^(gpt-\d+)-(\d+)/, "$1.$2");
+      if (
+        supportsKiroNativeReasoning(normalizedTestBase) ||
+        supportsKiroAdaptiveThinking(normalizedTestBase)
+      ) {
+        effort = tier;
+        upstream = candidateBase;
+        break;
+      }
+    }
+  }
 
   const thinking = upstream.endsWith("-thinking");
   if (thinking) upstream = upstream.slice(0, -"-thinking".length);
@@ -67,5 +104,5 @@ export function resolveKiroModelAlias(model: unknown): { upstream: string; think
   ) {
     throw new Error(KIRO_UNSUPPORTED_THINKING_MESSAGE);
   }
-  return { upstream, thinking };
+  return { upstream, thinking, ...(effort ? { effort } : {}) };
 }
