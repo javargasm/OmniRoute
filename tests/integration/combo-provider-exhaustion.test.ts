@@ -14,6 +14,7 @@ const {
   settingsDb,
 } = harness;
 const providersDb = await import("../../src/lib/db/providers.ts");
+const quotaCache = await import("../../src/domain/quotaCache.ts");
 
 function toPlainHeaders(headers: any): Record<string, string> {
   if (!headers) return {};
@@ -409,6 +410,11 @@ test("exhaustion does not persist across requests: second request starts fresh (
   assert.equal(body1.choices[0].message.content, "anthropic handled first request");
   assert.equal(openaiCalls, 1, "first request: openai called once");
   assert.equal(anthropicCalls, 1, "first request: anthropic called once");
+  assert.equal(
+    quotaCache.isQuotaExhaustedForRequest(openaiConn.id, "openai"),
+    true,
+    "the first 429 also records persistent account quota exhaustion"
+  );
 
   // Clear the connection-level cooldown left by the first 429 — we are testing
   // the request-scoped exhaustion sets, not the (persistent-by-design) cooldown.
@@ -420,6 +426,13 @@ test("exhaustion does not persist across requests: second request starts fresh (
     errorCode: null,
     backoffLevel: 0,
   });
+
+  // Model a real account replenishment, not just the connection cooldown expiring.
+  // The quota cache is a separate persistent-by-design selection boundary.
+  quotaCache.setQuotaCache(openaiConn.id, "openai", {
+    requests: { remainingPercentage: 100, resetAt: null },
+  });
+  assert.equal(quotaCache.isQuotaExhaustedForRequest(openaiConn.id, "openai"), false);
 
   // Second request: exhaustedProviders should be reset, openai should be tried again
   requestCount = 1;

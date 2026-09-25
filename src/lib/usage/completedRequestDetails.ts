@@ -176,7 +176,12 @@ export function maybeEnrichCompletedDetail(updated: PendingRequestDetail, connec
           if (isUnset(updated.clientResponse)) updated.clientResponse = responseBody;
         }
         if (updated.providerResponse || updated.clientResponse) {
-          if (completedDetails.has(updated.id)) storeCompletedDetail(updated);
+          const current = completedDetails.get(updated.id);
+          if (current) {
+            // Usage can arrive while the artifact read is awaiting its import.
+            // Keep newer counters instead of restoring the pre-usage snapshot.
+            storeCompletedDetail({ ...updated, tokens: current.tokens ?? updated.tokens });
+          }
           break;
         }
       }

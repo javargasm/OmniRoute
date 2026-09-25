@@ -208,14 +208,14 @@ test("ensureCallLogsColumns back-fills video_content_removed on a pre-173 lineag
   }
 });
 
-test("migration 186 and ensureCallLogsColumns add nullable effective reasoning effort", () => {
+test("migration 190 and ensureCallLogsColumns add nullable effective reasoning effort", () => {
   const migrationDb = openMemoryDb();
   try {
     migrationDb.exec("CREATE TABLE call_logs (id TEXT PRIMARY KEY, timestamp TEXT)");
     const sql = fs.readFileSync(
       path.join(
         process.cwd(),
-        "src/lib/db/migrations/186_call_logs_effective_reasoning_effort.sql"
+        "src/lib/db/migrations/190_call_logs_effective_reasoning_effort.sql"
       ),
       "utf8"
     );
