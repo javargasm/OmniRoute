@@ -209,3 +209,15 @@ test("reportPortInUse names the port, the owning pid, and how to resolve it", as
   assert.match(out, /omniroute stop/, "must tell the user how to free the port");
   assert.match(out, /--port/, "must offer running on a different port");
 });
+
+test("findListeningPids returns empty array when lsof exits with 1 (no listener on POSIX)", async () => {
+  const exit1 = Object.assign(new Error("lsof exited with 1"), { code: 1, stdout: "" });
+  const pids = await findListeningPids(20128, {
+    platform: "darwin",
+    execFileAsync: async () => {
+      throw exit1;
+    },
+  });
+  assert.deepEqual(pids, [], "lsof exit code 1 with empty output indicates no process is holding the port");
+});
+

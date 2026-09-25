@@ -89,7 +89,12 @@ export async function findListeningPids(port, deps = {}) {
       .split("\n")
       .map((entry) => parseInt(entry, 10))
       .filter((entry) => Number.isFinite(entry) && entry > 0);
-  } catch {
+  } catch (err) {
+    // POSIX lsof exits with code 1 when no process matches the filter.
+    // That means the port is free, not that lsof failed.
+    if (err && (err.code === 1 || err.status === 1 || err.exitCode === 1) && !err.stdout?.trim()) {
+      return [];
+    }
     // Tool missing (ENOENT) or unusable: "no listener" cannot be distinguished
     // from "cannot look" here, so report null and let the caller decide. The
     // serve preflight bind-probes the port in that case (#14518) — a false
@@ -106,16 +111,30 @@ export async function findListeningPids(port, deps = {}) {
 // actually observe (#14518 keeps the false-"busy" failure mode the worse one).
 export async function probePortFree(port, deps = {}) {
   const net = deps.net || (await import("node:net"));
-  return new Promise((resolve) => {
-    const probe = net.createServer();
-    probe.once("error", (err) => {
-      probe.close();
-      resolve(err.code !== "EADDRINUSE");
+  const probeHost = (host) =>
+    new Promise((resolve) => {
+      const probe = net.createServer();
+      probe.once("error", (err) => {
+        probe.close();
+        resolve(err.code !== "EADDRINUSE");
+      });
+      const onListening = () => {
+        probe.close(() => resolve(true));
+      };
+      if (host) {
+        probe.listen(port, host, onListening);
+      } else {
+        probe.listen(port, onListening);
+      }
     });
-    probe.listen(port, () => {
-      probe.close(() => resolve(true));
-    });
-  });
+
+  // Probe both loopback and wildcard — on macOS/BSD, a socket bound to 127.0.0.1
+  // does not collide with an unspecified bind (::/0.0.0.0) unless explicitly checked.
+  const freeLoopback = await probeHost("127.0.0.1");
+  if (!freeLoopback) return false;
+  const freeWildcard = await probeHost("0.0.0.0");
+  if (!freeWildcard) return false;
+  return true;
 }
 
 function parseNetstatListeningPids(stdout, port) {

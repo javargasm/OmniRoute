@@ -252,13 +252,17 @@ export async function runServe(opts = {}) {
   let busyPids = await findListeningPids(dashboardPort);
   if (busyPids === null) {
     // Discovery tool missing/unusable (#14518): the bind probe is the guard.
-    if (!(await probePortFree(dashboardPort))) busyPids = [null];
+    if (!(await probePortFree(dashboardPort))) {
+      busyPids = [null];
+    } else {
+      busyPids = [];
+    }
   } else if (busyPids.length === 0) {
     // Discovery ran and saw nothing, but that window can race a starting
     // instance; a bind probe costs nothing and doubles as confirmation.
     if (!(await probePortFree(dashboardPort))) busyPids = [null];
   }
-  if (busyPids.length > 0) {
+  if (busyPids && busyPids.length > 0) {
     reportPortInUse(dashboardPort, busyPids);
     process.exit(1);
   }

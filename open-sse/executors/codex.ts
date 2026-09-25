@@ -60,7 +60,6 @@ export {
 import { isCodexFreePlan, normalizeCodexTools } from "./codex/tools.ts";
 import {
   CODEX_EFFORT_ORDER as EFFORT_ORDER,
-  CODEX_ULTRA_ALIAS_MODELS,
   getCodexAliasEffortCap,
   getCodexMaxEffort,
   isCodexDelegationEffort,
@@ -1139,7 +1138,7 @@ export class CodexExecutor extends BaseExecutor {
    */
   buildHeaders(
     credentials: ProviderCredentials,
-    stream = true,
+    _stream = true,
     clientHeaders?: Record<string, string> | null,
     model?: string,
     health?: Record<string, KeyHealth>
