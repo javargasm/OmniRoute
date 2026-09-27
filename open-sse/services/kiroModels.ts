@@ -31,14 +31,19 @@ import {
   KIRO_EXTERNAL_IDP_TOKEN_TYPE_VALUE,
 } from "./kiroExternalIdp.ts";
 import { DEFAULT_PROFILE_ARN, resolveKiroRuntimeRegion } from "./kiroRegion.ts";
+import { KIRO_CLI_VERSION } from "../config/providerHeaderProfiles.ts";
 import { supportsKiroNativeReasoning } from "../translator/request/openai-to-kiro/adaptiveThinking.ts";
+import {
+  parseKiroModelCapabilities,
+  recordKiroModelCapabilities,
+} from "./kiroModelCapabilities.ts";
 
 type RawRecord = Record<string, unknown>;
 
 export const KIRO_CLI_ORIGIN = "KIRO_CLI";
 export const KIRO_CLI_USER_AGENT =
   process.env.KIRO_CUSTOM_USER_AGENT ||
-  "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererruntime/0.1.17975 os/macos lang/rust/1.92.0 md/appVersion-2.20.0 app/AmazonQ-For-CLI";
+  `aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererruntime/0.1.17975 os/macos lang/rust/1.92.0 md/appVersion-${KIRO_CLI_VERSION} app/AmazonQ-For-CLI`;
 export const KIRO_CLI_X_AMZ_USER_AGENT = `${KIRO_CLI_USER_AGENT} m/F,C`;
 
 export const KIRO_MANAGEMENT_TARGET = {
@@ -98,6 +103,8 @@ export type KiroModel = {
     effort_tiers?: string[];
   };
   contextLength?: number;
+  maxOutputTokens?: number;
+  supportsVision?: boolean;
   rateMultiplier?: number;
   upstreamModelId?: string;
   description?: string;
@@ -168,14 +175,7 @@ function formatDisplayName(modelName: unknown, modelId: string, rateMultiplier: 
   return `Kiro ${base} (${rate.toFixed(1)}x credit)`;
 }
 
-export const KIRO_GPT_EFFORT_TIERS = [
-  "none",
-  "low",
-  "medium",
-  "high",
-  "xhigh",
-  "max",
-] as const;
+export const KIRO_GPT_EFFORT_TIERS = ["none", "low", "medium", "high", "xhigh", "max"] as const;
 
 function buildVariants(upstream: string, displayName: string): KiroModel[] {
   const display = displayName || `Kiro ${upstream}`;
@@ -232,15 +232,31 @@ function expandKiroModels(data: unknown): KiroModel[] {
     const display = formatDisplayName(item.modelName || item.name, upstreamId, item.rateMultiplier);
     const tokenLimits = asRecord(item.tokenLimits);
     const contextLength = Number(tokenLimits.maxInputTokens) || 200000;
+    const maxOutputTokens = Number(tokenLimits.maxOutputTokens);
+    const inputTypes = Array.isArray(item.supportedInputTypes) ? item.supportedInputTypes : [];
+    const supportsVision = inputTypes.some(
+      (type) => typeof type === "string" && type.toUpperCase() === "IMAGE"
+    );
     const rateMultiplier = Number(item.rateMultiplier);
     const promptCaching = parsePromptCaching(item.promptCaching);
+    const caps = parseKiroModelCapabilities(item);
+    if (caps) recordKiroModelCapabilities(upstreamId, caps);
 
     for (const variant of buildVariants(upstreamId, display)) {
       if (seen.has(variant.id)) continue;
       seen.add(variant.id);
+      const catalogEfforts = caps?.efforts;
       expanded.push({
         ...variant,
+        ...(catalogEfforts
+          ? {
+              supportedThinkingEfforts: [...catalogEfforts],
+              capabilities: { ...variant.capabilities, effort_tiers: [...catalogEfforts] },
+            }
+          : {}),
         contextLength,
+        ...(Number.isFinite(maxOutputTokens) && maxOutputTokens > 0 ? { maxOutputTokens } : {}),
+        ...(supportsVision ? { supportsVision: true } : {}),
         rateMultiplier: Number.isFinite(rateMultiplier) ? rateMultiplier : 1.0,
         upstreamModelId: upstreamId,
         description: toNonEmptyString(item.description) || "",
@@ -434,13 +450,7 @@ export async function fetchKiroAvailableModels(
   }
 
   for (const base of endpoints) {
-    const models = await tryFetchModels(
-      fetchImpl,
-      base,
-      token,
-      profileArn,
-      providerSpecificData
-    );
+    const models = await tryFetchModels(fetchImpl, base, token, profileArn, providerSpecificData);
     if (models) {
       catalogCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, models });
       return { models, source: "api" };

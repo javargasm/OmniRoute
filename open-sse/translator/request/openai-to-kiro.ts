@@ -5,6 +5,7 @@
 import { register } from "../registry.ts";
 import { FORMATS } from "../formats.ts";
 import { v4 as uuidv4, v5 as uuidv5 } from "uuid";
+import { clampKiroEffort, getKiroModelCapabilities } from "../../services/kiroModelCapabilities.ts";
 import { capMaxOutputTokens, capThinkingBudget } from "@/lib/modelCapabilities";
 import {
   parseToolInput,
@@ -1308,11 +1309,14 @@ export function buildKiroPayload(model, body, stream, credentials) {
   const firstContent =
     seedFromPreCompression || firstRealUserTurn?.userInputMessage?.content || finalContent;
 
-  // Use uuidv5 with the hash of the system prompt / first message to maintain AWS Builder ID context cache
-  payload.conversationState.conversationId = uuidv5(
-    (firstContent || "").substring(0, 4000),
-    NAMESPACE_KIRO
-  );
+  // A client-supplied session identity (x-session-id, x-kiro-session-id, anthropic-session-id,
+  // metadata.session_id, ...) is the most stable seed: it survives edits to the first message
+  // and never falls back to `finalContent`, which embeds the current timestamp.
+  const sessionKey =
+    typeof credentials?._sessionKey === "string" ? credentials._sessionKey.trim() : "";
+  payload.conversationState.conversationId = sessionKey
+    ? uuidv5(`session:${sessionKey.substring(0, 256)}`, NAMESPACE_KIRO)
+    : uuidv5((firstContent || "").substring(0, 4000), NAMESPACE_KIRO);
 
   if (profileArn) {
     payload.profileArn = profileArn;
@@ -1342,11 +1346,23 @@ export function buildKiroPayload(model, body, stream, credentials) {
     modelRequestedEffort ||
     bodyRequestedEffort ||
     (modelRequestsThinking ? "high" : "");
-  const usesNativeReasoning = supportsKiroNativeReasoning(normalizedModel);
-  const usesAdaptiveThinking = supportsKiroAdaptiveThinking(normalizedModel);
-  const usesPromptThinking = supportsKiroPromptThinking(normalizedModel);
+  // The live catalog schema, when discovered, overrides the static allowlists:
+  // it names the effort field and the accepted enum for this account's model.
+  const catalogCaps = getKiroModelCapabilities(normalizedModel);
+  const usesNativeReasoning = catalogCaps?.effortField
+    ? catalogCaps.effortField === "reasoning"
+    : !catalogCaps && supportsKiroNativeReasoning(normalizedModel);
+  const usesAdaptiveThinking = catalogCaps?.effortField
+    ? catalogCaps.effortField === "output_config"
+    : !catalogCaps && supportsKiroAdaptiveThinking(normalizedModel);
+  const usesPromptThinking =
+    !usesNativeReasoning && !usesAdaptiveThinking && supportsKiroPromptThinking(normalizedModel);
   const kiroEffort =
-    usesNativeReasoning || usesAdaptiveThinking || usesPromptThinking ? requestedEffort : "";
+    (usesNativeReasoning || usesAdaptiveThinking || usesPromptThinking) && requestedEffort
+      ? (usesPromptThinking
+          ? requestedEffort
+          : clampKiroEffort(normalizedModel, requestedEffort)) || ""
+      : "";
   if (kiroEffort) {
     if (usesNativeReasoning) {
       payload.additionalModelRequestFields = { reasoning: { effort: kiroEffort } };
@@ -1382,7 +1398,7 @@ export function buildKiroPayload(model, body, stream, credentials) {
 
       // Forward max_tokens only when the client set one, clamped to the model's
       // output window (floor 1024) — matches pi-kiro and avoids an over-budget reject.
-      if (maxTokens > 0) {
+      if (maxTokens > 0 && catalogCaps?.supportsMaxTokens !== false) {
         const capped = capMaxOutputTokens(normalizedModel, maxTokens) ?? maxTokens;
         fields.max_tokens = Math.max(Math.floor(capped), 1024);
       }

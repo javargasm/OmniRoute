@@ -349,6 +349,8 @@ export function translateRequest(
     preserveCacheControl?: boolean;
     signatureNamespace?: string | null;
     preCompressionBody?: Record<string, unknown> | null;
+    /** Client-supplied conversation/session identity, forwarded as `_sessionKey`. */
+    sessionKey?: string | null;
     reasoningCacheScope?: string | null;
     /** Video-derived requests must not replay retained reasoning from previous turns. */
     videoTranscriptSensitive?: boolean;
@@ -561,14 +563,17 @@ export function translateRequest(
         if (fromOpenAI) {
           const hasNs = options?.signatureNamespace != null;
           const hasPreCompression = options?.preCompressionBody != null;
+          const hasSessionKey =
+            typeof options?.sessionKey === "string" && options.sessionKey !== "";
           const hasCopilot = options?.copilotClient === true;
           const hasProvider = provider != null;
           const translationCredentials =
-            hasNs || hasPreCompression || hasCopilot || hasProvider
+            hasNs || hasPreCompression || hasSessionKey || hasCopilot || hasProvider
               ? {
                   ...(credentials && typeof credentials === "object" ? credentials : {}),
                   ...(hasNs ? { _signatureNamespace: options.signatureNamespace } : {}),
                   ...(hasPreCompression ? { _preCompressionBody: options.preCompressionBody } : {}),
+                  ...(hasSessionKey ? { _sessionKey: options.sessionKey } : {}),
                   ...(hasCopilot ? { _copilotClient: true } : {}),
                   // Routed provider id so target translators can apply provider-specific
                   // quirks (e.g. Vertex rejects function_call.id — #3440).

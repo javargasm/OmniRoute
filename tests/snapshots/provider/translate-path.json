@@ -3404,9 +3404,9 @@
         "Cache-Control": "no-cache",
         "Content-Type": "application/x-amz-json-1.0",
         "Pragma": "no-cache",
-        "User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 md/appVersion-2.21.4 app/AmazonQ-For-CLI",
+        "User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 md/appVersion-2.24.0 app/AmazonQ-For-CLI",
         "X-Amz-Target": "AmazonCodeWhispererStreamingService.GenerateAssistantResponse",
-        "X-Amz-User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 m/F,C md/appVersion-2.21.4 app/AmazonQ-For-CLI",
+        "X-Amz-User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 m/F,C md/appVersion-2.24.0 app/AmazonQ-For-CLI",
         "x-amzn-codewhisperer-optout": "true"
       },
       "nonStream": {
@@ -3416,9 +3416,9 @@
         "Cache-Control": "no-cache",
         "Content-Type": "application/x-amz-json-1.0",
         "Pragma": "no-cache",
-        "User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 md/appVersion-2.21.4 app/AmazonQ-For-CLI",
+        "User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 md/appVersion-2.24.0 app/AmazonQ-For-CLI",
         "X-Amz-Target": "AmazonCodeWhispererStreamingService.GenerateAssistantResponse",
-        "X-Amz-User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 m/F,C md/appVersion-2.21.4 app/AmazonQ-For-CLI",
+        "X-Amz-User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 m/F,C md/appVersion-2.24.0 app/AmazonQ-For-CLI",
         "x-amzn-codewhisperer-optout": "true"
       },
       "oauth": {
@@ -3428,9 +3428,9 @@
         "Cache-Control": "no-cache",
         "Content-Type": "application/x-amz-json-1.0",
         "Pragma": "no-cache",
-        "User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 md/appVersion-2.21.4 app/AmazonQ-For-CLI",
+        "User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 md/appVersion-2.24.0 app/AmazonQ-For-CLI",
         "X-Amz-Target": "AmazonCodeWhispererStreamingService.GenerateAssistantResponse",
-        "X-Amz-User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 m/F,C md/appVersion-2.21.4 app/AmazonQ-For-CLI",
+        "X-Amz-User-Agent": "aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererstreaming/0.1.17975 os/macos lang/rust/1.92.0 m/F,C md/appVersion-2.24.0 app/AmazonQ-For-CLI",
         "x-amzn-codewhisperer-optout": "true"
       }
     },

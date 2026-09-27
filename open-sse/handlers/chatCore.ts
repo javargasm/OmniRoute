@@ -267,6 +267,7 @@ import {
 import { wrapReadableStreamWithFinalize } from "./chatCore/streamFinalize.ts";
 import { buildCacheUsageLogMeta } from "./chatCore/cacheUsageMeta.ts";
 import { buildExecutorClientHeaders } from "./chatCore/executorClientHeaders.ts";
+import { resolveKiroSessionKey } from "../utils/kiroSessionKey.ts";
 import { getExecutionConnectionId } from "./chatCore/executionCredentials.ts";
 import { resolveExecutionCredentials as resolveExecutionCredentialsFor } from "./chatCore/executionCredentials.ts";
 import { resolveExecutorWithProxy as resolveExecutorWithProxyFor } from "./chatCore/executorProxy.ts";
@@ -2628,6 +2629,9 @@ async function handleChatCoreInner({
             reasoningReplayHistory = messages;
           },
           ...(preCompressionBody ? { preCompressionBody } : {}),
+          ...(targetFormat === FORMATS.KIRO
+            ? { sessionKey: resolveKiroSessionKey(getExecutorClientHeaders(), body) ?? null }
+            : {}),
         }
       );
     }

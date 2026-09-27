@@ -89,7 +89,7 @@ export const CODEBUDDY_CN_USER_AGENT = "CLI/2.108.1 CodeBuddy/2.108.1";
 // Keep this pin aligned with the installed Amazon Q/Kiro CLI wire identity;
 // the surrounding SDK tokens remain separately captured rather than inferred
 // from the bundle version.
-export const KIRO_CLI_VERSION = "2.21.4";
+export const KIRO_CLI_VERSION = "2.24.0";
 
 export function resolveKiroOS(): string {
   if (typeof process === "undefined" || typeof process.platform !== "string") return "linux";

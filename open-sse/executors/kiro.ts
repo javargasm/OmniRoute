@@ -30,6 +30,13 @@ import {
   extractEventStreamException,
 } from "./kiro/eventstream.ts";
 import {
+  KIRO_MAX_CONTEXT_TRIM_ATTEMPTS,
+  isKiroContextTooLong,
+  kiroRetryDelayMs,
+  sleepWithSignal,
+  trimKiroConversationForRetry,
+} from "./kiro/requestRecovery.ts";
+import {
   kiroRuntimeHost,
   kiroRuntimeEndpoint,
   resolveKiroRuntimeRegion,
@@ -78,6 +85,8 @@ type KiroStreamState = {
   contextUsagePercentage?: number;
   hasContextUsage?: boolean;
   hasMeteringEvent?: boolean;
+  /** Credits Kiro billed for this turn (`meteringEvent` with unit "credit"). */
+  meteringCredits?: number;
   usage?: Partial<UsageSummary>;
   hasReasoningContent?: boolean;
   reasoningChunkCount?: number;
@@ -173,7 +182,10 @@ function buildKiroFinishChunk(
   };
 
   if (includeUsage && state.usage) {
-    finishChunk.usage = state.usage;
+    finishChunk.usage =
+      state.meteringCredits !== undefined
+        ? { ...state.usage, kiro_credits: state.meteringCredits }
+        : state.usage;
   }
 
   return finishChunk;
@@ -204,6 +216,20 @@ function resolveKiroFinishReason(
     default:
       return state.hasToolCalls ? "tool_calls" : "stop";
   }
+}
+
+/** Credit figure from a `meteringEvent` (flat or nested under `metering`). */
+export function readKiroMeteringCredits(payload: JsonRecord | null): number | undefined {
+  if (!payload) return undefined;
+  const nested = payload.metering;
+  const source =
+    nested && typeof nested === "object" && !Array.isArray(nested)
+      ? (nested as JsonRecord)
+      : payload;
+  const unit = typeof source.unit === "string" ? source.unit.toLowerCase() : "credit";
+  if (unit !== "credit" && unit !== "credits") return undefined;
+  const usage = source.usage;
+  return typeof usage === "number" && Number.isFinite(usage) && usage >= 0 ? usage : undefined;
 }
 
 function readKiroMetadataStopReason(payload: JsonRecord | null): string | undefined {
@@ -262,6 +288,13 @@ function resolveKiroMaxInputTokens(model: string): number {
  * adding a separately-estimated completion on top would double-count it and
  * inflate `total_tokens`.
  */
+/**
+ * At or above this `contextUsagePercentage`, report prompt tokens just past the
+ * model's window so clients (Claude Code, OpenCode, ...) compact before Kiro
+ * starts rejecting the conversation with 413 / CONTENT_LENGTH_EXCEEDS_THRESHOLD.
+ */
+export const KIRO_CONTEXT_PRESSURE_PERCENT = 95;
+
 function ensureKiroUsage(state: KiroStreamState, model: string) {
   if (state.usage?.total_tokens !== undefined) return;
   const estimatedOutputTokens =
@@ -287,7 +320,11 @@ function ensureKiroUsage(state: KiroStreamState, model: string) {
     return;
   }
 
-  const promptTokens = Math.max(0, estimatedTotalTokens - estimatedOutputTokens);
+  let promptTokens = Math.max(0, estimatedTotalTokens - estimatedOutputTokens);
+  if ((state.contextUsagePercentage ?? 0) >= KIRO_CONTEXT_PRESSURE_PERCENT) {
+    const window = resolveKiroMaxInputTokens(model);
+    promptTokens = Math.max(promptTokens, window + 1 - estimatedOutputTokens);
+  }
 
   state.usage = {
     ...state.usage,
@@ -459,6 +496,7 @@ export class KiroExecutor extends BaseExecutor {
     signal,
     log,
     upstreamExtraHeaders,
+    skipUpstreamRetry,
   }: ExecuteInput) {
     // Route to the region-specific CodeWhisperer/Amazon Q endpoint. Enterprise IAM Identity
     // Center accounts (e.g. eu-central-1) are rejected by the default us-east-1 host; only the
@@ -488,23 +526,76 @@ export class KiroExecutor extends BaseExecutor {
 
     const headers = this.buildHeaders(credentials, stream);
     mergeUpstreamExtraHeaders(headers, upstreamExtraHeaders);
-    const transformedBody = await this.transformRequest(model, body, stream, credentials);
-    const requestBody = JSON.stringify(transformedBody);
+    let transformedBody = await this.transformRequest(model, body, stream, credentials);
 
     let response!: Response;
     let url = candidateUrls[0];
-    for (let i = 0; i < candidateUrls.length; i++) {
-      url = candidateUrls[i];
-      response = await fetch(url, {
-        method: "POST",
-        headers,
-        body: requestBody,
-        signal,
-      });
-      const hasFallback = i + 1 < candidateUrls.length;
-      if (response.ok || !hasFallback || !KIRO_ENDPOINT_FALLBACK_STATUSES.has(response.status)) {
-        break;
+    let trimAttempts = 0;
+    let retryAttempts = 0;
+    for (;;) {
+      const requestBody = JSON.stringify(transformedBody);
+      for (let i = 0; i < candidateUrls.length; i++) {
+        url = candidateUrls[i];
+        response = await fetch(url, {
+          method: "POST",
+          headers,
+          body: requestBody,
+          signal,
+        });
+        const hasFallback = i + 1 < candidateUrls.length;
+        if (response.ok || !hasFallback || !KIRO_ENDPOINT_FALLBACK_STATUSES.has(response.status)) {
+          break;
+        }
       }
+      if (response.ok || signal?.aborted) break;
+
+      // Read the error once; hand callers an equivalent response afterwards.
+      const errorText = await response.text().catch(() => "");
+      const rebuilt = () =>
+        new Response(errorText, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+
+      if (
+        isKiroContextTooLong(response.status, errorText) &&
+        trimAttempts < KIRO_MAX_CONTEXT_TRIM_ATTEMPTS
+      ) {
+        const trimmed = trimKiroConversationForRetry(transformedBody);
+        if (trimmed) {
+          trimAttempts++;
+          log?.warn?.(
+            "KIRO",
+            `context too long (${response.status}); trimmed history, retry ${trimAttempts}/${KIRO_MAX_CONTEXT_TRIM_ATTEMPTS}`
+          );
+          transformedBody = trimmed;
+          continue;
+        }
+      }
+
+      const delayMs = skipUpstreamRetry
+        ? null
+        : kiroRetryDelayMs(
+            response.status,
+            errorText,
+            retryAttempts,
+            response.headers.get("retry-after")
+          );
+      if (delayMs !== null) {
+        retryAttempts++;
+        log?.warn?.("KIRO", `transient ${response.status}; retry ${retryAttempts} in ${delayMs}ms`);
+        try {
+          await sleepWithSignal(delayMs, signal);
+        } catch {
+          response = rebuilt();
+          break;
+        }
+        continue;
+      }
+
+      response = rebuilt();
+      break;
     }
 
     if (!response.ok) {
@@ -1171,6 +1262,10 @@ export class KiroExecutor extends BaseExecutor {
             // Handle meteringEvent - mark that we received it
             if (eventType === "meteringEvent") {
               state.hasMeteringEvent = true;
+              const credits = readKiroMeteringCredits(event.payload);
+              if (credits !== undefined) {
+                state.meteringCredits = (state.meteringCredits ?? 0) + credits;
+              }
             }
 
             // Kiro's metadataEvent is the source of truth for completion. The
