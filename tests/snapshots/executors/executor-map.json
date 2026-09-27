@@ -90,11 +90,6 @@
       "configSource": "<custom-config>",
       "provider": "chatgpt-web-codex"
     },
-    "cgpt-companion": {
-      "className": "ChatGptWebCompanionExecutor",
-      "configSource": "<custom-config>",
-      "provider": "chatgpt-web-companion"
-    },
     "chatgpt-web": {
       "className": "ChatGptWebExecutor",
       "configSource": "<custom-config>",
@@ -104,11 +99,6 @@
       "className": "ChatGptWebCodexExecutor",
       "configSource": "<custom-config>",
       "provider": "chatgpt-web-codex"
-    },
-    "chatgpt-web-companion": {
-      "className": "ChatGptWebCompanionExecutor",
-      "configSource": "<custom-config>",
-      "provider": "chatgpt-web-companion"
     },
     "cheaperinference": {
       "className": "CheaperInferenceExecutor",
@@ -666,6 +656,6 @@
       "provider": "zai-web"
     }
   },
-  "keyCount": 133,
+  "keyCount": 131,
   "sharedInstances": []
 }
