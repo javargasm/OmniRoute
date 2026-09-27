@@ -214,7 +214,19 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
   {
     fromVersion: "177",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "190",
+    toVersion: "194",
+    toName: "call_logs_effective_reasoning_effort",
+  },
+  {
+    fromVersion: "186",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "194",
+    toName: "call_logs_effective_reasoning_effort",
+  },
+  {
+    fromVersion: "190",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "194",
     toName: "call_logs_effective_reasoning_effort",
   },
 ] as const;

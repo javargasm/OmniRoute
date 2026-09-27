@@ -70,8 +70,8 @@ describe("migrationRunner/constants — exact small-table snapshots", () => {
 // ── large tables — count + shape + spot-checks (corruption guard) ─────────────
 
 describe("migrationRunner/constants — large-table integrity", () => {
-  it("RENAMED_MIGRATION_COMPATIBILITY has 33 well-formed entries", () => {
-    assert.equal(RENAMED_MIGRATION_COMPATIBILITY.length, 33);
+  it("RENAMED_MIGRATION_COMPATIBILITY has 35 well-formed entries", () => {
+    assert.equal(RENAMED_MIGRATION_COMPATIBILITY.length, 35);
     for (const e of RENAMED_MIGRATION_COMPATIBILITY) {
       assert.equal(typeof e.fromVersion, "string");
       assert.equal(typeof e.fromName, "string");
@@ -124,53 +124,65 @@ describe("migrationRunner/constants — large-table integrity", () => {
         toName: "inspector_custom_hosts",
       }
     );
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-8), {
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-10), {
       fromVersion: "134",
       fromName: "ccr_blocks",
       toVersion: "139",
       toName: "ccr_blocks",
     });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-7), {
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-9), {
       fromVersion: "139",
       fromName: "job_registry",
       toVersion: "146",
       toName: "job_registry",
     });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-6), {
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-8), {
       fromVersion: "143",
       fromName: "radar_local_model_state",
       toVersion: "153",
       toName: "radar_local_model_state",
     });
     // #12036: renamed migrations 056/073/077/101 appended as compatibility renames
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-5), {
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-7), {
       fromVersion: "056",
       fromName: "provider_default",
       toVersion: "056",
       toName: "mcp_accessibility_compression",
     });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-4), {
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-6), {
       fromVersion: "073",
       fromName: "discovery_results",
       toVersion: "073",
       toName: "per_model_token_limits",
     });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-3), {
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-5), {
       fromVersion: "077",
       fromName: "plugin_metrics",
       toVersion: "077",
       toName: "api_key_stream_default_mode",
     });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-2), {
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-4), {
       fromVersion: "101",
       fromName: "proxy_pool_rotation",
       toVersion: "101",
       toName: "api_key_usage_limits",
     });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-1), {
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-3), {
       fromVersion: "177",
       fromName: "call_logs_effective_reasoning_effort",
-      toVersion: "190",
+      toVersion: "194",
+      toName: "call_logs_effective_reasoning_effort",
+    });
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-2), {
+      fromVersion: "186",
+      fromName: "call_logs_effective_reasoning_effort",
+      toVersion: "194",
+      toName: "call_logs_effective_reasoning_effort",
+    });
+    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-1), {
+      fromVersion: "190",
+      fromName: "call_logs_effective_reasoning_effort",
+      toVersion: "194",
       toName: "call_logs_effective_reasoning_effort",
     });
   });

@@ -27,6 +27,7 @@ import { sanitizeErrorMessage } from "../../utils/error.ts";
 import { isEstimatedUsage } from "../../utils/usageTracking.ts";
 import { cloneBoundedChatLogPayload, truncateForLog } from "./logTruncation.ts";
 import { attachLogMeta } from "./cacheUsageMeta.ts";
+import { readAddedWait } from "../../utils/proxyFetch.ts";
 
 const OMITTED_VIDEO_TRANSCRIPT_REQUEST = { _omniroute_omitted: "video-transcript" };
 
@@ -244,6 +245,7 @@ export function extractResponsesId(sourceFormat: unknown, clientResponse: unknow
 export type PersistAttemptLogsArgs = {
   status: number;
   tokens?: unknown;
+  usageEstimated?: boolean | null;
   responseBody?: unknown;
   error?: string | null;
   providerRequest?: unknown;
@@ -553,9 +555,15 @@ export function persistAttemptLogs(args: PersistAttemptLogsArgs, ctx: PersistAtt
       ? (getKiroWireReasoningEffort(providerRequest) ?? getNormalizedReasoningEffort(body))
       : null;
 
-  // Combo attempts share pendingRequestId; traceId identifies each row and its lifecycle events.
+  // Primary key is a fresh UUID from saveCallLog, not traceId. Attempts share
+  // pendingRequestId and must not share the row key. correlationId still
+  // pairs the row with request.started. pendingRequestId is NOT the row key: it only
+  // routes token usage to the live in-memory request row (#14324).
+  // Late read of the per-request added wait published on the ALS
+  // capture sink by the executor. Fail-soft: null outside a capture or when
+  // nothing was published — the row stores NULL (no wait), never throws.
+  const addedWait = readAddedWait();
   saveCallLog({
-    id: traceId,
     pendingRequestId: ctx.pendingRequestId,
     method: "POST",
     path: clientRawRequest?.endpoint || "/v1/chat/completions",
@@ -567,6 +575,9 @@ export function persistAttemptLogs(args: PersistAttemptLogsArgs, ctx: PersistAtt
     duration: Date.now() - startTime,
     tokens: tokens || {},
     effectiveReasoningEffort,
+    // Estimated-token flag, computed here where tokens still carry the marker
+    // (it does not survive spreads or JSON round-trips to the sink).
+    usageEstimated: args.usageEstimated ?? (isEstimatedUsage(tokens) ? true : null),
     // Encrypted-reasoning observation: stream-side flag plus duration, and
     // the two request bodies so the sink can read effort values
     // (requested from the client body, upstream from the post-strip body).
@@ -607,11 +618,13 @@ export function persistAttemptLogs(args: PersistAttemptLogsArgs, ctx: PersistAtt
     apiKeyName: apiKeyInfo?.name || null,
     noLog: noLogEnabled,
     pipelinePayloads,
-    correlationId,
+    correlationId: correlationId || traceId,
     modelPinned: modelPinned || false,
     sessionTag: sessionTag || null,
     responseId: extractResponsesId(sourceFormat, clientResponse),
     videoContentRemoved: videoContentRemoved || false,
+    addedWaitMs: addedWait?.ms ?? null,
+    addedWaitCause: addedWait?.cause ?? null,
   }).catch(() => {});
 
   // Emit the terminal request-lifecycle event to the live dashboard bus. `request.started`

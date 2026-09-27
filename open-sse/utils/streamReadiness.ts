@@ -486,7 +486,7 @@ function extractKiroEventStreamReadinessFailure(
   };
 }
 
-function prependBufferedChunks(
+export function prependBufferedChunks(
   chunks: Uint8Array[],
   reader: ReadableStreamDefaultReader<Uint8Array>
 ): ReadableStream<Uint8Array> {

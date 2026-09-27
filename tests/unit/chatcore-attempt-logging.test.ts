@@ -57,10 +57,15 @@ function baseCtx(overrides: Record<string, unknown> = {}) {
   } as Parameters<typeof persistAttemptLogs>[1];
 }
 
-async function pollForCallLog(id: string, tries = 120) {
+async function pollForCallLog(traceId: string, tries = 120) {
+  // #14451: call_logs.id is a fresh UUID. The dashboard traceId is stored on
+  // correlation_id so a test can still find the attempt without sharing a PK.
   for (let i = 0; i < tries; i++) {
-    const row = await getCallLogById(id);
-    if (row) return row as Record<string, unknown>;
+    const rows = await getCallLogs({ correlationId: traceId, limit: 5 });
+    if (rows[0]?.id) {
+      const row = await getCallLogById(rows[0].id);
+      if (row) return row as Record<string, unknown>;
+    }
     await new Promise((r) => setTimeout(r, 20));
   }
   return null;
@@ -259,7 +264,7 @@ test("Kiro persists final wire reasoning effort independently of token telemetry
   assert.equal((row.tokens as { reasoning?: unknown }).reasoning, null);
 
   const listRow = (await getCallLogs({ provider: "kiro", limit: 100 })).find(
-    (entry) => entry.id === id
+    (entry) => entry.id === row.id
   );
   assert.equal(listRow?.effectiveReasoningEffort, "max");
 });
@@ -322,8 +327,11 @@ test("non-Kiro attempts never persist an effective Kiro reasoning effort", async
   assert.equal(row.effectiveReasoningEffort, null);
 });
 
-// Distinct attempt traceIds must not collide on their shared pendingRequestId.
-test("combo attempt uses traceId as the log id, not pendingRequestId", async () => {
+// #13481: combo attempts share pendingRequestId and must still land as separate
+// rows. #14451: those rows are no longer keyed by traceId (a short prefix
+// collided, and a reused id overwrites the artifact file). The dashboard token
+// is stored on correlation_id; the SQLite primary key is a generated UUID.
+test("combo attempts that share pendingRequestId both land, keyed independently of traceId", async () => {
   const traceId = "combo-trace-attempt-2";
   const pendingRequestId = "combo-shared-request-id";
   persistAttemptLogs(
@@ -336,7 +344,9 @@ test("combo attempt uses traceId as the log id, not pendingRequestId", async () 
     })
   );
   const row = await pollForCallLog(traceId);
-  assert.ok(row, "call log row should be persisted with traceId as id");
+  assert.ok(row, "call log row should be persisted for this attempt");
+  assert.notEqual(row.id, traceId);
+  assert.equal(row.correlationId, traceId);
   assert.equal(row.status, 200);
   assert.equal(row.comboStepId, "my-combo-model-2");
 
@@ -353,5 +363,7 @@ test("combo attempt uses traceId as the log id, not pendingRequestId", async () 
   );
   const row2 = await pollForCallLog(traceId2);
   assert.ok(row2, "second combo attempt should also be persisted");
+  assert.notEqual(row2.id, row.id);
+  assert.equal(row2.correlationId, traceId2);
   assert.equal(row2.comboStepId, "my-combo-model-3");
 });

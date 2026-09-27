@@ -595,7 +595,7 @@ function isSchemaAlreadyApplied(
       );
     case "177":
       return hasColumn(db, "provider_connections", "synced_models_at");
-    case "190":
+    case "194":
       return hasColumn(db, "call_logs", "effective_reasoning_effort");
     case "179":
       // proxy_logs.upstream_status may already exist if ensureProxyLogsColumns ran first;

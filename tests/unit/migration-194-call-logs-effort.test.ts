@@ -13,7 +13,7 @@ const repoMigrations = path.join(
 );
 for (const file of [
   "177_provider_connection_synced_models_at.sql",
-  "190_call_logs_effective_reasoning_effort.sql",
+  "194_call_logs_effective_reasoning_effort.sql",
 ]) {
   fs.copyFileSync(path.join(repoMigrations, file), path.join(migrationsDir, file));
 }
@@ -45,10 +45,10 @@ function applied(db: Database.Database): Array<{ version: string; name: string }
 
 const expected = [
   { version: "177", name: "provider_connection_synced_models_at" },
-  { version: "190", name: "call_logs_effective_reasoning_effort" },
+  { version: "194", name: "call_logs_effective_reasoning_effort" },
 ];
 
-test("fresh databases apply both the upstream 177 and local 190 migrations", () => {
+test("fresh databases apply both the upstream 177 and local 194 migrations", () => {
   const db = openDb();
   try {
     assert.equal(runMigrations(db, { isNewDb: true }), 2);
