@@ -43,6 +43,7 @@ import {
   DEFAULT_PROFILE_ARN,
 } from "../services/kiroRegion.ts";
 import { getKiroServiceHeaders } from "../config/providerHeaderProfiles.ts";
+import { buildErrorBody } from "../utils/error.ts";
 import {
   KIRO_TOOL_CALL_WRAPPER,
   appendBufferedKiroToolInput,
@@ -73,6 +74,7 @@ type KiroStreamState = {
   stopSeen: boolean;
   /** Authoritative termination marker carried by Kiro's metadataEvent. */
   stopReason?: string;
+  refusalCategory?: "REASONING_EXTRACTION";
   hasToolCalls: boolean;
   toolCallIndex: number;
   seenToolIds: Map<string, number>;
@@ -1278,6 +1280,11 @@ export class KiroExecutor extends BaseExecutor {
             if (eventType === "metadataEvent") {
               const stopReason = readKiroMetadataStopReason(event.payload);
               if (stopReason) state.stopReason = stopReason;
+              const metadata = (event.payload?.metadataEvent ?? event.payload) as
+                { stopDetails?: { refusal?: { category?: unknown } } } | undefined;
+              if (metadata?.stopDetails?.refusal?.category === "REASONING_EXTRACTION") {
+                state.refusalCategory = "REASONING_EXTRACTION";
+              }
             }
 
             // Handle token usage. Kiro reports it under more than one frame: the
@@ -1410,6 +1417,16 @@ export class KiroExecutor extends BaseExecutor {
           if (!state.finishEmitted) {
             state.finishEmitted = true;
             ensureKiroUsage(state, model);
+            if (resolveKiroFinishReason(state) === "content_filter") {
+              const category = state.refusalCategory ? ` (${state.refusalCategory})` : "";
+              const errorBody = buildErrorBody(
+                400,
+                `Kiro's safety filter rejected this turn${category}. Start a new conversation or revise the request.`,
+                undefined,
+                { code: "content_filter", type: "invalid_request_error" }
+              );
+              controller.enqueue(TEXT_ENCODER.encode(`data: ${JSON.stringify(errorBody)}\n\n`));
+            }
             const finishChunk = buildKiroFinishChunk(state, responseId, created, model, true);
             controller.enqueue(TEXT_ENCODER.encode(`data: ${JSON.stringify(finishChunk)}\n\n`));
           }

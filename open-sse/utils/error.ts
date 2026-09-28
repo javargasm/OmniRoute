@@ -110,6 +110,7 @@ const SAFE_PUBLIC_ERROR_IDENTIFIERS = new Set([
   "connection_unavailable",
   "connector_error",
   "connector_not_found",
+  "content_filter",
   "context_length_exceeded",
   "context_window",
   "devin_agentic_error",

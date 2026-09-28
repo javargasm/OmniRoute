@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { KiroExecutor } from "../../open-sse/executors/kiro.ts";
+import { runNonStreamingProviderLeg } from "../../open-sse/handlers/chatCore/nonStreamingProviderLeg.ts";
+import { createPassthroughStreamWithLogger, createSSEStream } from "../../open-sse/utils/stream.ts";
 import {
   createStreamContentWatcher,
   ensureStreamReadiness,
@@ -550,9 +552,150 @@ test("KiroExecutor preserves CONTENT_FILTERED for empty and reasoning-only strea
       }
       watcher.finish();
       assert.equal(watcher.sawLegitEmptyTerminal(), true);
-      assert.equal(watcher.sawError(), false);
+      assert.equal(watcher.sawError(), true);
+      const error = chunks.find((chunk) => chunk.error)?.error;
+      assert.equal(error?.code, "content_filter");
+      assert.match(error?.message, /Kiro.*safety filter/i);
       if (!reasoning) assert.equal(watcher.sawContent(), false);
     }
+  }
+});
+
+test("Kiro refusal survives client stream handling with one error and terminal", async () => {
+  const executor = new KiroExecutor();
+  const response = executor.transformEventStreamToSSE(
+    buildEventStreamResponse([
+      buildEventFrame("reasoningContentEvent", { text: "Considering." }),
+      buildEventFrame("metadataEvent", {
+        stopReason: "CONTENT_FILTERED",
+        stopDetails: { refusal: { category: "REASONING_EXTRACTION" } },
+      }),
+    ]),
+    "claude-opus-5.5"
+  );
+  const failures: Array<{ status: number; code?: string }> = [];
+  const stream = response.body!.pipeThrough(
+    createPassthroughStreamWithLogger(
+      "kiro",
+      null,
+      null,
+      "claude-opus-5.5",
+      null,
+      { messages: [{ role: "user", content: "Hi" }] },
+      null,
+      null,
+      (failure) => {
+        failures.push(failure);
+        return true;
+      }
+    )
+  );
+  const text = await new Response(stream).text();
+  const chunks = parseSSEJsonChunks(text);
+  assert.equal(chunks.filter((chunk) => chunk.error?.code === "content_filter").length, 1);
+  assert.match(text, /REASONING_EXTRACTION/);
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0].status, 400);
+  assert.equal(failures[0].code, "content_filter");
+  assert.equal(
+    chunks.some((chunk) => chunk.choices?.[0]?.finish_reason === "stop"),
+    false
+  );
+  assert.equal(text.split("data: [DONE]").length - 1, 1);
+});
+
+test("Kiro refusal never exposes unrecognized categories or provider explanations", async () => {
+  const response = new KiroExecutor().transformEventStreamToSSE(
+    buildEventStreamResponse([
+      buildEventFrame("metadataEvent", {
+        stopReason: "CONTENT_FILTERED",
+        stopDetails: {
+          refusal: { category: "sk-private", explanation: "at /home/private/file.ts:42" },
+        },
+      }),
+    ]),
+    "claude-opus-5.5"
+  );
+  const text = await response.text();
+  const errors = parseSSEJsonChunks(text).filter((chunk) => chunk.error);
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].error.code, "content_filter");
+  assert.match(errors[0].error.message, /safety filter/);
+  assert.doesNotMatch(text, /sk-private|\/home\/private/);
+});
+
+test("Kiro refusal reaches translated Claude and Responses streams as a typed error", async () => {
+  for (const format of ["claude", "openai-responses"]) {
+    const response = new KiroExecutor().transformEventStreamToSSE(
+      buildEventStreamResponse([
+        buildEventFrame("metadataEvent", { stopReason: "CONTENT_FILTERED" }),
+      ]),
+      "claude-opus-5.5"
+    );
+    const text = await new Response(
+      response.body!.pipeThrough(
+        createSSEStream({
+          mode: "translate",
+          sourceFormat: format,
+          targetFormat: "openai",
+          provider: "kiro",
+          model: "claude-opus-5.5",
+        })
+      )
+    ).text();
+    assert.match(text, /"code":"content_filter"/);
+    assert.match(text, format === "claude" ? /event: error/ : /event: response.failed/);
+    assert.doesNotMatch(text, /data: \[DONE\]/);
+  }
+});
+
+test("Kiro refusal reaches non-streaming clients as HTTP 400 without retry", async () => {
+  const executor = new KiroExecutor();
+  for (const nested of [false, true]) {
+    let calls = 0;
+    const metadata = {
+      stopReason: "CONTENT_FILTERED",
+      stopDetails: {
+        refusal: {
+          category: "REASONING_EXTRACTION",
+          explanation: "secret API_KEY=sk-private at /home/private/server.ts:42",
+        },
+      },
+    };
+    const result = await runNonStreamingProviderLeg({
+      phase: "initial",
+      sourceBody: { model: "claude-opus-5.5", messages: [{ role: "user", content: "Hi" }] },
+      allowAccountRotation: true,
+      allowModelFallback: true,
+      provider: "kiro",
+      model: "claude-opus-5.5",
+      targetFormat: "openai",
+      setRequestWireState: () => {},
+      executeProviderRequest: async () => {
+        calls++;
+        return {
+          response: executor.transformEventStreamToSSE(
+            buildEventStreamResponse([
+              buildEventFrame("reasoningContentEvent", { text: "Considering." }),
+              buildEventFrame("metadataEvent", nested ? { metadataEvent: metadata } : metadata),
+            ]),
+            "claude-opus-5.5"
+          ),
+          url: "https://runtime.us-east-1.kiro.dev/",
+          headers: {},
+          transformedBody: {},
+        };
+      },
+    });
+    assert.equal(calls, 1);
+    assert.equal(result.kind, "error");
+    if (result.kind !== "error") continue;
+    assert.equal(result.receipt.httpStatus, 400);
+    assert.equal(result.result.response.status, 400);
+    const body = await result.result.response.json();
+    assert.equal(body.error.code, "content_filter");
+    assert.match(body.error.message, /REASONING_EXTRACTION/);
+    assert.doesNotMatch(JSON.stringify(body), /sk-private|\/home\/private|Considering/);
   }
 });
 

@@ -2264,6 +2264,9 @@ export function createSSEStream(options: StreamOptions = {}) {
             reqLogger?.appendConvertedChunk?.(output);
             forward(controller, encoder.encode(output));
             if (failurePayload) {
+              if (failurePayload.code === "content_filter" && shouldEmitDoneTerminator) {
+                forward(controller, encoder.encode("data: [DONE]\n\n"));
+              }
               abortStreamFailure(
                 controller,
                 failurePayload,
