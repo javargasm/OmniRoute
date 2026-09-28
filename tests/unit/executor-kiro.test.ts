@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 
 import { KiroExecutor } from "../../open-sse/executors/kiro.ts";
 import {
+  createStreamContentWatcher,
   ensureStreamReadiness,
   hasStreamReadinessSignal,
 } from "../../open-sse/utils/streamReadiness.ts";
@@ -476,6 +477,18 @@ test("KiroExecutor maps authoritative metadataEvent stop reasons to OpenAI finis
       frames: [],
     },
     {
+      stopReason: "CONTENT_FILTERED",
+      payload: { stopReason: "CONTENT_FILTERED" },
+      expected: "content_filter",
+      frames: [
+        buildEventFrame("toolUseEvent", {
+          toolUseId: "tool_before_filter",
+          name: "read_file",
+          input: { path: "/tmp/partial" },
+        }),
+      ],
+    },
+    {
       stopReason: "MAX_TOKENS",
       // A tool frame makes the legacy heuristic choose tool_calls. The
       // authoritative metadata must instead expose the truncation as length.
@@ -502,6 +515,44 @@ test("KiroExecutor maps authoritative metadataEvent stop reasons to OpenAI finis
     );
     const finish = chunks.find((chunk) => chunk.choices?.[0]?.finish_reason);
     assert.equal(finish.choices[0].finish_reason, expected, stopReason);
+  }
+});
+
+test("KiroExecutor preserves CONTENT_FILTERED for empty and reasoning-only streams", async () => {
+  const executor = new KiroExecutor();
+  for (const nested of [false, true]) {
+    for (const reasoning of [false, true]) {
+      const metadata = { stopReason: "CONTENT_FILTERED" };
+      const response = buildEventStreamResponse([
+        ...(reasoning
+          ? [buildEventFrame("reasoningContentEvent", { text: "Considering the request." })]
+          : []),
+        buildEventFrame("metadataEvent", nested ? { metadataEvent: metadata } : metadata),
+        buildEventFrame("contextUsageEvent", { contextUsagePercentage: 1 }),
+      ]);
+      const text = await executor.transformEventStreamToSSE(response, "claude-opus-5.5").text();
+      const chunks = parseSSEJsonChunks(text);
+      const finishes = chunks.filter((chunk) => chunk.choices?.[0]?.finish_reason);
+      assert.equal(finishes.length, 1);
+      assert.equal(finishes[0].choices[0].finish_reason, "content_filter");
+      assert.equal(
+        chunks.some((chunk) => chunk.choices?.[0]?.delta?.content),
+        false
+      );
+      assert.equal(
+        chunks.some((chunk) => chunk.choices?.[0]?.delta?.tool_calls),
+        false
+      );
+      assert.equal(text.split("data: [DONE]").length - 1, 1);
+      const watcher = createStreamContentWatcher();
+      for (let offset = 0; offset < text.length; offset += 11) {
+        watcher.note(text.slice(offset, offset + 11));
+      }
+      watcher.finish();
+      assert.equal(watcher.sawLegitEmptyTerminal(), true);
+      assert.equal(watcher.sawError(), false);
+      if (!reasoning) assert.equal(watcher.sawContent(), false);
+    }
   }
 });
 

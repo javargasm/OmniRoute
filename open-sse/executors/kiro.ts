@@ -199,8 +199,10 @@ function buildKiroFinishChunk(
  */
 function resolveKiroFinishReason(
   state: Pick<KiroStreamState, "hasToolCalls" | "stopReason">
-): "stop" | "length" | "tool_calls" {
+): "stop" | "length" | "tool_calls" | "content_filter" {
   switch (state.stopReason?.trim().toUpperCase()) {
+    case "CONTENT_FILTERED":
+      return "content_filter";
     case "TOOL_USE":
     case "TOOL_CALLS":
       return "tool_calls";
