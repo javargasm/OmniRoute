@@ -8,6 +8,7 @@
  * EXECUTOR_IMPORT_RESTRICTION in eslint.config.mjs), so they go through this service.
  */
 export {
+  getCodexReasoningLevels,
   normalizeCodexEffortLevels,
   registerCodexReasoningLevels,
   splitCodexReasoningSuffix,

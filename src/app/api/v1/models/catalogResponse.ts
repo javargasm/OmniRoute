@@ -24,6 +24,8 @@ import {
 } from "@/lib/db/functionalGatewayMirrors";
 import { buildFunctionalGatewayPredicate } from "./functionalGatewayPredicate";
 import { getPassthroughProviders, REGISTRY } from "@omniroute/open-sse/config/providerRegistry";
+import { getCodexReasoningLevels } from "@omniroute/open-sse/services/codexReasoningLevelTable";
+import { hydrateCodexReasoningLevelsFromSyncedModels } from "@/shared/services/codexReasoningLevels";
 import { hasEligibleConnectionForModel } from "@/domain/connectionModelRules";
 import { dedupeExactCatalogIds } from "./catalogDedupe";
 import { sortCatalogModelsProviderGrouped } from "./catalogOrder";
@@ -296,6 +298,8 @@ export async function finalizeCatalogResponse(
   //      per-entry work is interleaved with other callers / the dashboard WS.
   const yieldTurn = (): Promise<void> => new Promise((resolve) => setImmediate(resolve));
   await yieldTurn();
+  // The discovered Codex level table is filled asynchronously at startup; load it first.
+  await hydrateCodexReasoningLevelsFromSyncedModels();
   const capabilityResolutionSnapshot =
     enrichmentSnapshot?.capabilityResolutionSnapshot ?? createModelCapabilityResolutionSnapshot();
   const enriched: Array<Record<string, unknown>> = [];
@@ -319,15 +323,15 @@ export async function finalizeCatalogResponse(
     const modelId = typeof listedModel.id === "string" ? listedModel.id : "";
     const isNoThink = modelId.startsWith("no-think/");
     const hasFixedEffortOrThinking =
-      /-(?:none|minimal|low|medium|high|xhigh|max|ultra|tiered|thinking|nothinking)$/i.test(modelId) ||
-      modelId.includes("-thinking-");
+      /-(?:none|minimal|low|medium|high|xhigh|max|ultra|tiered|thinking|nothinking)$/i.test(
+        modelId
+      ) || modelId.includes("-thinking-");
 
     // Dynamic reasoning effort is for models whose model family or explicit sync
     // supports parameterized reasoning effort, provided the model does not already
     // have a static effort tier burned into its name.
     const rawModel =
-      (typeof listedModel.root === "string" && listedModel.root) ||
-      modelId.replace(/^[^/]+\//, "");
+      (typeof listedModel.root === "string" && listedModel.root) || modelId.replace(/^[^/]+\//, "");
 
     const isDynamicReasoningFamily =
       /^(?:gpt-(?:5\.6|6)|o[134]|deepseek-(?:r1|v4|reasoner)|grok-(?:3|4))(?:-|$)/i.test(rawModel);
@@ -337,11 +341,15 @@ export async function finalizeCatalogResponse(
       Array.isArray(caps.effort_tiers) &&
       caps.effort_tiers.length > 0 &&
       caps.supportsThinking === true;
+    // Codex keeps discovered levels off synced capabilities (#7694), so models without a
+    // registry entry (e.g. gpt-6.1-sol) take them from the discovery level table.
+    const discoveredEfforts =
+      listedModel.owned_by === "codex" ? getCodexReasoningLevels(rawModel) : null;
 
     const hasThinking =
       !isNoThink &&
       !hasFixedEffortOrThinking &&
-      (isDynamicReasoningFamily || hasExplicitEfforts);
+      (isDynamicReasoningFamily || hasExplicitEfforts || Boolean(discoveredEfforts?.length));
 
     if (hasThinking) {
       listedModel.supportsReasoningEffort = true;
@@ -349,7 +357,9 @@ export async function finalizeCatalogResponse(
       const effortTiers =
         Array.isArray(caps.effort_tiers) && caps.effort_tiers.length > 0
           ? caps.effort_tiers
-          : ["none", "low", "medium", "high", "xhigh", "max"];
+          : discoveredEfforts?.length
+            ? [...discoveredEfforts]
+            : ["none", "low", "medium", "high", "xhigh", "max"];
       listedModel.reasoningEfforts = effortTiers;
       listedModel.reasoning_efforts = effortTiers;
     }
