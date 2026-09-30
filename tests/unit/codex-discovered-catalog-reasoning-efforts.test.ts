@@ -1,7 +1,8 @@
 // Codex keeps discovered reasoning levels off synced catalog capabilities (#7694), so a
-// model without a registry entry (gpt-6.1-sol) reached /v1/models with no effort selector
-// for catalog clients such as Grok Build. The catalog must publish the levels Codex
-// discovery declared and stored for that model.
+// model without a registry entry (gpt-6.1-sol) reached /v1/models without its levels:
+// with no models.dev row it had no effort selector for catalog clients such as Grok
+// Build, and with one it got the generic none..max list. The catalog must publish the
+// levels Codex discovery declared and stored for that model.
 
 import test from "node:test";
 import assert from "node:assert/strict";
@@ -17,14 +18,37 @@ const core = await import("../../src/lib/db/core.ts");
 const apiKeysDb = await import("../../src/lib/db/apiKeys.ts");
 const modelsDb = await import("../../src/lib/db/models.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
+const modelsDevSync = await import("../../src/lib/modelsDevSync.ts");
 const v1ModelsCatalog = await import("../../src/app/api/v1/models/catalog.ts");
 const reasoningSuffix = await import("../../open-sse/executors/codex/reasoningSuffix.ts");
 const reasoningLevelsHydration = await import("../../src/shared/services/codexReasoningLevels.ts");
 
 const SOL_LEVELS = ["low", "medium", "high", "xhigh", "max", "ultra"];
 
+// The models.dev row the live catalog carries for Codex gpt-6.1-sol (provider key "cx").
+const MODELS_DEV_GPT_61_SOL = {
+  tool_call: true,
+  reasoning: true,
+  attachment: true,
+  structured_output: true,
+  temperature: false,
+  modalities_input: '["text","image","pdf"]',
+  modalities_output: '["text"]',
+  knowledge_cutoff: "2026-04-30",
+  release_date: "2026-09-29",
+  last_updated: "2026-09-29",
+  status: null,
+  family: "gpt-sol",
+  open_weights: false,
+  limit_context: 1050000,
+  limit_input: 922000,
+  limit_output: 128000,
+  interleaved_field: null,
+};
+
 type CatalogEntry = {
   id: string;
+  capabilities?: { effort_tiers?: string[] };
   supports_reasoning_effort?: boolean;
   reasoning_efforts?: string[];
 };
@@ -90,14 +114,25 @@ async function getCatalog(): Promise<Map<string, CatalogEntry>> {
   return new Map((body.data || []).map((entry) => [entry.id, entry]));
 }
 
+function assertPublishesSolLevels(entry: CatalogEntry | undefined): CatalogEntry {
+  assert.ok(entry, "cx/gpt-6.1-sol must be listed");
+  assert.equal(entry.supports_reasoning_effort, true);
+  assert.deepEqual(entry.reasoning_efforts, SOL_LEVELS);
+  return entry;
+}
+
 test("/v1/models publishes stored Codex reasoning levels for a model without a registry entry", async () => {
   await seedCodexCatalog();
 
-  const base = (await getCatalog()).get("cx/gpt-6.1-sol");
+  assertPublishesSolLevels((await getCatalog()).get("cx/gpt-6.1-sol"));
+});
 
-  assert.ok(base, "cx/gpt-6.1-sol must be listed");
-  assert.equal(base.supports_reasoning_effort, true);
-  assert.deepEqual(base.reasoning_efforts, SOL_LEVELS);
+test("stored Codex reasoning levels replace the generic list when models.dev marks the model as reasoning", async () => {
+  await seedCodexCatalog();
+  modelsDevSync.upsertSyncedCapabilities("cx", { "gpt-6.1-sol": MODELS_DEV_GPT_61_SOL });
+
+  const entry = assertPublishesSolLevels((await getCatalog()).get("cx/gpt-6.1-sol"));
+  assert.deepEqual(entry.capabilities?.effort_tiers, SOL_LEVELS);
 });
 
 test("fixed-effort variants and models without declared levels get no effort selector", async () => {

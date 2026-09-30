@@ -1,5 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { parseModel } from "@omniroute/open-sse/services/model.ts";
+import { getCodexReasoningLevels } from "@omniroute/open-sse/services/codexReasoningLevelTable.ts";
 import { getModelInfo } from "@/sse/services/model";
 import { getModelAliases } from "@/lib/db/models";
 import {
@@ -495,24 +496,32 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
   const sourceDeclaresThinking =
     typeof existingCapabilities.thinking === "boolean" ||
     typeof existingCapabilities.supportsThinking === "boolean";
+  // Codex keeps discovered levels off synced capabilities (#7694); they are the upstream
+  // contract when no explicit list exists, e.g. for gpt-6.1-sol, which has no registry entry.
+  const discoveredCodexEfforts =
+    metadata.provider === "codex" ? getCodexReasoningLevels(metadata.model) : null;
+  const supportsThinking =
+    metadata.capabilities.supportsThinking ?? (discoveredCodexEfforts ? true : null);
   const effortTiers =
     metadata.capabilities.supportedThinkingEfforts &&
     metadata.capabilities.supportedThinkingEfforts.length > 0
       ? [...metadata.capabilities.supportedThinkingEfforts]
       : declaredEffortTiers.length > 0
         ? declaredEffortTiers
-        : sourceDeclaresThinking
-          ? undefined
-          : // #10963: GLM-family models never inherit generic OpenAI tiers — an
-            // explicit empty list is authoritative unless a provider-declared
-            // contract exists (handled by declaredEffortTiers above).
-            isGlmFamilyModel(metadata.model, metadata.displayName)
-            ? []
-            : extendCodexGpt56EffortValues(
-                metadata.provider,
-                metadata.model,
-                CANONICAL_EFFORT_VALUES
-              );
+        : discoveredCodexEfforts
+          ? [...discoveredCodexEfforts]
+          : sourceDeclaresThinking
+            ? undefined
+            : // #10963: GLM-family models never inherit generic OpenAI tiers — an
+              // explicit empty list is authoritative unless a provider-declared
+              // contract exists (handled by declaredEffortTiers above).
+              isGlmFamilyModel(metadata.model, metadata.displayName)
+              ? []
+              : extendCodexGpt56EffortValues(
+                  metadata.provider,
+                  metadata.model,
+                  CANONICAL_EFFORT_VALUES
+                );
   const capabilityFields = {
     ...(typeof metadata.capabilities.vision === "boolean"
       ? { vision: metadata.capabilities.vision }
@@ -536,13 +545,11 @@ export function enrichCatalogModelEntry<T extends JsonRecord>(
     // (only when the model actually supports thinking). An explicit empty registry list
     // is authoritative; GLM models also require a provider-declared contract instead of
     // inheriting generic OpenAI effort tiers.
-    ...(typeof metadata.capabilities.supportsThinking === "boolean"
+    ...(typeof supportsThinking === "boolean"
       ? {
-          thinking: metadata.capabilities.supportsThinking,
-          supportsThinking: metadata.capabilities.supportsThinking,
-          ...(metadata.capabilities.supportsThinking && effortTiers
-            ? { effort_tiers: effortTiers }
-            : {}),
+          thinking: supportsThinking,
+          supportsThinking,
+          ...(supportsThinking && effortTiers ? { effort_tiers: effortTiers } : {}),
         }
       : {}),
     ...(typeof metadata.capabilities.attachment === "boolean"
