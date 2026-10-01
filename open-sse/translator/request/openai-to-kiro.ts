@@ -948,76 +948,46 @@ function convertMessages(messages, tools, model) {
     }
   }
 
-  // Ensure every toolUse has a matching toolResult in the subsequent user turn.
-  // Kiro API (Bedrock/CodeWhisperer) strictly rejects conversations with 400
-  // "Improperly formed request" (REQUEST_BODY_INVALID) if an assistant turn defines
-  // toolUses but the following user turn fails to provide a toolResult for every
-  // advertised toolUseId (e.g. when an agent client like OpenCode omits, cancels,
-  // or fails a tool call in a parallel batch). Synthesize an error toolResult for
-  // any unfulfilled toolUse so the conversational protocol remains valid.
-  for (let i = 0; i < mergedHistory.length; i++) {
-    const item = mergedHistory[i];
-    const toolUses = item?.assistantResponseMessage?.toolUses as
-      Array<Record<string, unknown>> | undefined;
-    if (!toolUses || toolUses.length === 0) continue;
-
-    const nextItem = (i + 1 < mergedHistory.length ? mergedHistory[i + 1] : currentMessage) as
-      (typeof mergedHistory)[number] | typeof currentMessage | null | undefined;
-
-    if (nextItem?.userInputMessage) {
-      if (!nextItem.userInputMessage.userInputMessageContext) {
-        nextItem.userInputMessage.userInputMessageContext = {};
-      }
-      const existingResults = (
-        (nextItem.userInputMessage.userInputMessageContext.toolResults as Array<
-          Record<string, unknown>
-        >) || []
-      ).slice();
-      const answeredIds = new Set(
-        existingResults
-          .map((tr) => (typeof tr.toolUseId === "string" ? tr.toolUseId : ""))
-          .filter((id) => id.length > 0)
-      );
-
-      let addedSynthetic = false;
-      for (const tu of toolUses) {
-        const id = typeof tu.toolUseId === "string" ? tu.toolUseId : "";
-        if (id && !answeredIds.has(id)) {
-          existingResults.push({
-            toolUseId: id,
-            status: "error",
-            content: [{ text: "(tool execution omitted or cancelled by client)" }],
-          });
-          answeredIds.add(id);
-          addedSynthetic = true;
-        }
-      }
-
-      if (addedSynthetic) {
-        nextItem.userInputMessage.userInputMessageContext.toolResults = existingResults;
+  // Strip orphaned toolUses: an assistantResponseMessage that advertises a
+  // toolUse with no matching toolResult anywhere in history (or the current
+  // message) produces an invalid Kiro/Bedrock transcript -- Bedrock rejects it
+  // with "Expected toolResult blocks at messages.N.content for the following
+  // Ids: ...". This mirrors the orphaned-toolResult cleanup above, but for the
+  // opposite direction (a tool_use that never got answered, e.g. because the
+  // client lost one of two parallel tool results). The same defense
+  // (fixToolPairs, open-sse/services/contextManager.ts) already applies on the
+  // Claude and post-#7822 Antigravity paths; KiroExecutor.execute() never
+  // calls BaseExecutor.execute(), so it never got this guard.
+  const answeredToolUseIds = new Set<string>();
+  for (const item of mergedHistory) {
+    const toolResults = item.userInputMessage?.userInputMessageContext?.toolResults as
+      Array<{ toolUseId?: string }> | undefined;
+    if (Array.isArray(toolResults)) {
+      for (const result of toolResults) {
+        if (result?.toolUseId) answeredToolUseIds.add(result.toolUseId);
       }
     }
   }
-
-  // If synthetic toolResults or existing tool blocks exist, but no tools were attached
-  // to currentMessage, attach KIRO_PLACEHOLDER_TOOL so Bedrock does not reject with
-  // TOOL_CONFIG_MISSING.
-  if (
-    !toolsAttached &&
-    currentMessage?.userInputMessage &&
-    (historyHasToolBlocks(mergedHistory) ||
-      Boolean(
-        currentMessage.userInputMessage.userInputMessageContext?.toolResults &&
-        Array.isArray(currentMessage.userInputMessage.userInputMessageContext.toolResults) &&
-        currentMessage.userInputMessage.userInputMessageContext.toolResults.length > 0
-      ))
-  ) {
-    if (!currentMessage.userInputMessage.userInputMessageContext) {
-      currentMessage.userInputMessage.userInputMessageContext = {};
+  const currentToolResultsForOrphanCheck = currentMessage?.userInputMessage?.userInputMessageContext
+    ?.toolResults as Array<{ toolUseId?: string }> | undefined;
+  if (Array.isArray(currentToolResultsForOrphanCheck)) {
+    for (const result of currentToolResultsForOrphanCheck) {
+      if (result?.toolUseId) answeredToolUseIds.add(result.toolUseId);
     }
-    if (!currentMessage.userInputMessage.userInputMessageContext.tools) {
-      currentMessage.userInputMessage.userInputMessageContext.tools = [KIRO_PLACEHOLDER_TOOL];
-      toolsAttached = true;
+  }
+  for (const item of mergedHistory) {
+    const toolUses = item.assistantResponseMessage?.toolUses as
+      Array<{ toolUseId?: string }> | undefined;
+    if (!Array.isArray(toolUses)) continue;
+    const filtered = toolUses.filter(
+      (use) => use?.toolUseId && answeredToolUseIds.has(use.toolUseId)
+    );
+    if (filtered.length !== toolUses.length) {
+      if (filtered.length > 0) {
+        item.assistantResponseMessage!.toolUses = filtered;
+      } else {
+        delete item.assistantResponseMessage!.toolUses;
+      }
     }
   }
 

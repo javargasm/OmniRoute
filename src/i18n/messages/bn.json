@@ -1203,6 +1203,8 @@
     "batchGroup": "ব্যাচ",
     "homeSubtitle": "ড্যাশবোর্ডের সারসংক্ষেপ",
     "providersSubtitle": "AI প্রোভাইডার পরিচালনা করুন",
+    "modelCatalog": "মডেল ক্যাটালগ",
+    "modelCatalogSubtitle": "প্রদানকারীদের মধ্যে মডেল ব্রাউজ করুন",
     "quotaTrackerSubtitle": "ব্যবহারের সীমা ট্র্যাক করুন",
     "providerQuotaSubtitle": "প্রোভাইডারের ব্যবহারের সীমা ট্র্যাক করুন",
     "runtimeSubtitle": "রিয়েল-টাইম সহনশীলতা ও সেশন",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "শাফল ডেক — পুনরায় শাফল করার আগে প্রতিটি মডেল একবার ব্যবহার করে",
     "fusion": "ফিউশন",
     "fusionDesc": "প্রম্পটটি সমান্তরালভাবে প্রতিটি প্যানেল মডেলে পাঠায়, তারপর একটি বিচারক মডেল একটি চূড়ান্ত উত্তর সংশ্লেষ করে",
+    "pipeline": "পাইপলাইন",
+    "pipelineDesc": "মডেলগুলো ক্রমানুসারে চালায়, প্রতিটি ধাপের আউটপুট পরের ধাপে পাঠায়; শুধু চূড়ান্ত উত্তর ফেরত দেয়",
     "fusionJudgeModel": "বিচারক মডেল",
     "fusionJudgeModelHelp": "যে মডেলটি প্যানেলের উত্তরগুলোকে একটি চূড়ান্ত প্রতিক্রিয়ায় সংশ্লেষ করে। প্রথম প্যানেল মডেলটি ব্যবহার করতে খালি রাখুন।",
     "fusionMinPanel": "ন্যূনতম প্যানেল",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "বিনামূল্যের স্ট্যাক ($0)",
-    "templateFreeStackDesc": "সব বিনামূল্যের প্রদানকারীর মধ্যে রাউন্ড-রবিন: Kiro (Claude), Qoder (5 মডেল), Qwen (4 মডেল)। কোনো খরচ নেই, কোডিং কখনো থামে না।",
+    "templateFreeStackDesc": "সব বিনামূল্যের প্রদানকারীর মধ্যে রাউন্ড-রবিন: Antigravity (Gemini), Kiro (Claude), Qoder (3 মডেল), NVIDIA, Groq। কোনো খরচ নেই, কোডিং কখনো থামে না।",
     "auto": "বুদ্ধিমান স্বয়ংক্রিয় ব্যবস্থা",
     "autoDesc": "বহু-উপাদানভিত্তিক স্কোরিংসহ স্বয়ংক্রিয়ভাবে পুনরুদ্ধারক্ষম স্মার্ট রাউটিং পুল",
     "lkgp": "LKGP মোড",
@@ -4960,6 +4964,7 @@
     "export": "এক্সপোর্ট করুন",
     "exporting": "এক্সপোর্ট করা হচ্ছে...",
     "exportFailed": "এক্সপোর্ট ব্যর্থ হয়েছে",
+    "exportTruncated": "এক্সপোর্ট কাটা হয়েছে: {total}টি লগ এন্ট্রির মধ্যে কেবল {exported}টি অন্তর্ভুক্ত হয়েছে। বাকিগুলো এক্সপোর্ট করতে ছোট সময়সীমা বেছে নিন।",
     "cleanHistoryButton": "হিস্ট্রি পরিষ্কার করুন",
     "cleanHistoryTitle": "লগ হিস্ট্রি পরিষ্কার করবেন?",
     "cleanHistoryMessage": "এটি DATA_DIR/call_logs-এর অধীনে থাকা সমস্ত রিকোয়েস্ট লগ সারি, লেগ্যাসি বিস্তারিত সারি এবং লোকাল আর্টিফ্যাক্ট ফাইল স্থায়ীভাবে মুছে ফেলবে। পরিষ্কার করার পর লাইভ পেজটি রিফ্রেশ হবে।",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "নির্বাচিত {count}টি সক্ষম করুন",
     "testPassed": "✓ ঠিক আছে",
     "sweepVerdict": "শেষ স্ক্যান: {cause} ({code}) {age}",
+    "blockedHistory": "ব্লক করা ইতিহাস: {count}× {cause} ({code}) {age}",
     "sweepNoData": "চালুর পর থেকে এখনও স্ক্যান হয়নি",
     "sweepLabel": {
       "unproven": "লক্ষ্য প্রত্যাখ্যান করেছে",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "সরিয়ে রাখা হয়েছে: {kind}",
     "poolSetAsideKindProxyUnreachable": "প্রক্সিতে পৌঁছানো যাচ্ছে না",
     "poolSetAsideKindIpQuota429": "IP রেট সীমা (429)",
+    "poolSetAsideKindSlow": "ধীর প্রতিক্রিয়া",
     "poolSetAsideUntil": "রোটেশনে ফিরেছে {endsAt}",
     "poolSetAsideRepeat": "সরিয়ে রাখা হয়েছে {count, plural, one {# বার} other {# বার}}",
     "poolUnknownAddress": "অজানা ঠিকানা",
@@ -11516,6 +11523,7 @@
       "output": "আউটপুট",
       "totalOut": "মোট আউট: {value}",
       "reasoning": "কারণ: {value}",
+      "reasoningObserved": "{value} · {chars}টি অক্ষর পর্যবেক্ষিত",
       "requestedModel": "অনুরোধ করা মডেল",
       "requestProtocol": "রেক প্রোটোকল",
       "cacheSource": "ক্যাশ সোর্স",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "সংযোগ থেকে উত্তরাধিকার: {host}",
     "inheritedPool": "সংযোগ পুল থেকে উত্তরাধিকার ({count})",
     "poolEmptyBlocked": "পুল খালি — অনুরোধ ব্যর্থ হয় (সরাসরি নয়)",
-    "directEgress": "সরাসরি (প্রক্সি ছাড়া)"
+    "directEgress": "সরাসরি (প্রক্সি ছাড়া)",
+    "ownProxy": "নিজস্ব প্রক্সি"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "আপস্ট্রিম স্থিতি",
     "noResponse": "কোনো প্রতিক্রিয়া নেই",
     "egressIp": "এগ্রেস আইপি",
+    "headersAfter": "হেডারস পরে",
+    "firstChunkAfter": "প্রথম চাঙ্ক পরে",
     "servedBy": "দ্বারা পরিবেশন করা হয়েছে",
     "correlationId": "সংশ্লেষণ আইডি"
   },

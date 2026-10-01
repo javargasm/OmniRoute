@@ -1203,6 +1203,8 @@
     "batchGroup": "బ్యాచ్",
     "homeSubtitle": "డ్యాష్బోర్డ్ అవలోకనం",
     "providersSubtitle": "AI ప్రొవైడర్లను నిర్వహించండి",
+    "modelCatalog": "మోడల్ కేటలాగ్",
+    "modelCatalogSubtitle": "ప్రొవైడర్లన్నింటిలో మోడల్‌లను బ్రౌజ్ చేయండి",
     "quotaTrackerSubtitle": "వినియోగ పరిమితులను ట్రాక్ చేయండి",
     "providerQuotaSubtitle": "ప్రొవైడర్ వినియోగ పరిమితులను ట్రాక్ చేయండి",
     "runtimeSubtitle": "రియల్టైమ్ రెసిలియన్స్ & సెషన్లు",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "షఫుల్ డెక్ — మళ్లీ షఫుల్ చేయడానికి ముందు ప్రతి మోడల్ను ఒక్కసారి ఉపయోగిస్తుంది",
     "fusion": "ఫ్యూజన్",
     "fusionDesc": "ప్రాంప్ట్‌ను సమాంతరంగా ప్రతి ప్యానెల్ మోడల్‌కు పంపుతుంది, ఆపై జడ్జ్ మోడల్ ఒక తుది సమాధానాన్ని సంశ్లేషిస్తుంది",
+    "pipeline": "పైప్లైన్",
+    "pipelineDesc": "మోడల్‌లను వరుసగా నడుపుతుంది, ప్రతి దశ అవుట్‌పుట్‌ను తదుపరి దశకు అందిస్తుంది; తుది సమాధానం మాత్రమే తిరిగి ఇవ్వబడుతుంది",
     "fusionJudgeModel": "జడ్జ్ మోడల్",
     "fusionJudgeModelHelp": "ప్యానెల్ సమాధానాలను ఒక తుది ప్రతిస్పందనగా సంశ్లేషించే మోడల్. మొదటి ప్యానెల్ మోడల్‌ను ఉపయోగించడానికి ఖాళీగా ఉంచండి.",
     "fusionMinPanel": "కనిష్ట ప్యానెల్",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "ఉచిత స్టాక్ ($0)",
-    "templateFreeStackDesc": "అన్ని ఉచిత ప్రొవైడర్లలో రౌండ్-రాబిన్: Kiro (Claude), Qoder (5 మోడళ్లు), Qwen (4 మోడళ్లు). సున్నా ఖర్చు, కోడింగ్ ఎప్పటికీ ఆగదు.",
+    "templateFreeStackDesc": "అన్ని ఉచిత ప్రొవైడర్లలో రౌండ్-రాబిన్: Antigravity (Gemini), Kiro (Claude), Qoder (3 మోడళ్లు), NVIDIA, Groq. సున్నా ఖర్చు, కోడింగ్ ఎప్పటికీ ఆగదు.",
     "auto": "తెలివైన ఆటో",
     "autoDesc": "బహుళ-కారక స్కోరింగ్తో స్వీయ-పునరుద్ధరణ స్మార్ట్ రూటింగ్ పూల్",
     "lkgp": "LKGP మోడ్",
@@ -4960,6 +4964,7 @@
     "export": "ఎగుమతి చేయి",
     "exporting": "ఎగుమతి చేస్తోంది...",
     "exportFailed": "ఎగుమతి విఫలమైంది",
+    "exportTruncated": "ఎగుమతి కత్తిరించబడింది: {total} లాగ్ ఎంట్రీలలో {exported} మాత్రమే చేర్చబడ్డాయి. మిగిలినవాటిని ఎగుమతి చేయడానికి తక్కువ సమయ పరిధిని ఎంచుకోండి.",
     "cleanHistoryButton": "చరిత్రను క్లియర్ చేయి",
     "cleanHistoryTitle": "లాగ్ చరిత్రను క్లియర్ చేయాలా?",
     "cleanHistoryMessage": "ఇది DATA_DIR/call_logs కింద ఉన్న అన్ని అభ్యర్థన లాగ్ వరుసలను, లెగసీ వివరాల వరుసలను మరియు స్థానిక ఆర్టిఫ్యాక్ట్ ఫైల్‌లను శాశ్వతంగా క్లియర్ చేస్తుంది. క్లీనప్ తర్వాత లైవ్ పేజీ రిఫ్రెష్ అవుతుంది.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "ఎంపిక చేసిన {count} వాటిని ప్రారంభించండి",
     "testPassed": "✓ సరే",
     "sweepVerdict": "చివరి స్కాన్: {cause} ({code}) {age}",
+    "blockedHistory": "అడ్డుకున్న చరిత్ర: {count}× {cause} ({code}) {age}",
     "sweepNoData": "ప్రారంభం నుండి ఇంకా స్కాన్ లేదు",
     "sweepLabel": {
       "unproven": "లక్ష్యం తిరస్కరించింది",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "పక్కన పెట్టబడింది: {kind}",
     "poolSetAsideKindProxyUnreachable": "ప్రాక్సీని చేరుకోలేకపోయింది",
     "poolSetAsideKindIpQuota429": "IP రేట్ పరిమితి (429)",
+    "poolSetAsideKindSlow": "నెమ్మదిగా స్పందనలు",
     "poolSetAsideUntil": "రొటేషన్‌లోకి తిరిగి {endsAt}",
     "poolSetAsideRepeat": "పక్కన పెట్టబడింది {count, plural, one {# సారి} other {# సార్లు}}",
     "poolUnknownAddress": "తెలియని చిరునామా",
@@ -11516,6 +11523,7 @@
       "output": "అవుట్‌పుట్",
       "totalOut": "మొత్తం అవుట్: {value}",
       "reasoning": "కారణం: {value}",
+      "reasoningObserved": "{value} · {chars} అక్షరాలు గమనించబడ్డాయి",
       "requestedModel": "అభ్యర్థించిన మోడల్",
       "requestProtocol": "రిక్వెస్ట్ ప్రోటోకాల్",
       "cacheSource": "క్యాష్ మూలం",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "కనెక్షన్ వారసత్వం: {host}",
     "inheritedPool": "కనెక్షన్ పూల్ వారసత్వం ({count})",
     "poolEmptyBlocked": "పూల్ ఖాళీ — అభ్యర్థనలు విఫలమవుతాయి (ప్రత్యక్షం కాదు)",
-    "directEgress": "ప్రత్యక్షం (ప్రాక్సీ లేకుండా)"
+    "directEgress": "ప్రత్యక్షం (ప్రాక్సీ లేకుండా)",
+    "ownProxy": "సొంత ప్రాక్సీ"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "అప్‌స్ట్రీమ్ స్థితి",
     "noResponse": "స్పందన లేదు",
     "egressIp": "ఇగ్రెస్ IP",
+    "headersAfter": "శీర్షికలు తర్వాత",
+    "firstChunkAfter": "మొదటి భాగం తర్వాత",
     "servedBy": "సేవ అందించినది",
     "correlationId": "సంబంధ ID"
   },

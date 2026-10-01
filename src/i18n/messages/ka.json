@@ -1203,6 +1203,8 @@
     "batchGroup": "პაკეტური დამუშავება",
     "homeSubtitle": "მართვის პანელის მიმოხილვა",
     "providersSubtitle": "AI პროვაიდერების მართვა",
+    "modelCatalog": "მოდელების კატალოგი",
+    "modelCatalogSubtitle": "დაათვალიერეთ მოდელები ყველა პროვაიდერში",
     "quotaTrackerSubtitle": "გამოყენების ლიმიტების თვალყურის დევნება",
     "providerQuotaSubtitle": "პროვაიდერის გამოყენების ლიმიტების თვალყურის დევნება",
     "runtimeSubtitle": "რეალურ დროში მდგრადობა და სესიები",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "არეული დასტა — ხელახლა არევამდე თითოეულ მოდელს ერთხელ იყენებს",
     "fusion": "შერწყმა",
     "fusionDesc": "მოთხოვნას პარალელურად უგზავნის პანელის ყველა მოდელს, შემდეგ კი მსაჯი მოდელი ერთ საბოლოო პასუხს აყალიბებს",
+    "pipeline": "პაიპლაინი",
+    "pipelineDesc": "მოდელებს თანმიმდევრულად უშვებს და თითოეული ნაბიჯის შედეგს შემდეგს გადასცემს; ბრუნდება მხოლოდ საბოლოო პასუხი",
     "fusionJudgeModel": "მსაჯი მოდელი",
     "fusionJudgeModelHelp": "მოდელი, რომელიც პანელის პასუხებისგან ერთ საბოლოო პასუხს აყალიბებს. პირველი პანელის მოდელის გამოსაყენებლად დატოვეთ ცარიელი.",
     "fusionMinPanel": "მინ. პანელი",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "უფასო სტეკი ($0)",
-    "templateFreeStackDesc": "წრიული მონაცვლეობა ყველა უფასო პროვაიდერს შორის: Kiro (Claude), Qoder (5 მოდელი), Qwen (4 მოდელი). ნულოვანი ღირებულება, კოდირებას არასდროს წყვეტს.",
+    "templateFreeStackDesc": "წრიული მონაცვლეობა ყველა უფასო პროვაიდერს შორის: Antigravity (Gemini), Kiro (Claude), Qoder (3 მოდელი), NVIDIA, Groq. ნულოვანი ღირებულება, კოდირებას არასდროს წყვეტს.",
     "auto": "ინტელექტუალური ავტომატური რეჟიმი",
     "autoDesc": "თვითაღდგენადი ჭკვიანი მარშრუტიზაციის პული მრავალფაქტორიანი შეფასებით",
     "lkgp": "LKGP რეჟიმი",
@@ -4960,6 +4964,7 @@
     "export": "ექსპორტი",
     "exporting": "ექსპორტირება მიმდინარეობს...",
     "exportFailed": "ექსპორტი ვერ შესრულდა",
+    "exportTruncated": "ექსპორტი შემოკლდა: ჩართულია ჟურნალის {total} ჩანაწერიდან მხოლოდ {exported}. დანარჩენის ექსპორტისთვის აირჩიეთ უფრო მოკლე დროის დიაპაზონი.",
     "cleanHistoryButton": "ისტორიის გასუფთავება",
     "cleanHistoryTitle": "გასუფთავდეს ჟურნალის ისტორია?",
     "cleanHistoryMessage": "ეს სამუდამოდ წაშლის მოთხოვნების ჟურნალის ყველა სტრიქონს, მოძველებული დეტალების სტრიქონებსა და DATA_DIR/call_logs საქაღალდეში არსებულ ლოკალურ არტეფაქტულ ფაილებს. გასუფთავების შემდეგ მიმდინარე გვერდი განახლდება.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "არჩეული {count}-ის ჩართვა",
     "testPassed": "✓ OK",
     "sweepVerdict": "ბოლო სკანირება: {cause} ({code}) {age}",
+    "blockedHistory": "ბლოკირებული ისტორია: {count}× {cause} ({code}) {age}",
     "sweepNoData": "გაშვების შემდეგ სკანირება არ ყოფილა",
     "sweepLabel": {
       "unproven": "სამიზნემ უარყო",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "გვერდზე გადადებული: {kind}",
     "poolSetAsideKindProxyUnreachable": "პროქსი მიუწვდომელია",
     "poolSetAsideKindIpQuota429": "IP სიჩქარის ლიმიტი (429)",
+    "poolSetAsideKindSlow": "ნელი პასუხები",
     "poolSetAsideUntil": "როტაციაში დაბრუნება {endsAt}",
     "poolSetAsideRepeat": "გვერდზე გადადებული {count, plural, one {# ჯერ} other {# ჯერ}}",
     "poolUnknownAddress": "უცნობი მისამართი",
@@ -11516,6 +11523,7 @@
       "output": "გამოტანა",
       "totalOut": "სულ გამოტანილი: {value}",
       "reasoning": "მსჯელობა: {value}",
+      "reasoningObserved": "{value} · დაფიქსირდა {chars} სიმბოლო",
       "requestedModel": "მოთხოვნილი მოდელი",
       "requestProtocol": "მოთხოვნის პროტოკოლი",
       "cacheSource": "ქეშის წყარო",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "მემკვიდრეობს კავშირს: {host}",
     "inheritedPool": "მემკვიდრეობს კავშირების პულს ({count})",
     "poolEmptyBlocked": "პული ცარიელია — მოთხოვნები ვარდება (არა პირდაპირ)",
-    "directEgress": "პირდაპირ (პროქსის გარეშე)"
+    "directEgress": "პირდაპირ (პროქსის გარეშე)",
+    "ownProxy": "საკუთარი პროქსი"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "ზედა ნაკადის სტატუსი",
     "noResponse": "პასუხი არ არის",
     "egressIp": "გამავალი IP",
+    "headersAfter": "თავსართები შემდეგ",
+    "firstChunkAfter": "პირველი ბლოკი შემდეგ",
     "servedBy": "მომსახურებულია",
     "correlationId": "კორელაციის ID"
   },

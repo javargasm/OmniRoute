@@ -1203,6 +1203,8 @@
     "batchGroup": "Пакетна обробка",
     "homeSubtitle": "Огляд панелі",
     "providersSubtitle": "Керування AI-провайдерами",
+    "modelCatalog": "Каталог моделей",
+    "modelCatalogSubtitle": "Переглядайте моделі всіх провайдерів",
     "quotaTrackerSubtitle": "Відстеження лімітів",
     "providerQuotaSubtitle": "Відстеження лімітів провайдерів",
     "runtimeSubtitle": "Стійкість і сесії в реальному часі",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Перетасована колода — кожна модель використовується один раз перед повторним перетасуванням",
     "fusion": "Злиття",
     "fusionDesc": "Розсилає запит усім моделям панелі паралельно, після чого модель-суддя синтезує одну остаточну відповідь",
+    "pipeline": "Конвеєр",
+    "pipelineDesc": "Запускає моделі послідовно, передаючи результат кожного кроку наступному; повертається лише остаточна відповідь",
     "fusionJudgeModel": "Модель-суддя",
     "fusionJudgeModelHelp": "Модель, яка синтезує відповіді панелі в одну остаточну відповідь. Залиште порожнім, щоб використовувати першу модель панелі.",
     "fusionMinPanel": "Мінімум панелі",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Безкоштовний стек ($0)",
-    "templateFreeStackDesc": "Циклічний розподіл між усіма безкоштовними провайдерами: Kiro (Claude), Qoder (5 моделей), Qwen (4 моделі). Нульова вартість, кодування без зупинок.",
+    "templateFreeStackDesc": "Циклічний розподіл між усіма безкоштовними провайдерами: Antigravity (Gemini), Kiro (Claude), Qoder (3 моделі), NVIDIA, Groq. Нульова вартість, кодування без зупинок.",
     "auto": "Auto Combo",
     "autoDesc": "Self-healing smart routing pool (Performance optimized)",
     "lkgp": "Режим LKGP",
@@ -4960,6 +4964,7 @@
     "export": "Експортувати",
     "exporting": "Експортування...",
     "exportFailed": "Не вдалося експортувати",
+    "exportTruncated": "Експорт обрізано: включено лише {exported} із {total} записів журналу. Виберіть коротший період, щоб експортувати решту.",
     "cleanHistoryButton": "Очистити історію",
     "cleanHistoryTitle": "Очистити історію логів?",
     "cleanHistoryMessage": "Це назавжди очистить усі рядки журналів запитів, застарілі рядки деталей та локальні файли артефактів у DATA_DIR/call_logs. Сторінка оновиться після очищення.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Увімкнути {count} вибраних",
     "testPassed": "✓ Успішно",
     "sweepVerdict": "Останнє сканування: {cause} ({code}) {age}",
+    "blockedHistory": "Заблокована історія: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Сканувань із запуску ще не було",
     "sweepLabel": {
       "unproven": "ціль відхилено",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "Відкладено: {kind}",
     "poolSetAsideKindProxyUnreachable": "проксі недоступний",
     "poolSetAsideKindIpQuota429": "обмеження частоти за IP (429)",
+    "poolSetAsideKindSlow": "повільні відповіді",
     "poolSetAsideUntil": "Знову в ротації {endsAt}",
     "poolSetAsideRepeat": "Відкладено {count, plural, one {# раз} other {# разів}}",
     "poolUnknownAddress": "Невідома адреса",
@@ -11516,6 +11523,7 @@
       "output": "Вивід",
       "totalOut": "Всього вихід: {value}",
       "reasoning": "Міркування: {value}",
+      "reasoningObserved": "{value} · помічено символів: {chars}",
       "requestedModel": "Запитана Модель",
       "requestProtocol": "Протокол запиту",
       "cacheSource": "Кеш Джерело",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Успадковує зʼєднання: {host}",
     "inheritedPool": "Успадковує пул зʼєднань ({count})",
     "poolEmptyBlocked": "Пул порожній — запити не вдаються (не напряму)",
-    "directEgress": "Напряму (без проксі)"
+    "directEgress": "Напряму (без проксі)",
+    "ownProxy": "Власний проксі"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "Статус верхнього потоку",
     "noResponse": "Немає відповіді",
     "egressIp": "Egress IP",
+    "headersAfter": "Заголовки після",
+    "firstChunkAfter": "Перший фрагмент після",
     "servedBy": "Обслуговується",
     "correlationId": "ID кореляції"
   },

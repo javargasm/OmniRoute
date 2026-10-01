@@ -1203,6 +1203,8 @@
     "batchGroup": "Paketna obdelava",
     "homeSubtitle": "Pregled nadzorne plošče",
     "providersSubtitle": "Upravljanje ponudnikov umetne inteligence",
+    "modelCatalog": "Katalog modelov",
+    "modelCatalogSubtitle": "Brskajte po modelih vseh ponudnikov",
     "quotaTrackerSubtitle": "Spremljanje omejitev uporabe",
     "providerQuotaSubtitle": "Spremljanje omejitev uporabe ponudnikov",
     "runtimeSubtitle": "Odpornost in seje v realnem času",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Premešani komplet — vsak model se uporabi enkrat pred ponovnim mešanjem",
     "fusion": "Združevanje",
     "fusionDesc": "Poziv vzporedno pošlje vsem modelom v panelu, nato pa model razsodnik njihove odgovore združi v en končni odgovor",
+    "pipeline": "Cevovod",
+    "pipelineDesc": "Modele izvaja zaporedno in izhod vsakega koraka posreduje naslednjemu; vrne se samo končni odgovor",
     "fusionJudgeModel": "Model razsodnik",
     "fusionJudgeModelHelp": "Model, ki odgovore panela združi v en končni odgovor. Če želite uporabiti prvi model panela, pustite prazno.",
     "fusionMinPanel": "Najmanjše število odgovorov panela",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Brezplačni nabor ($0)",
-    "templateFreeStackDesc": "Krožno usmerjanje med vsemi brezplačnimi ponudniki: Kiro (Claude), Qoder (5 modelov), Qwen (4 modeli). Brez stroškov, kodiranje se nikoli ne ustavi.",
+    "templateFreeStackDesc": "Krožno usmerjanje med vsemi brezplačnimi ponudniki: Antigravity (Gemini), Kiro (Claude), Qoder (3 modeli), NVIDIA, Groq. Brez stroškov, kodiranje se nikoli ne ustavi.",
     "auto": "Inteligentno samodejno usmerjanje",
     "autoDesc": "Samozdravljiv pametni nabor za usmerjanje z večfaktorskim točkovanjem",
     "lkgp": "Način LKGP",
@@ -4960,6 +4964,7 @@
     "export": "Izvozi",
     "exporting": "Izvažanje ...",
     "exportFailed": "Izvoz ni uspel",
+    "exportTruncated": "Izvoz je bil skrajšan: vključenih je le {exported} od {total} vnosov dnevnika. Za izvoz preostanka izberite krajše časovno obdobje.",
     "cleanHistoryButton": "Počisti zgodovino",
     "cleanHistoryTitle": "Želite počistiti zgodovino dnevnika?",
     "cleanHistoryMessage": "S tem boste trajno izbrisali vse vrstice dnevnika zahtev, podedovane vrstice s podrobnostmi in lokalne datoteke artefaktov v DATA_DIR/call_logs. Stran se bo po čiščenju osvežila.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Omogoči izbrane ({count})",
     "testPassed": "✓ V redu",
     "sweepVerdict": "Zadnje pregledovanje: {cause} ({code}) {age}",
+    "blockedHistory": "Zgodovina blokad: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Od zagona še ni pregledovanja",
     "sweepLabel": {
       "unproven": "cilj zavrnjen",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "Odloženo: {kind}",
     "poolSetAsideKindProxyUnreachable": "posredniški strežnik ni dosegljiv",
     "poolSetAsideKindIpQuota429": "omejitev hitrosti po IP (429)",
+    "poolSetAsideKindSlow": "počasni odzivi",
     "poolSetAsideUntil": "Nazaj v rotaciji {endsAt}",
     "poolSetAsideRepeat": "Odloženo {count, plural, one {#krat} other {#krat}}",
     "poolUnknownAddress": "Neznan naslov",
@@ -11516,6 +11523,7 @@
       "output": "Izhod",
       "totalOut": "Skupni izhod: {value}",
       "reasoning": "Sklepanje: {value}",
+      "reasoningObserved": "{value} · zaznanih {chars} znakov",
       "requestedModel": "Zahtevani model",
       "requestProtocol": "Protokol zahteve",
       "cacheSource": "Vir predpomnilnika",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Podeduje povezavo: {host}",
     "inheritedPool": "Podeduje bazen povezav ({count})",
     "poolEmptyBlocked": "Bazen prazen — zahteve ne uspejo (ne neposredno)",
-    "directEgress": "Neposredno (brez proxyja)"
+    "directEgress": "Neposredno (brez proxyja)",
+    "ownProxy": "Lasten posredniški strežnik"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "Status nihala",
     "noResponse": "Brez odgovora",
     "egressIp": "Egress IP",
+    "headersAfter": "Glave po",
+    "firstChunkAfter": "Prvi del po",
     "servedBy": "Servira",
     "correlationId": "ID korelacije"
   },

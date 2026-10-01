@@ -1203,6 +1203,8 @@
     "batchGroup": "Baisc",
     "homeSubtitle": "Forléargas deais",
     "providersSubtitle": "Bainistigh soláthraithe AI",
+    "modelCatalog": "Catalóg samhlacha",
+    "modelCatalogSubtitle": "Brabhsáil samhlacha ó sholáthraithe éagsúla",
     "quotaTrackerSubtitle": "Rianaigh teorainneacha úsáide",
     "providerQuotaSubtitle": "Rianaigh teorainneacha úsáide soláthraí",
     "runtimeSubtitle": "Athléimneacht agus seisiúin fíor-ama",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Meascann sé deic — úsáideann sé gach múnla uair amháin sula meascann sé arís",
     "fusion": "Comhleá",
     "fusionDesc": "Seolann sé an leid chuig gach múnla painéil go comhthreomhar, ansin sintéisíonn múnla breithimh freagra deiridh amháin.",
+    "pipeline": "Píblíne",
+    "pipelineDesc": "Ritheann sé na múnlaí in ord, ag cur aschur gach céime isteach sa chéad chéim eile; ní thugtar ar ais ach an freagra deiridh",
     "fusionJudgeModel": "Múnla breithimh",
     "fusionJudgeModelHelp": "Múnla a shintéisíonn freagraí an phainéil ina bhfreagra deiridh amháin. Fág folamh é chun an chéad mhúnla painéil a úsáid.",
     "fusionMinPanel": "Íosphainéal",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Stac Saor in Aisce ($0)",
-    "templateFreeStackDesc": "Sealaíocht chothrom idir na soláthraithe saor in aisce go léir: Kiro (Claude), Qoder (5 shamhail), Qwen (4 shamhail). Costas nialasach agus ní stopann sé den chódú choíche.",
+    "templateFreeStackDesc": "Sealaíocht chothrom idir na soláthraithe saor in aisce go léir: Antigravity (Gemini), Kiro (Claude), Qoder (3 shamhail), NVIDIA, Groq. Costas nialasach agus ní stopann sé den chódú choíche.",
     "auto": "Uathoibríoch Cliste",
     "autoDesc": "Linn ródaithe chliste fhéinleasaitheach le scóráil ilfhachtóirí",
     "lkgp": "Mód LKGP",
@@ -4960,6 +4964,7 @@
     "export": "Easpórtáil",
     "exporting": "Ag easpórtáil...",
     "exportFailed": "Theip ar an easpórtáil",
+    "exportTruncated": "Teasctha an easpórtáil: níor cuireadh san áireamh ach {exported} as {total} iontráil loga. Roghnaigh raon ama níos giorra chun an chuid eile a easpórtáil.",
     "cleanHistoryButton": "Glan an stair",
     "cleanHistoryTitle": "Glan stair an loga?",
     "cleanHistoryMessage": "Glanann sé seo go buan gach ró loga iarratais, gach seanró mionsonraí, agus gach comhad déantáin áitiúil faoi DATA_DIR/call_logs. Athnuafar an leathanach beo tar éis an ghlantacháin.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Cumasaigh {count} roghnaithe",
     "testPassed": "✓ Ceart go leor",
     "sweepVerdict": "Scan deireanach: {cause} ({code}) {age}",
+    "blockedHistory": "Stair blocáilte: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Gan scan fós ó thúsail",
     "sweepLabel": {
       "unproven": "dhiúltaigh an sprioc",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "Curtha ar leataobh: {kind}",
     "poolSetAsideKindProxyUnreachable": "níl teacht ar an seachfhreastalaí",
     "poolSetAsideKindIpQuota429": "teorainn ráta IP (429)",
+    "poolSetAsideKindSlow": "freagraí mall",
     "poolSetAsideUntil": "Ar ais sa rothlú {endsAt}",
     "poolSetAsideRepeat": "Curtha ar leataobh {count, plural, one {# uair} other {# uair}}",
     "poolUnknownAddress": "Seoladh anaithnid",
@@ -11516,6 +11523,7 @@
       "output": "Aschur",
       "totalOut": "Iomlán amach: {value}",
       "reasoning": "Réasúnaíocht: {value}",
+      "reasoningObserved": "{value} · {chars} carachtar breathnaithe",
       "requestedModel": "Samhail iarrtha",
       "requestProtocol": "Prótacal iarratais",
       "cacheSource": "Foinse Taisce",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Oidhreacht nasc: {host}",
     "inheritedPool": "Oidhreacht linn nasc ({count})",
     "poolEmptyBlocked": "Linn folamh — teipeann ar iarratais (ní díreach)",
-    "directEgress": "Díreach (gan seachfhreastalaí)"
+    "directEgress": "Díreach (gan seachfhreastalaí)",
+    "ownProxy": "Seachfhreastalaí féin"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "Stádas uachtarach",
     "noResponse": "Níl freagra",
     "egressIp": "IP Egress",
+    "headersAfter": "Ceanntásca i ndiaidh",
+    "firstChunkAfter": "An chéad slabhra i ndiaidh",
     "servedBy": "Freastalaithe ag",
     "correlationId": "ID Comhoiriúnachta"
   },

@@ -1203,6 +1203,8 @@
     "batchGroup": "အသုတ်လိုက်",
     "homeSubtitle": "ဒက်ရှ်ဘုတ် ခြုံငုံသုံးသပ်ချက်",
     "providersSubtitle": "AI ဝန်ဆောင်မှုပေးသူများကို စီမံခန့်ခွဲရန်",
+    "modelCatalog": "မော်ဒယ်ကတ်တလောက်",
+    "modelCatalogSubtitle": "ပံ့ပိုးသူများအားလုံးမှ မော်ဒယ်များကို ကြည့်ရှုပါ",
     "quotaTrackerSubtitle": "အသုံးပြုမှု ကန့်သတ်ချက်များကို ခြေရာခံရန်",
     "providerQuotaSubtitle": "ဝန်ဆောင်မှုပေးသူ၏ အသုံးပြုမှု ကန့်သတ်ချက်များကို ခြေရာခံရန်",
     "runtimeSubtitle": "အချိန်နှင့်တစ်ပြေးညီ ခံနိုင်ရည်ရှိမှုနှင့် ဆက်ရှင်များ",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "ကတ်အုပ်ကို မွှေသကဲ့သို့ — ပြန်မမွှေမီ မော်ဒယ်တစ်ခုစီကို တစ်ကြိမ်စီ အသုံးပြုသည်",
     "fusion": "ပေါင်းစပ်မှု",
     "fusionDesc": "prompt ကို panel မော်ဒယ်အားလုံးသို့ တစ်ပြိုင်နက် ပို့ပြီးနောက် အကဲဖြတ်မော်ဒယ်က နောက်ဆုံးအဖြေတစ်ခုအဖြစ် ပေါင်းစပ်ပေးသည်",
+    "pipeline": "လုပ်ငန်းစဉ် အဆင့်ဆင့်",
+    "pipelineDesc": "မော်ဒယ်များကို အစဉ်လိုက် လုပ်ဆောင်ပြီး အဆင့်တစ်ခုစီ၏ ရလဒ်ကို နောက်အဆင့်သို့ ပေးပို့သည်။ နောက်ဆုံးအဖြေကိုသာ ပြန်ပေးသည်",
     "fusionJudgeModel": "အကဲဖြတ်မော်ဒယ်",
     "fusionJudgeModelHelp": "panel အဖြေများကို နောက်ဆုံးတုံ့ပြန်ချက်တစ်ခုအဖြစ် ပေါင်းစပ်ပေးသည့် မော်ဒယ်။ ပထမဆုံး panel မော်ဒယ်ကို အသုံးပြုရန် ကွက်လပ်ထားပါ။",
     "fusionMinPanel": "အနည်းဆုံး panel အရေအတွက်",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "အခမဲ့အစု ($0)",
-    "templateFreeStackDesc": "အခမဲ့ ဝန်ဆောင်မှုပေးသူအားလုံးဖြစ်သော Kiro (Claude), Qoder (မော်ဒယ် 5 ခု), Qwen (မော်ဒယ် 4 ခု) တို့အကြား အလှည့်ကျ ဖြန့်ဝေသည်။ ကုန်ကျစရိတ် သုညဖြစ်ပြီး ကုဒ်ရေးသားမှု ဘယ်တော့မှ မရပ်ပါ။",
+    "templateFreeStackDesc": "အခမဲ့ ဝန်ဆောင်မှုပေးသူအားလုံးဖြစ်သော Antigravity (Gemini), Kiro (Claude), Qoder (မော်ဒယ် 3 ခု), NVIDIA, Groq တို့အကြား အလှည့်ကျ ဖြန့်ဝေသည်။ ကုန်ကျစရိတ် သုညဖြစ်ပြီး ကုဒ်ရေးသားမှု ဘယ်တော့မှ မရပ်ပါ။",
     "auto": "ဉာဏ်ရည်မြင့် အလိုအလျောက်စနစ်",
     "autoDesc": "အချက်များစွာဖြင့် အမှတ်ပေးသည့် ကိုယ်တိုင်ပြန်လည်ကောင်းမွန်နိုင်သော စမတ်လမ်းကြောင်းသတ်မှတ်မှုအစု",
     "lkgp": "LKGP မုဒ်",
@@ -4960,6 +4964,7 @@
     "export": "ထုတ်ယူရန်",
     "exporting": "ထုတ်ယူနေသည်...",
     "exportFailed": "ထုတ်ယူမှု မအောင်မြင်ပါ",
+    "exportTruncated": "ထုတ်ယူမှုကို ဖြတ်တောက်ထားသည်- မှတ်တမ်း {total} ခုအနက် {exported} ခုသာ ပါဝင်သည်။ ကျန်ရှိသည်များကို ထုတ်ယူရန် ပိုတိုသော အချိန်အပိုင်းအခြားကို ရွေးပါ။",
     "cleanHistoryButton": "မှတ်တမ်းရှင်းရန်",
     "cleanHistoryTitle": "Log မှတ်တမ်းကို ရှင်းမလား။",
     "cleanHistoryMessage": "၎င်းသည် တောင်းဆိုမှု Log အတန်းများအားလုံး၊ အဟောင်း Detail အတန်းများနှင့် DATA_DIR/call_logs အောက်ရှိ Local Artifact ဖိုင်များကို အပြီးတိုင် ရှင်းလင်းပါမည်။ ရှင်းလင်းပြီးနောက် လက်ရှိစာမျက်နှာကို ပြန်လည်ဖွင့်ပါမည်။",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "ရွေးချယ်ထားသည့် {count} ခုကို ဖွင့်ရန်",
     "testPassed": "✓ အဆင်ပြေသည်",
     "sweepVerdict": "နောက်ဆုံးစကင်: {cause} ({code}) {age}",
+    "blockedHistory": "ပိတ်ထားသောသမိုင်း: {count}× {cause} ({code}) {age}",
     "sweepNoData": "စတင်ပြီးကတည်းက စကင်မရှိသေးပါ",
     "sweepLabel": {
       "unproven": "ပစ်မှတ်က ငြင်းပယ်သည်",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "ဖယ်ထားသည်: {kind}",
     "poolSetAsideKindProxyUnreachable": "proxy သို့ မရောက်နိုင်ပါ",
     "poolSetAsideKindIpQuota429": "IP နှုန်းကန့်သတ်ချက် (429)",
+    "poolSetAsideKindSlow": "နှေးကွေးသော တုံ့ပြန်ချက်များ",
     "poolSetAsideUntil": "အလှည့်သို့ ပြန်ရောက်မည် {endsAt}",
     "poolSetAsideRepeat": "ဖယ်ထားသည် {count, plural, one {# ကြိမ်} other {# ကြိမ်}}",
     "poolUnknownAddress": "မသိသောလိပ်စာ",
@@ -11516,6 +11523,7 @@
       "output": "အထွက်",
       "totalOut": "စုစုပေါင်းအထွက်: {value}",
       "reasoning": "ဆင်ခြင်မှု: {value}",
+      "reasoningObserved": "{value} · စာလုံး {chars} လုံး တွေ့ရှိသည်",
       "requestedModel": "တောင်းဆိုထားသော မော်ဒယ်",
       "requestProtocol": "တောင်းဆိုမှု ပရိုတိုကော",
       "cacheSource": "Cache ရင်းမြစ်",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "ချိတ်ဆက်မှုကို အမွေခံသည်: {host}",
     "inheritedPool": "ချိတ်ဆက်မှု pool ကို အမွေခံသည် ({count})",
     "poolEmptyBlocked": "Pool လွတ်နေသည် — တောင်းဆိုမှုများ ကျရှုံးမည် (တိုက်ရိုက်မဟုတ်)",
-    "directEgress": "တိုက်ရိုက် (proxy မပါ)"
+    "directEgress": "တိုက်ရိုက် (proxy မပါ)",
+    "ownProxy": "ကိုယ်ပိုင် proxy"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "အထက်စီးအခြေအနေ",
     "noResponse": "တုံ့ပြန်မှုမရှိပါ",
     "egressIp": "Egress IP",
+    "headersAfter": "အခေါင်းစဉ်များ အပြီး",
+    "firstChunkAfter": "ပထမ အပိုင်း အပြီး",
     "servedBy": "ဆောင်ရွက်သူ",
     "correlationId": "ဆက်စပ်မှု ID"
   },

@@ -1203,6 +1203,8 @@
     "batchGroup": "ಬ್ಯಾಚ್",
     "homeSubtitle": "ಡ್ಯಾಶ್ಬೋರ್ಡ್ ಅವಲೋಕನ",
     "providersSubtitle": "AI ಪ್ರೊವೈಡರ್ಗಳನ್ನು ನಿರ್ವಹಿಸಿ",
+    "modelCatalog": "ಮಾದರಿ ಕ್ಯಾಟಲಾಗ್",
+    "modelCatalogSubtitle": "ಪೂರೈಕೆದಾರರಾದ್ಯಂತ ಮಾದರಿಗಳನ್ನು ಬ್ರೌಸ್ ಮಾಡಿ",
     "quotaTrackerSubtitle": "ಬಳಕೆ ಮಿತಿಗಳನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ",
     "providerQuotaSubtitle": "ಪ್ರೊವೈಡರ್ ಬಳಕೆಯ ಮಿತಿಗಳನ್ನು ಟ್ರ್ಯಾಕ್ ಮಾಡಿ",
     "runtimeSubtitle": "ನೈಜ-ಸಮಯದ ಸ್ಥಿತಿಸ್ಥಾಪಕತೆ ಮತ್ತು ಸೆಷನ್ಗಳು",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "ಡೆಕ್ ಅನ್ನು ಶಫಲ್ ಮಾಡಿ — ಮರುಶಫಲ್ ಮಾಡುವ ಮೊದಲು ಪ್ರತಿ ಮಾಡೆಲ್ ಅನ್ನು ಒಮ್ಮೆ ಬಳಸಿ",
     "fusion": "ಫ್ಯೂಷನ್",
     "fusionDesc": "ಪ್ರಾಂಪ್ಟ್ ಅನ್ನು ಪ್ರತಿ ಪ್ಯಾನೆಲ್ ಮಾಡೆಲ್ಗೆ ಸಮಾಂತರವಾಗಿ ಕಳುಹಿಸಿ, ನಂತರ ಜಡ್ಜ್ ಮಾಡೆಲ್ ಒಂದು ಅಂತಿಮ ಉತ್ತರವನ್ನು ಸಂಶ್ಲೇಷಿಸುತ್ತದೆ",
+    "pipeline": "ಪೈಪ್ಲೈನ್",
+    "pipelineDesc": "ಮಾಡೆಲ್‌ಗಳನ್ನು ಕ್ರಮವಾಗಿ ಚಲಾಯಿಸುತ್ತದೆ, ಪ್ರತಿ ಹಂತದ ಔಟ್‌ಪುಟ್ ಅನ್ನು ಮುಂದಿನ ಹಂತಕ್ಕೆ ನೀಡುತ್ತದೆ; ಅಂತಿಮ ಉತ್ತರವನ್ನು ಮಾತ್ರ ಹಿಂತಿರುಗಿಸಲಾಗುತ್ತದೆ",
     "fusionJudgeModel": "ಜಡ್ಜ್ ಮಾಡೆಲ್",
     "fusionJudgeModelHelp": "ಪ್ಯಾನೆಲ್ ಉತ್ತರಗಳನ್ನು ಒಂದು ಅಂತಿಮ ಪ್ರತಿಕ್ರಿಯೆಯಾಗಿ ಸಂಶ್ಲೇಷಿಸುವ ಮಾಡೆಲ್. ಮೊದಲ ಪ್ಯಾನೆಲ್ ಮಾಡೆಲ್ ಅನ್ನು ಬಳಸಲು ಖಾಲಿ ಬಿಡಿ.",
     "fusionMinPanel": "ಕನಿಷ್ಠ ಪ್ಯಾನೆಲ್",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "ಉಚಿತ ಸ್ಟ್ಯಾಕ್ ($0)",
-    "templateFreeStackDesc": "ಎಲ್ಲಾ ಉಚಿತ ಪೂರೈಕೆದಾರರ ನಡುವೆ ರೌಂಡ್-ರಾಬಿನ್: Kiro (Claude), Qoder (5 ಮಾಡೆಲ್ಗಳು), Qwen (4 ಮಾಡೆಲ್ಗಳು). ಶೂನ್ಯ ವೆಚ್ಚ, ಕೋಡಿಂಗ್ ಎಂದಿಗೂ ನಿಲ್ಲುವುದಿಲ್ಲ.",
+    "templateFreeStackDesc": "ಎಲ್ಲಾ ಉಚಿತ ಪೂರೈಕೆದಾರರ ನಡುವೆ ರೌಂಡ್-ರಾಬಿನ್: Antigravity (Gemini), Kiro (Claude), Qoder (3 ಮಾಡೆಲ್ಗಳು), NVIDIA, Groq. ಶೂನ್ಯ ವೆಚ್ಚ, ಕೋಡಿಂಗ್ ಎಂದಿಗೂ ನಿಲ್ಲುವುದಿಲ್ಲ.",
     "auto": "ಬುದ್ಧಿವಂತ ಸ್ವಯಂಚಾಲಿತ ಮೋಡ್",
     "autoDesc": "ಬಹು-ಅಂಶ ಸ್ಕೋರಿಂಗ್ ಹೊಂದಿರುವ ಸ್ವಯಂ-ಚೇತರಿಕೆಯ ಸ್ಮಾರ್ಟ್ ರೂಟಿಂಗ್ ಪೂಲ್",
     "lkgp": "LKGP ಮೋಡ್",
@@ -4960,6 +4964,7 @@
     "export": "ರಫ್ತು ಮಾಡಿ",
     "exporting": "ರಫ್ತು ಮಾಡಲಾಗುತ್ತಿದೆ...",
     "exportFailed": "ರಫ್ತು ವಿಫಲವಾಗಿದೆ",
+    "exportTruncated": "ರಫ್ತು ಮೊಟಕುಗೊಳಿಸಲಾಗಿದೆ: {total} ಲಾಗ್ ನಮೂದುಗಳಲ್ಲಿ ಕೇವಲ {exported} ಮಾತ್ರ ಸೇರಿಸಲಾಗಿದೆ. ಉಳಿದವನ್ನು ರಫ್ತು ಮಾಡಲು ಕಡಿಮೆ ಸಮಯದ ವ್ಯಾಪ್ತಿಯನ್ನು ಆಯ್ಕೆಮಾಡಿ.",
     "cleanHistoryButton": "ಇತಿಹಾಸವನ್ನು ತೆರವುಗೊಳಿಸಿ",
     "cleanHistoryTitle": "ಲಾಗ್ ಇತಿಹಾಸವನ್ನು ತೆರವುಗೊಳಿಸುವುದೇ?",
     "cleanHistoryMessage": "ಇದು ಎಲ್ಲಾ ವಿನಂತಿ ಲಾಗ್ ಸಾಲುಗಳು, ಹಳೆಯ ವಿವರ ಸಾಲುಗಳು ಮತ್ತು DATA_DIR/call_logs ಅಡಿಯಲ್ಲಿರುವ ಸ್ಥಳೀಯ ಆರ್ಟಿಫ್ಯಾಕ್ಟ್ ಫೈಲ್ಗಳನ್ನು ಶಾಶ್ವತವಾಗಿ ತೆರವುಗೊಳಿಸುತ್ತದೆ. ತೆರವುಗೊಳಿಸಿದ ನಂತರ ಲೈವ್ ಪುಟವು ರಿಫ್ರೆಶ್ ಆಗುತ್ತದೆ.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "ಆಯ್ಕೆಮಾಡಿದ {count} ಅನ್ನು ಸಕ್ರಿಯಗೊಳಿಸಿ",
     "testPassed": "✓ ಸರಿ",
     "sweepVerdict": "ಕೊನೆಯ ಸ್ಕ್ಯಾನ್: {cause} ({code}) {age}",
+    "blockedHistory": "ಬ್ಲಾಕ್ ಮಾಡಿದ ಇತಿಹಾಸ: {count}× {cause} ({code}) {age}",
     "sweepNoData": "ಪ್ರಾರಂಭದಿಂದ ಇನ್ನೂ ಸ್ಕ್ಯಾನ್ ಇಲ್ಲ",
     "sweepLabel": {
       "unproven": "ಗುರಿ ನಿರಾಕರಿಸಿದೆ",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "ಪಕ್ಕಕ್ಕೆ ಇರಿಸಲಾಗಿದೆ: {kind}",
     "poolSetAsideKindProxyUnreachable": "ಪ್ರಾಕ್ಸಿ ತಲುಪಲಾಗುತ್ತಿಲ್ಲ",
     "poolSetAsideKindIpQuota429": "IP ದರ ಮಿತಿ (429)",
+    "poolSetAsideKindSlow": "ಮಂದ ಪ್ರತಿಕ್ರಿಯೆಗಳು",
     "poolSetAsideUntil": "ತಿರುಗುವಿಕೆಗೆ ಹಿಂತಿರುಗಿ {endsAt}",
     "poolSetAsideRepeat": "ಪಕ್ಕಕ್ಕೆ ಇರಿಸಲಾಗಿದೆ {count, plural, one {# ಬಾರಿ} other {# ಬಾರಿ}}",
     "poolUnknownAddress": "ಅಜ್ಞಾತ ವಿಳಾಸ",
@@ -11516,6 +11523,7 @@
       "output": "ಔಟ್ಪುಟ್",
       "totalOut": "ಒಟ್ಟು ಔಟ್ಪುಟ್: {value}",
       "reasoning": "ತಾರ್ಕಿಕ ವಿಶ್ಲೇಷಣೆ: {value}",
+      "reasoningObserved": "{value} · {chars} ಅಕ್ಷರಗಳು ಕಂಡುಬಂದಿವೆ",
       "requestedModel": "ವಿನಂತಿಸಿದ ಮಾದರಿ",
       "requestProtocol": "ವಿನಂತಿ ಪ್ರೋಟೋಕಾಲ್",
       "cacheSource": "ಕ್ಯಾಶ್ ಮೂಲ",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "ಸಂಪರ್ಕವನ್ನು ಆನುವಂಶಿಕವಾಗಿ: {host}",
     "inheritedPool": "ಸಂಪರ್ಕ ಪೂಲ್ ಅನ್ನು ಆನುವಂಶಿಕವಾಗಿ ({count})",
     "poolEmptyBlocked": "ಪೂಲ್ ಖಾಲಿ — ವಿನಂತಿಗಳು ವಿಫಲವಾಗುತ್ತವೆ (ನೇರವಲ್ಲ)",
-    "directEgress": "ನೇರ (ಪ್ರಾಕ್ಸಿ ಇಲ್ಲದೆ)"
+    "directEgress": "ನೇರ (ಪ್ರಾಕ್ಸಿ ಇಲ್ಲದೆ)",
+    "ownProxy": "ಸ್ವಂತ ಪ್ರಾಕ್ಸಿ"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "ಅಪಸ್ಟ್ರೀಮ್ ಸ್ಥಿತಿ",
     "noResponse": "ಯಾವುದೇ ಪ್ರತಿಸ್ಪಂದನೆ ಇಲ್ಲ",
     "egressIp": "ಊರ್ಜಿತ ಐಪಿ",
+    "headersAfter": "ಶೀರ್ಷಿಕೆಗಳು ನಂತರ",
+    "firstChunkAfter": "ಮೊದಲ ತುಂಡು ನಂತರ",
     "servedBy": "ಸೇವಿತ بواسطة",
     "correlationId": "ಸಂಬಂಧಿತ ಐಡಿ"
   },

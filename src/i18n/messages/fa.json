@@ -1203,6 +1203,8 @@
     "batchGroup": "پردازش دستهای",
     "homeSubtitle": "نمای کلی داشبورد",
     "providersSubtitle": "مدیریت ارائهدهندگان هوش مصنوعی",
+    "modelCatalog": "کاتالوگ مدل‌ها",
+    "modelCatalogSubtitle": "مرور مدل‌ها در میان ارائه‌دهندگان",
     "quotaTrackerSubtitle": "پیگیری محدودیتهای مصرف",
     "providerQuotaSubtitle": "پیگیری محدودیتهای مصرف ارائهدهنده",
     "runtimeSubtitle": "تابآوری و نشستهای بلادرنگ",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "دستهٔ بُرخورده — پیش از بُر زدن مجدد، از هر مدل یک بار استفاده میکند",
     "fusion": "تلفیق",
     "fusionDesc": "پرامپت را به‌صورت موازی به تمام مدل‌های پنل ارسال می‌کند، سپس یک مدل داور یک پاسخ نهایی را ترکیب می‌کند",
+    "pipeline": "خط لوله",
+    "pipelineDesc": "مدل‌ها را به‌ترتیب اجرا می‌کند و خروجی هر مرحله را به مرحلهٔ بعد می‌دهد؛ فقط پاسخ نهایی برگردانده می‌شود",
     "fusionJudgeModel": "مدل داور",
     "fusionJudgeModelHelp": "مدلی که پاسخ‌های پنل را در یک پاسخ نهایی ترکیب می‌کند. برای استفاده از اولین مدل پنل، خالی بگذارید.",
     "fusionMinPanel": "حداقل پنل",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "پشته رایگان ($0)",
-    "templateFreeStackDesc": "توزیع نوبتی میان همه ارائهدهندگان رایگان: Kiro (Claude)، Qoder (5 مدل)، Qwen (4 مدل). بدون هزینه و با کدنویسی بیوقفه.",
+    "templateFreeStackDesc": "توزیع نوبتی میان همه ارائهدهندگان رایگان: Antigravity (Gemini)، Kiro (Claude)، Qoder (3 مدل)، NVIDIA، Groq. بدون هزینه و با کدنویسی بیوقفه.",
     "auto": "خودکار هوشمند",
     "autoDesc": "مجموعه مسیریابی هوشمند خودترمیمشونده با امتیازدهی چندعاملی",
     "lkgp": "حالت LKGP",
@@ -4960,6 +4964,7 @@
     "export": "برونبری",
     "exporting": "در حال برونبری...",
     "exportFailed": "برونبری ناموفق بود",
+    "exportTruncated": "خروجی کوتاه شد: فقط {exported} از {total} ورودی گزارش گنجانده شد. برای خروجی گرفتن از بقیه، بازه زمانی کوتاه‌تری انتخاب کنید.",
     "cleanHistoryButton": "پاک‌سازی تاریخچه",
     "cleanHistoryTitle": "تاریخچه لاگ پاک‌سازی شود؟",
     "cleanHistoryMessage": "این کار تمام ردیف‌های لاگ درخواست، ردیف‌های جزئیات قدیمی و فایل‌های آرتیفکت محلی در DATA_DIR/call_logs را برای همیشه پاک می‌کند. صفحه زنده پس از پاک‌سازی تازه‌سازی خواهد شد.",
@@ -5631,7 +5636,7 @@
     "accountName": "نام حساب",
     "email": "Email",
     "healthCheckMinutes": "بررسی سلامت (دقیقه)",
-    "healthCheckHint": "Proactive token refresh interval. 0 = disabled.",
+    "healthCheckHint": "مقدار اختصاصی برای این اتصال. خالی = پیروی از پیش‌فرض سراسری (تنظیمات › تاب‌آوری). 0 = هرگز این اتصال بررسی نشود. حداکثر 1440 (24 ساعت).",
     "deselectAllModels": "لغو انتخاب همه",
     "modelsActiveCount": "{active}/{total} فعال",
     "noModelsMatch": "هیچ مدلی با «{filter}» مطابقت ندارد",
@@ -6192,7 +6197,7 @@
       "bluesminds": "کلید API خود را از https://www.bluesminds.com دریافت کنید — نقطه پایانی سازگار با OpenAI در https://api.bluesminds.com/v1 با اعتبار روزانه رایگان. مدل‌های VIP (مانند Claude Opus 4.5، Gemini 2.5 Pro) اعتبار pi مصرف می‌کنند.",
       "byteplus": "اتصال به BytePlus ModelArk با یک کلید API.",
       "bytez": "۱ دلار اعتبار رایگان، تمدید هر ۴ هفته یک‌بار",
-      "cerebras": "دوره آزمایشی رایگان: ۱ میلیون توکن در روز، 30K TPM، 5 RPM — بدون نیاز به کارت اعتباری.",
+      "cerebras": "اعتبار یک‌باره ۵ دلاری هنگام ثبت‌نام (اعتبار ۳۰ روزه)؛ روش پرداخت لازم است. سطح رایگان دوره‌ای نیست.",
       "charm-hyper": "یک کلید API در https://hyper.charm.land ایجاد کنید، سپس آن را به عنوان یک توکن Bearer در اینجا جای‌گذاری کنید.",
       "chutes": "کلید API Bearer برای درگاه سازگار با OpenAI Chutes.",
       "clarifai": "Clarifai چت، پاسخ‌ها و /models سازگار با OpenAI را در /v2/ext/openai/v1 ارائه می‌دهد. مدل‌های عمومی/جامعه معمولاً به یک PAT نیاز دارند؛ کلیدهای محدود به برنامه (app-scoped) فقط برای منابع داخل آن برنامه کار می‌کنند.",
@@ -6884,8 +6889,8 @@
       "globalModeDesc": "تمام ترافیک ارائه دهنده از طریق مخزن پروکسی این اشتراک می گذرد.",
       "ruleModeDesc": "فقط ترافیک ارائه دهندگان انتخاب شده از طریق پروکسی انجام می شود. بقیه مستقیما وصل می شوند",
       "localCoreEndpoint": "Local Core SOCKS5/HTTP Endpoint (اختیاری)",
-      "localCoreEndpointPlaceholder": "socks5://127.0.0.1:1080",
-      "localCoreEndpointDesc": "فقط 127.0.0.1 / لوکال هاست را می پذیرد (SS/VMess/Trojan/VLESS به هسته sing-box/clash محلی نیاز دارد).",
+      "localCoreEndpointPlaceholder": "socks5://127.0.0.1:1080\nsocks5://127.0.0.1:1081",
+      "localCoreEndpointDesc": "هر مورد در یک خط. فقط 127.0.0.1 / localhost را می‌پذیرد (SS/VMess/Trojan/VLESS به هسته sing-box/clash محلی نیاز دارند).",
       "routeByProvider": "مسیر بر اساس ارائه دهنده (چند انتخابی)",
       "loadingProviders": "در حال بارگیری فهرست ارائه دهنده…",
       "autoRefreshInterval": "فاصله بازخوانی خودکار (دقیقه)",
@@ -9571,7 +9576,7 @@
     "redeemResetCredit": "بازخرید بازنشانی",
     "manageResetCredits": "مشاهده اعتبارها",
     "viewResetCredits": "مشاهده اعتبارهای بازنشانی",
-    "resetCreditsModalTitle": "اعتبارهای بازنشانی Codex",
+    "resetCreditsModalTitle": "اعتبارهای بازنشانی",
     "resetCreditsModalExplainer": "اعتبارها بر اساس تاریخ انقضا مرتب شده‌اند. بازخرید خودکار همیشه از اعتباری استفاده می‌کند که زودتر منقضی می‌شود.",
     "resetCreditsLoadFailed": "خطا در بارگذاری اعتبارهای بازنشانی",
     "resetCreditsDetailsUnavailable": "جزئیات اعتبار در حال حاضر در دسترس نیست. تازه‌سازی کنید و دوباره تلاش کنید.",
@@ -9582,7 +9587,7 @@
     "resetCreditNoExpiry": "بدون تاریخ انقضا",
     "redeemThisResetCredit": "بازخرید",
     "confirmRedeemResetCreditTitle": "این اعتبار بازنشانی بازخرید شود؟",
-    "confirmRedeemResetCredit": "بازخرید کردن بلافاصله بازه‌های زمانی استفاده مجاز Codex را بازنشانی می‌کند و این اعتبار را برای همیشه مصرف می‌کند.",
+    "confirmRedeemResetCredit": "بازخرید کردن بلافاصله بازه‌های زمانی استفاده مجاز را بازنشانی می‌کند و این اعتبار را برای همیشه مصرف می‌کند.",
     "confirmRedeemResetCreditButton": "بازخرید اعتبار",
     "resetCreditRedeemed": "بازنشانی بازخرید شد",
     "resetCreditRedeemFailed": "بازخرید اعتبار بازنشانی ناموفق بود",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "فعال‌سازی {count} مورد انتخاب شده",
     "testPassed": "✓ تایید",
     "sweepVerdict": "آخرین پایش: {cause} ({code}) {age}",
+    "blockedHistory": "تاریخچه مسدود شده: {count}× {cause} ({code}) {age}",
     "sweepNoData": "از زمان راه‌اندازی هنوز پایشی انجام نشده",
     "sweepLabel": {
       "unproven": "هدف رد کرد",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "کنار گذاشته شده: {kind}",
     "poolSetAsideKindProxyUnreachable": "پروکسی در دسترس نیست",
     "poolSetAsideKindIpQuota429": "محدودیت نرخ IP ‏(429)",
+    "poolSetAsideKindSlow": "پاسخ‌های کند",
     "poolSetAsideUntil": "بازگشت به چرخه {endsAt}",
     "poolSetAsideRepeat": "کنار گذاشته شده {count, plural, one {# بار} other {# بار}}",
     "poolUnknownAddress": "نشانی ناشناس",
@@ -11516,6 +11523,7 @@
       "output": "خروجی",
       "totalOut": "مجموع خروجی: {value}",
       "reasoning": "استدلال: {value}",
+      "reasoningObserved": "{value} · {chars} نویسه مشاهده شد",
       "requestedModel": "مدل درخواست شده",
       "requestProtocol": "پروتکل Req",
       "cacheSource": "کش منبع",
@@ -12571,7 +12579,7 @@
       },
       "omni-mcp": {
         "name": "سرور MCP",
-        "description": "اتصال به سرور OmniRoute MCP (۳۷ ابزار، ۳ انتقال: SSE/stdio/HTTP). شامل مسیریابی، کش، فشرده‌سازی، حافظه، مهارت‌ها، ارائه‌دهندگان و ابزارهای حسابرسی در ۱۶ محدوده مجوز."
+        "description": "اتصال به سرور OmniRoute MCP (۱۱۰ ابزار، ۳ انتقال: SSE/stdio/HTTP). شامل مسیریابی، کش، فشرده‌سازی، حافظه، مهارت‌ها، ارائه‌دهندگان و ابزارهای حسابرسی در ۳۳ محدوده مجوز."
       },
       "omni-agents-a2a": {
         "name": "عامل‌ها و پروتکل A2A",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "اتصال را به ارث می‌برد: {host}",
     "inheritedPool": "استخر اتصال را به ارث می‌برد ({count})",
     "poolEmptyBlocked": "استخر خالی است — درخواست‌ها ناموفق می‌شوند (نه مستقیم)",
-    "directEgress": "مستقیم (بدون پروکسی)"
+    "directEgress": "مستقیم (بدون پروکسی)",
+    "ownProxy": "پراکسی اختصاصی"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "وضعیت بالا دستی",
     "noResponse": "هیچ پاسخی",
     "egressIp": "IP خروجی",
+    "headersAfter": "سرفصل‌ها پس از",
+    "firstChunkAfter": "اولین بخش پس از",
     "servedBy": "توسط ارائه شده",
     "correlationId": "شناسه همبستگی"
   },

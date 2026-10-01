@@ -1203,6 +1203,8 @@
     "batchGroup": "Пакетна обработка",
     "homeSubtitle": "Общ преглед на таблото",
     "providersSubtitle": "Управление на доставчиците на AI",
+    "modelCatalog": "Каталог с модели",
+    "modelCatalogSubtitle": "Разглеждайте модели от всички доставчици",
     "quotaTrackerSubtitle": "Проследяване на ограниченията за използване",
     "providerQuotaSubtitle": "Проследяване на ограниченията за използване при доставчика",
     "runtimeSubtitle": "Устойчивост в реално време и сесии",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Разбъркване на тестето — използва всеки модел веднъж преди ново разбъркване",
     "fusion": "Сливане",
     "fusionDesc": "Разпраща подканата към всеки модел от панела паралелно, след което модел-съдия синтезира един краен отговор",
+    "pipeline": "Конвейер",
+    "pipelineDesc": "Изпълнява моделите последователно, като подава изхода на всяка стъпка към следващата; връща се само крайният отговор",
     "fusionJudgeModel": "Модел-съдия",
     "fusionJudgeModelHelp": "Модел, който синтезира отговорите от панела в един краен отговор. Оставете празно, за да се използва първият модел от панела.",
     "fusionMinPanel": "Мин. панел",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Безплатен пакет ($0)",
-    "templateFreeStackDesc": "Round-robin разпределение между всички безплатни доставчици: Kiro (Claude), Qoder (5 модела), Qwen (4 модела). Без разходи и без прекъсване на програмирането.",
+    "templateFreeStackDesc": "Round-robin разпределение между всички безплатни доставчици: Antigravity (Gemini), Kiro (Claude), Qoder (3 модела), NVIDIA, Groq. Без разходи и без прекъсване на програмирането.",
     "auto": "Auto Combo",
     "autoDesc": "Self-healing smart routing pool (Performance optimized)",
     "lkgp": "Режим LKGP",
@@ -4960,6 +4964,7 @@
     "export": "Експортиране",
     "exporting": "Експортиране...",
     "exportFailed": "Експортирането е неуспешно",
+    "exportTruncated": "Експортът е съкратен: включени са само {exported} от {total} записа в журнала. Изберете по-кратък период, за да експортирате останалите.",
     "cleanHistoryButton": "Изчистване на историята",
     "cleanHistoryTitle": "Изчистване на историята на логовете?",
     "cleanHistoryMessage": "Това ще изтрие за постоянно всички редове с логове на заявки, наследени редове с детайли и локални файлове с артефакти в DATA_DIR/call_logs. Страницата в реално време ще се опресни след изчистването.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Активиране на {count} избрани",
     "testPassed": "✓ ОК",
     "sweepVerdict": "Последно сканиране: {cause} ({code}) {age}",
+    "blockedHistory": "Блокирана история: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Няма сканиране от стартирането",
     "sweepLabel": {
       "unproven": "целта отказа",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "Оставено настрана: {kind}",
     "poolSetAsideKindProxyUnreachable": "проксито е недостъпно",
     "poolSetAsideKindIpQuota429": "ограничение на скоростта по IP (429)",
+    "poolSetAsideKindSlow": "бавни отговори",
     "poolSetAsideUntil": "Обратно в ротация {endsAt}",
     "poolSetAsideRepeat": "Оставено настрана {count, plural, one {# път} other {# пъти}}",
     "poolUnknownAddress": "Неизвестен адрес",
@@ -11516,6 +11523,7 @@
       "output": "Изход",
       "totalOut": "Обща сума: {value}",
       "reasoning": "Обосновка: {value}",
+      "reasoningObserved": "{value} · наблюдавани {chars} знака",
       "requestedModel": "Заявеният Модел",
       "requestProtocol": "Протокол на заявката",
       "cacheSource": "Кеш Източник",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Наследява връзката: {host}",
     "inheritedPool": "Наследява пула от връзки ({count})",
     "poolEmptyBlocked": "Пулът е празен — заявките се провалят (не директно)",
-    "directEgress": "Директно (без прокси)"
+    "directEgress": "Директно (без прокси)",
+    "ownProxy": "Собствено прокси"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "Статус на входящия",
     "noResponse": "Няма отговор",
     "egressIp": "Изходящ IP",
+    "headersAfter": "Заглавки след",
+    "firstChunkAfter": "Първи блок след",
     "servedBy": "Обслужвано от",
     "correlationId": "Идентификатор на корелацията"
   },

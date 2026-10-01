@@ -1203,6 +1203,8 @@
     "batchGroup": "แบตช์",
     "homeSubtitle": "ภาพรวมแดชบอร์ด",
     "providersSubtitle": "จัดการผู้ให้บริการ AI",
+    "modelCatalog": "แคตตาล็อกโมเดล",
+    "modelCatalogSubtitle": "เรียกดูโมเดลจากผู้ให้บริการทั้งหมด",
     "quotaTrackerSubtitle": "ติดตามขีดจำกัดการใช้งาน",
     "providerQuotaSubtitle": "ติดตามขีดจำกัดการใช้งานของผู้ให้บริการ",
     "runtimeSubtitle": "ความยืดหยุ่นและเซสชันแบบเรียลไทม์",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "สับสำรับ — ใช้แต่ละโมเดลหนึ่งครั้งก่อนสับใหม่",
     "fusion": "การผสาน",
     "fusionDesc": "ส่ง prompt ไปยังทุกโมเดลในพาเนลแบบขนาน จากนั้นโมเดลผู้ตัดสินจะสังเคราะห์คำตอบสุดท้ายขึ้นมาหนึ่งคำตอบ",
+    "pipeline": "ไปป์ไลน์",
+    "pipelineDesc": "เรียกใช้โมเดลตามลำดับ โดยส่งผลลัพธ์ของแต่ละขั้นตอนไปยังขั้นตอนถัดไป และส่งคืนเฉพาะคำตอบสุดท้าย",
     "fusionJudgeModel": "โมเดลผู้ตัดสิน",
     "fusionJudgeModelHelp": "โมเดลที่สังเคราะห์คำตอบจากพาเนลให้เป็นคำตอบสุดท้ายเพียงหนึ่งเดียว เว้นว่างไว้เพื่อใช้โมเดลแรกในพาเนล",
     "fusionMinPanel": "พาเนลขั้นต่ำ",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "สแต็กฟรี ($0)",
-    "templateFreeStackDesc": "กระจายแบบ Round-robin ระหว่างผู้ให้บริการฟรีทั้งหมด: Kiro (Claude), Qoder (5 โมเดล), Qwen (4 โมเดล) ไม่มีค่าใช้จ่ายและเขียนโค้ดได้อย่างต่อเนื่อง",
+    "templateFreeStackDesc": "กระจายแบบ Round-robin ระหว่างผู้ให้บริการฟรีทั้งหมด: Antigravity (Gemini), Kiro (Claude), Qoder (3 โมเดล), NVIDIA, Groq ไม่มีค่าใช้จ่ายและเขียนโค้ดได้อย่างต่อเนื่อง",
     "auto": "Auto Combo",
     "autoDesc": "Self-healing smart routing pool (Performance optimized)",
     "lkgp": "โหมด LKGP",
@@ -4960,6 +4964,7 @@
     "export": "ส่งออก",
     "exporting": "กำลังส่งออก...",
     "exportFailed": "ส่งออกไม่สำเร็จ",
+    "exportTruncated": "การส่งออกถูกตัดทอน: มีเพียง {exported} จาก {total} รายการบันทึกที่รวมอยู่ เลือกช่วงเวลาที่สั้นลงเพื่อส่งออกส่วนที่เหลือ",
     "cleanHistoryButton": "ล้างประวัติ",
     "cleanHistoryTitle": "ล้างประวัติบันทึกหรือไม่?",
     "cleanHistoryMessage": "การดำเนินการนี้จะล้างแถวบันทึกคำขอ แถวรายละเอียดเดิม และไฟล์อาร์ทิแฟกต์ในเครื่องทั้งหมดภายใต้ DATA_DIR/call_logs อย่างถาวร หน้าปัจจุบันจะรีเฟรชหลังจากการล้างข้อมูล",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "เปิดใช้งาน {count} รายการที่เลือก",
     "testPassed": "✓ ตกลง",
     "sweepVerdict": "สแกนล่าสุด: {cause} ({code}) {age}",
+    "blockedHistory": "ประวัติที่ถูกบล็อก: {count}× {cause} ({code}) {age}",
     "sweepNoData": "ยังไม่มีการสแกนตั้งแต่เริ่มระบบ",
     "sweepLabel": {
       "unproven": "เป้าหมายปฏิเสธ",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "กันไว้: {kind}",
     "poolSetAsideKindProxyUnreachable": "ไม่สามารถเข้าถึงพร็อกซีได้",
     "poolSetAsideKindIpQuota429": "จำกัดอัตราตาม IP (429)",
+    "poolSetAsideKindSlow": "การตอบสนองช้า",
     "poolSetAsideUntil": "กลับเข้าหมุนเวียน {endsAt}",
     "poolSetAsideRepeat": "กันไว้ {count, plural, one {# ครั้ง} other {# ครั้ง}}",
     "poolUnknownAddress": "ที่อยู่ไม่ทราบ",
@@ -11516,6 +11523,7 @@
       "output": "ผลลัพธ์",
       "totalOut": "ยอดรวมที่ออก: {value}",
       "reasoning": "เหตุผล: {value}",
+      "reasoningObserved": "{value} · พบ {chars} อักขระ",
       "requestedModel": "โมเดลที่ร้องขอ",
       "requestProtocol": "โปรโตคอล Req",
       "cacheSource": "แหล่งข้อมูลแคช",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "สืบทอดการเชื่อมต่อ: {host}",
     "inheritedPool": "สืบทอดพูลการเชื่อมต่อ ({count})",
     "poolEmptyBlocked": "พูลว่าง — คำขอจะล้มเหลว (ไม่โดยตรง)",
-    "directEgress": "โดยตรง (ไม่มีพร็อกซี)"
+    "directEgress": "โดยตรง (ไม่มีพร็อกซี)",
+    "ownProxy": "พร็อกซีของตัวเอง"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "สถานะต้นน้ำ",
     "noResponse": "ไม่มีการตอบสนอง",
     "egressIp": "IP ออก",
+    "headersAfter": "ส่วนหัวหลัง",
+    "firstChunkAfter": "ชิ้นแรกหลัง",
     "servedBy": "ให้บริการโดย",
     "correlationId": "รหัสการเชื่อมโยง"
   },

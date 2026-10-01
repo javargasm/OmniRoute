@@ -1203,6 +1203,8 @@
     "batchGroup": "Skupna obrada",
     "homeSubtitle": "Pregled nadzorne ploče",
     "providersSubtitle": "Upravljanje AI pružateljima",
+    "modelCatalog": "Katalog modela",
+    "modelCatalogSubtitle": "Pregledajte modele svih pružatelja",
     "quotaTrackerSubtitle": "Praćenje ograničenja korištenja",
     "providerQuotaSubtitle": "Praćenje ograničenja korištenja pružatelja",
     "runtimeSubtitle": "Otpornost i sesije u stvarnom vremenu",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Miješanje špila — koristi svaki model jednom prije ponovnog miješanja",
     "fusion": "Fuzija",
     "fusionDesc": "Paralelno šalje upit svim modelima panela, a zatim model ocjenjivač sintetizira jedan konačni odgovor",
+    "pipeline": "Tijek obrade",
+    "pipelineDesc": "Pokreće modele redom i prosljeđuje izlaz svakog koraka sljedećem; vraća se samo konačni odgovor",
     "fusionJudgeModel": "Model ocjenjivač",
     "fusionJudgeModelHelp": "Model koji sintetizira odgovore panela u jedan konačni odgovor. Ostavite prazno kako bi se upotrijebio prvi model panela.",
     "fusionMinPanel": "Min. odgovora panela",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Besplatni paket (0 $)",
-    "templateFreeStackDesc": "Izmjenično usmjeravanje među svim besplatnim pružateljima: Kiro (Claude), Qoder (5 modela), Qwen (4 modela). Bez troškova, kodiranje bez prestanka.",
+    "templateFreeStackDesc": "Izmjenično usmjeravanje među svim besplatnim pružateljima: Antigravity (Gemini), Kiro (Claude), Qoder (3 modela), NVIDIA, Groq. Bez troškova, kodiranje bez prestanka.",
     "auto": "Inteligentni automatski način",
     "autoDesc": "Samooporavljajući skup za pametno usmjeravanje s višečimbeničkim ocjenjivanjem",
     "lkgp": "Način rada LKGP",
@@ -4960,6 +4964,7 @@
     "export": "Izvezi",
     "exporting": "Izvoz u tijeku...",
     "exportFailed": "Izvoz nije uspio",
+    "exportTruncated": "Izvoz je skraćen: uključeno je samo {exported} od {total} zapisa dnevnika. Odaberite kraći vremenski raspon za izvoz ostatka.",
     "cleanHistoryButton": "Očisti povijest",
     "cleanHistoryTitle": "Očistiti povijest zapisa?",
     "cleanHistoryMessage": "Ovo trajno briše sve retke zapisa zahtjeva, naslijeđene retke s pojedinostima i lokalne datoteke artefakata u DATA_DIR/call_logs. Prikaz uživo osvježit će se nakon čišćenja.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Omogući odabrane stavke ({count})",
     "testPassed": "✓ U redu",
     "sweepVerdict": "Zadnje skeniranje: {cause} ({code}) {age}",
+    "blockedHistory": "Blokirana povijest: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Nema skeniranja od pokretanja",
     "sweepLabel": {
       "unproven": "meta odbila",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "Po strani: {kind}",
     "poolSetAsideKindProxyUnreachable": "proxy nedostupan",
     "poolSetAsideKindIpQuota429": "ograničenje brzine po IP-u (429)",
+    "poolSetAsideKindSlow": "spori odgovori",
     "poolSetAsideUntil": "Natrag u rotaciji {endsAt}",
     "poolSetAsideRepeat": "Po strani {count, plural, one {# put} other {# puta}}",
     "poolUnknownAddress": "Nepoznata adresa",
@@ -11516,6 +11523,7 @@
       "output": "Izlaz",
       "totalOut": "Ukupno na izlazu: {value}",
       "reasoning": "Zaključivanje: {value}",
+      "reasoningObserved": "{value} · uočeno {chars} znakova",
       "requestedModel": "Zatraženi model",
       "requestProtocol": "Protokol zahtjeva",
       "cacheSource": "Izvor predmemorije",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Nasljeđuje vezu: {host}",
     "inheritedPool": "Nasljeđuje bazen veza ({count})",
     "poolEmptyBlocked": "Bazen prazan — zahtjevi ne uspijevaju (ne izravno)",
-    "directEgress": "Izravno (bez proxyja)"
+    "directEgress": "Izravno (bez proxyja)",
+    "ownProxy": "Vlastiti proxy"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "Uzvodni status",
     "noResponse": "Nema odgovora",
     "egressIp": "Egress IP",
+    "headersAfter": "Zaglavlja nakon",
+    "firstChunkAfter": "Prvi dio nakon",
     "servedBy": "Poslužuje",
     "correlationId": "ID korelacije"
   },

@@ -1203,6 +1203,8 @@
     "batchGroup": "ដំណើរការជាបាច់",
     "homeSubtitle": "ទិដ្ឋភាពទូទៅនៃផ្ទាំងគ្រប់គ្រង",
     "providersSubtitle": "គ្រប់គ្រងអ្នកផ្តល់សេវា AI",
+    "modelCatalog": "កាតាឡុកម៉ូដែល",
+    "modelCatalogSubtitle": "រុករកម៉ូដែលពីអ្នកផ្តល់សេវាទាំងអស់",
     "quotaTrackerSubtitle": "តាមដានដែនកំណត់នៃការប្រើប្រាស់",
     "providerQuotaSubtitle": "តាមដានដែនកំណត់នៃការប្រើប្រាស់របស់អ្នកផ្តល់សេវា",
     "runtimeSubtitle": "ភាពធន់ និងវគ្គក្នុងពេលជាក់ស្តែង",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "សាប់បៀ — ប្រើម៉ូដែលនីមួយៗម្តង មុនពេលសាប់ឡើងវិញ",
     "fusion": "ការរួមបញ្ចូល",
     "fusionDesc": "ផ្ញើប្រូមទៅគ្រប់ម៉ូដែលក្នុងបន្ទះស្របពេលគ្នា បន្ទាប់មកម៉ូដែលវិនិច្ឆ័យសំយោគចម្លើយចុងក្រោយតែមួយ",
+    "pipeline": "លំហូរដំណើរការ",
+    "pipelineDesc": "ដំណើរការម៉ូដែលតាមលំដាប់ ដោយបញ្ជូនលទ្ធផលនៃជំហាននីមួយៗទៅជំហានបន្ទាប់ មានតែចម្លើយចុងក្រោយប៉ុណ្ណោះដែលត្រូវបានត្រឡប់មកវិញ",
     "fusionJudgeModel": "ម៉ូដែលវិនិច្ឆ័យ",
     "fusionJudgeModelHelp": "ម៉ូដែលដែលសំយោគចម្លើយពីបន្ទះទៅជាការឆ្លើយតបចុងក្រោយតែមួយ។ ទុកឱ្យទទេ ដើម្បីប្រើម៉ូដែលទីមួយក្នុងបន្ទះ។",
     "fusionMinPanel": "ចំនួនអប្បបរមាក្នុងបន្ទះ",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "ក្រុមសេវាឥតគិតថ្លៃ ($0)",
-    "templateFreeStackDesc": "បែងចែកជុំគ្នារវាងអ្នកផ្តល់សេវាឥតគិតថ្លៃទាំងអស់៖ Kiro (Claude), Qoder (5 ម៉ូដែល), Qwen (4 ម៉ូដែល)។ គ្មានថ្លៃចំណាយ ហើយការសរសេរកូដមិនឈប់ឡើយ។",
+    "templateFreeStackDesc": "បែងចែកជុំគ្នារវាងអ្នកផ្តល់សេវាឥតគិតថ្លៃទាំងអស់៖ Antigravity (Gemini), Kiro (Claude), Qoder (3 ម៉ូដែល), NVIDIA, Groq។ គ្មានថ្លៃចំណាយ ហើយការសរសេរកូដមិនឈប់ឡើយ។",
     "auto": "ស្វ័យប្រវត្តិឆ្លាតវៃ",
     "autoDesc": "ក្រុមកំណត់ផ្លូវឆ្លាតវៃដែលអាចស្តារខ្លួនឯងបាន ជាមួយការដាក់ពិន្ទុពហុកត្តា",
     "lkgp": "របៀប LKGP",
@@ -4960,6 +4964,7 @@
     "export": "នាំចេញ",
     "exporting": "កំពុងនាំចេញ...",
     "exportFailed": "ការនាំចេញបានបរាជ័យ",
+    "exportTruncated": "ការនាំចេញត្រូវបានកាត់ខ្លី៖ មានតែ {exported} ក្នុងចំណោម {total} ធាតុកំណត់ហេតុប៉ុណ្ណោះដែលត្រូវបានបញ្ចូល។ ជ្រើសរើសចន្លោះពេលខ្លីជាងនេះ ដើម្បីនាំចេញផ្នែកដែលនៅសល់។",
     "cleanHistoryButton": "សម្អាតប្រវត្តិ",
     "cleanHistoryTitle": "សម្អាតប្រវត្តិកំណត់ហេតុមែនទេ?",
     "cleanHistoryMessage": "សកម្មភាពនេះនឹងលុបជាអចិន្ត្រៃយ៍នូវជួរកំណត់ហេតុសំណើទាំងអស់ ជួរព័ត៌មានលម្អិតចាស់ៗ និងឯកសារ artifact មូលដ្ឋាននៅក្រោម DATA_DIR/call_logs។ ទំព័របច្ចុប្បន្ននឹងផ្ទុកឡើងវិញបន្ទាប់ពីសម្អាត។",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "បើកដំណើរការធាតុដែលបានជ្រើសរើស {count}",
     "testPassed": "✓ OK",
     "sweepVerdict": "ការស្កេនចុងក្រោយ: {cause} ({code}) {age}",
+    "blockedHistory": "ប្រវត្តិដែលបានបិទ: {count}× {cause} ({code}) {age}",
     "sweepNoData": "មិនទាន់មានការស្កេនតាំងពីចាប់ផ្តើម",
     "sweepLabel": {
       "unproven": "គោលដៅបានបដិសេធ",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "ដាក់ឡែក: {kind}",
     "poolSetAsideKindProxyUnreachable": "មិនអាចភ្ជាប់ទៅប្រូកស៊ីបាន",
     "poolSetAsideKindIpQuota429": "ដែនកំណត់អត្រា IP (429)",
+    "poolSetAsideKindSlow": "ការឆ្លើយតបយឺត",
     "poolSetAsideUntil": "ត្រឡប់ទៅការបង្វិល {endsAt}",
     "poolSetAsideRepeat": "ដាក់ឡែក {count, plural, one {# ដង} other {# ដង}}",
     "poolUnknownAddress": "អាសយដ្ឋានមិនស្គាល់",
@@ -11516,6 +11523,7 @@
       "output": "ទិន្នន័យចេញ",
       "totalOut": "សរុបចេញ៖ {value}",
       "reasoning": "ការវែកញែក៖ {value}",
+      "reasoningObserved": "{value} · បានសង្កេតឃើញ {chars} តួអក្សរ",
       "requestedModel": "ម៉ូដែលដែលបានស្នើ",
       "requestProtocol": "ពិធីការសំណើ",
       "cacheSource": "ប្រភពឃ្លាំងសម្ងាត់",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "ទទួលមរតកការតភ្ជាប់: {host}",
     "inheritedPool": "ទទួលមរតកបណ្តុំការតភ្ជាប់ ({count})",
     "poolEmptyBlocked": "បណ្តុំទទេ — សំណើបរាជ័យ (មិនផ្ទាល់)",
-    "directEgress": "ផ្ទាល់ (គ្មានប្រូកស៊ី)"
+    "directEgress": "ផ្ទាល់ (គ្មានប្រូកស៊ី)",
+    "ownProxy": "ប្រូកស៊ីផ្ទាល់ខ្លួន"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "ស្ថានភាពអ៊ុបស្ត្រីម",
     "noResponse": "មិនមានការឆ្លើយតប",
     "egressIp": "អ៊ីភីចេញ",
+    "headersAfter": "ក្បាលបន្ទាប់",
+    "firstChunkAfter": "បំណែកដំបូងបន្ទាប់",
     "servedBy": "បានផ្តល់ដោយ",
     "correlationId": "អត្តសញ្ញាណការតភ្ជាប់"
   },

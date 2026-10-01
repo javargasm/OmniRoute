@@ -1203,6 +1203,8 @@
     "batchGroup": "バッチ",
     "homeSubtitle": "ダッシュボード概要",
     "providersSubtitle": "AIプロバイダーを管理",
+    "modelCatalog": "モデルカタログ",
+    "modelCatalogSubtitle": "プロバイダー横断でモデルを閲覧",
     "quotaTrackerSubtitle": "使用量上限を追跡",
     "providerQuotaSubtitle": "プロバイダーの使用量上限を追跡",
     "runtimeSubtitle": "リアルタイムの耐障害性とセッション",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "シャッフルデッキ方式 — 再シャッフルする前に各モデルを1回ずつ使用します",
     "fusion": "フュージョン",
     "fusionDesc": "プロンプトをすべてのパネルモデルに並列で配信し、ジャッジモデルが1つの最終回答を統合します",
+    "pipeline": "パイプライン",
+    "pipelineDesc": "モデルを順番に実行し、各ステップの出力を次のステップに渡します。最終回答のみが返されます",
     "fusionJudgeModel": "ジャッジモデル",
     "fusionJudgeModelHelp": "パネルの回答を1つの最終レスポンスに統合するモデル。最初のパネルモデルを使用する場合は空のままにしてください。",
     "fusionMinPanel": "最小パネル数",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "無料スタック（$0）",
-    "templateFreeStackDesc": "すべての無料プロバイダー間でラウンドロビンします：Kiro (Claude)、Qoder (5モデル)、Qwen (4モデル)。コストはゼロで、コーディングが止まることはありません。",
+    "templateFreeStackDesc": "すべての無料プロバイダー間でラウンドロビンします：Antigravity (Gemini)、Kiro (Claude)、Qoder (3モデル)、NVIDIA、Groq。コストはゼロで、コーディングが止まることはありません。",
     "auto": "Auto Combo",
     "autoDesc": "Self-healing smart routing pool (Performance optimized)",
     "lkgp": "LKGP モード",
@@ -4960,6 +4964,7 @@
     "export": "エクスポート",
     "exporting": "エクスポート中...",
     "exportFailed": "エクスポートに失敗しました",
+    "exportTruncated": "エクスポートが切り詰められました: {total} 件のログエントリのうち {exported} 件のみが含まれています。残りをエクスポートするには、より短い期間を選択してください。",
     "cleanHistoryButton": "履歴をクリア",
     "cleanHistoryTitle": "ログ履歴をクリアしますか？",
     "cleanHistoryMessage": "これにより、すべてのリクエストログ行、レガシー詳細行、および DATA_DIR/call_logs 配下のローカルアーティファクトファイルが永久に削除されます。クリーンアップ後にライブページが更新されます。",
@@ -5631,7 +5636,7 @@
     "accountName": "アカウント名",
     "email": "電子メール",
     "healthCheckMinutes": "ヘルスチェック (分)",
-    "healthCheckHint": "プロアクティブなトークンの更新間隔。 0 = 無効。",
+    "healthCheckHint": "この接続専用の設定です。空欄 = グローバルの既定値に従う（設定 › レジリエンス）。0 = この接続を一切チェックしない。最大 1440（24 時間）。",
     "deselectAllModels": "すべての選択を解除",
     "modelsActiveCount": "{active}/{total}件が有効",
     "noModelsMatch": "「{filter}」に一致するモデルはありません",
@@ -6192,7 +6197,7 @@
       "bluesminds": "https://www.bluesminds.com でAPIキーを取得 — 毎日の無料クレジット付きのOpenAI互換エンドポイント（https://api.bluesminds.com/v1）。VIPモデル（Claude Opus 4.5、Gemini 2.5 Pro）はpiクレジットを消費します。",
       "byteplus": "APIキーでBytePlus ModelArkに接続します。",
       "bytez": "1ドルの無料クレジット、4週間ごとに更新",
-      "cerebras": "無料トライアル: 1日あたり100万トークン、30K TPM、5 RPM — クレジットカード不要。",
+      "cerebras": "登録時に 1 回限りの $5 クレジット（有効期間 30 日）。支払い方法の登録が必要です。継続的な無料枠ではありません。",
       "charm-hyper": "https://hyper.charm.land でAPIキーを作成し、ここにBearerトークンとして貼り付けます。",
       "chutes": "Chutes OpenAI互換ゲートウェイ用のBearer APIキー。",
       "clarifai": "Clarifaiは/v2/ext/openai/v1でOpenAI互換のチャット、レスポンス、/modelsを公開しています。パブリック/コミュニティモデルには通常PATが必要です。アプリスコープのキーはそのアプリ内のリソースに対してのみ機能します。",
@@ -6884,8 +6889,8 @@
       "globalModeDesc": "すべてのプロバイダー トラフィックは、このサブスクリプションのプロキシ プールを経由します。",
       "ruleModeDesc": "選択されたプロバイダーのトラフィックのみがプロキシを通過します。残りは直接接続します。",
       "localCoreEndpoint": "ローカルコア SOCKS5/HTTP エンドポイント (オプション)",
-      "localCoreEndpointPlaceholder": "靴下5://127.0.0.1:1080",
-      "localCoreEndpointDesc": "127.0.0.1 / localhost のみを受け入れます (SS/VMess/Trojan/VLESS にはローカルのシングボックス/クラッシュ コアが必要です)。",
+      "localCoreEndpointPlaceholder": "socks5://127.0.0.1:1080\nsocks5://127.0.0.1:1081",
+      "localCoreEndpointDesc": "1 行に 1 つ。127.0.0.1 / localhost のみ受け付けます（SS/VMess/Trojan/VLESS にはローカルの sing-box/clash コアが必要です）。",
       "routeByProvider": "プロバイダーによるルート (複数選択)",
       "loadingProviders": "プロバイダーリストを読み込み中…",
       "autoRefreshInterval": "自動更新間隔 (分)",
@@ -9571,7 +9576,7 @@
     "redeemResetCredit": "リセットを引き換える",
     "manageResetCredits": "クレジットを表示",
     "viewResetCredits": "リセットクレジットを表示",
-    "resetCreditsModalTitle": "Codexリセットクレジット",
+    "resetCreditsModalTitle": "リセットクレジット",
     "resetCreditsModalExplainer": "クレジットは有効期限順に並んでいます。自動引き換えでは、常に有効期限が最も早いクレジットが使用されます。",
     "resetCreditsLoadFailed": "リセットクレジットの読み込みに失敗しました",
     "resetCreditsDetailsUnavailable": "クレジットの詳細は現在利用できません。更新してもう一度お試しください。",
@@ -9582,7 +9587,7 @@
     "resetCreditNoExpiry": "有効期限なし",
     "redeemThisResetCredit": "引き換える",
     "confirmRedeemResetCreditTitle": "このリセットクレジットを引き換えますか？",
-    "confirmRedeemResetCredit": "引き換えると、対象のCodex利用枠が即座にリセットされ、このクレジットは完全に消費されます。",
+    "confirmRedeemResetCredit": "引き換えると、対象の利用枠が即座にリセットされ、このクレジットは完全に消費されます。",
     "confirmRedeemResetCreditButton": "クレジットを引き換える",
     "resetCreditRedeemed": "引き換え済みのリセット",
     "resetCreditRedeemFailed": "リセットクレジットの引き換えに失敗しました",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "選択した {count} 件を有効化",
     "testPassed": "✓ OK",
     "sweepVerdict": "最終スキャン: {cause} ({code}) {age}",
+    "blockedHistory": "ブロックされた履歴: {count}× {cause} ({code}) {age}",
     "sweepNoData": "起動以降スキャンなし",
     "sweepLabel": {
       "unproven": "ターゲットが拒否",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "除外中:{kind}",
     "poolSetAsideKindProxyUnreachable": "プロキシに到達できません",
     "poolSetAsideKindIpQuota429": "IP レート制限 (429)",
+    "poolSetAsideKindSlow": "遅い応答",
     "poolSetAsideUntil": "{endsAt}にローテーション復帰",
     "poolSetAsideRepeat": "除外{count, plural, one {#回} other {#回}}",
     "poolUnknownAddress": "不明なアドレス",
@@ -11516,6 +11523,7 @@
       "output": "出力",
       "totalOut": "合計出力: {value}",
       "reasoning": "理由: {value}",
+      "reasoningObserved": "{value} · {chars} 文字を検出",
       "requestedModel": "要求されたモデル",
       "requestProtocol": "要求プロトコル",
       "cacheSource": "キャッシュソース",
@@ -12571,7 +12579,7 @@
       },
       "omni-mcp": {
         "name": "MCPサーバー",
-        "description": "OmniRoute MCPサーバー（37のツール、3つのトランスポート：SSE/stdio/HTTP）に接続します。16の権限スコープにわたるルーティング、キャッシュ、圧縮、メモリ、スキル、プロバイダー、および監査ツールをカバーします。"
+        "description": "OmniRoute MCPサーバー（110のツール、3つのトランスポート：SSE/stdio/HTTP）に接続します。33の権限スコープにわたるルーティング、キャッシュ、圧縮、メモリ、スキル、プロバイダー、および監査ツールをカバーします。"
       },
       "omni-agents-a2a": {
         "name": "エージェント＆A2Aプロトコル",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "接続を継承:{host}",
     "inheritedPool": "接続プールを継承({count})",
     "poolEmptyBlocked": "プールが空—リクエストは失敗します(直接ではありません)",
-    "directEgress": "直接(プロキシなし)"
+    "directEgress": "直接(プロキシなし)",
+    "ownProxy": "独自プロキシ"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "アップストリームステータス",
     "noResponse": "応答なし",
     "egressIp": "イーグレスIP",
+    "headersAfter": "ヘッダーの後",
+    "firstChunkAfter": "最初のチャンクの後",
     "servedBy": "提供元",
     "correlationId": "相関ID"
   },

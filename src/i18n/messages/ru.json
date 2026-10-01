@@ -1203,6 +1203,8 @@
     "batchGroup": "Пакетная обработка",
     "homeSubtitle": "Обзор панели управления",
     "providersSubtitle": "Управление AI-провайдерами",
+    "modelCatalog": "Каталог моделей",
+    "modelCatalogSubtitle": "Просматривайте модели всех провайдеров",
     "quotaTrackerSubtitle": "Отслеживание лимитов использования",
     "providerQuotaSubtitle": "Отслеживание лимитов использования провайдера",
     "runtimeSubtitle": "Отказоустойчивость и сеансы в реальном времени",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Перемешивание колоды - каждая модель используется по одному разу перед новым перемешиванием",
     "fusion": "Слияние",
     "fusionDesc": "Рассылает запрос на все модели панели параллельно, после чего модель-судья синтезирует один окончательный ответ",
+    "pipeline": "Конвейер",
+    "pipelineDesc": "Запускает модели последовательно, передавая результат каждого шага следующему; возвращается только итоговый ответ",
     "fusionJudgeModel": "Модель-судья",
     "fusionJudgeModelHelp": "Модель, которая синтезирует ответы панели в один окончательный ответ. Оставьте пустым, чтобы использовать первую модель панели.",
     "fusionMinPanel": "Мин. панель",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Бесплатный стек ($0)",
-    "templateFreeStackDesc": "Round robin по всем бесплатным провайдерам: Kiro (Claude), Qoder (5 моделей), Qwen (4 модели). Ноль стоимости, кодинг без остановки.",
+    "templateFreeStackDesc": "Round robin по всем бесплатным провайдерам: Antigravity (Gemini), Kiro (Claude), Qoder (3 модели), NVIDIA, Groq. Ноль стоимости, кодинг без остановки.",
     "auto": "Авто",
     "autoDesc": "Автоматическая стратегия - система сама выбирает подходящее поведение.",
     "lkgp": "LKGP",
@@ -4960,6 +4964,7 @@
     "export": "Экспорт",
     "exporting": "Экспорт...",
     "exportFailed": "Не удалось выполнить экспорт",
+    "exportTruncated": "Экспорт обрезан: включено только {exported} из {total} записей журнала. Выберите более короткий период, чтобы экспортировать остальное.",
     "cleanHistoryButton": "Очистить историю",
     "cleanHistoryTitle": "Очистить историю логов?",
     "cleanHistoryMessage": "Это навсегда удалит все строки логов запросов, устаревшие строки детализации и локальные файлы артефактов в DATA_DIR/call_logs. Текущая страница обновится после очистки.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Включить {count} выбранных",
     "testPassed": "✓ ОК",
     "sweepVerdict": "Последнее сканирование: {cause} ({code}) {age}",
+    "blockedHistory": "Заблокированная история: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Сканирований с запуска не было",
     "sweepLabel": {
       "unproven": "цель отклонена",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "Отложен: {kind}",
     "poolSetAsideKindProxyUnreachable": "прокси недоступен",
     "poolSetAsideKindIpQuota429": "ограничение частоты по IP (429)",
+    "poolSetAsideKindSlow": "медленные ответы",
     "poolSetAsideUntil": "Снова в ротации {endsAt}",
     "poolSetAsideRepeat": "Отложен {count, plural, one {# раз} other {# раз}}",
     "poolUnknownAddress": "Неизвестный адрес",
@@ -11516,6 +11523,7 @@
       "output": "Вывод",
       "totalOut": "Всего выведено: {value}",
       "reasoning": "Обоснование: {value}",
+      "reasoningObserved": "{value} · замечено символов: {chars}",
       "requestedModel": "Запрашиваемая Модель",
       "requestProtocol": "Протокол Req",
       "cacheSource": "Кэш Источника",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Наследует соединение: {host}",
     "inheritedPool": "Наследует пул соединений ({count})",
     "poolEmptyBlocked": "Пул пуст — запросы завершаются ошибкой (не напрямую)",
-    "directEgress": "Напрямую (без прокси)"
+    "directEgress": "Напрямую (без прокси)",
+    "ownProxy": "Собственный прокси"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "Статус верхнего потока",
     "noResponse": "Нет ответа",
     "egressIp": "Egress IP",
+    "headersAfter": "Заголовки после",
+    "firstChunkAfter": "Первый фрагмент после",
     "servedBy": "Обслуживается",
     "correlationId": "ID корреляции"
   },

@@ -1203,6 +1203,8 @@
     "batchGroup": "Pakešu apstrāde",
     "homeSubtitle": "Informācijas paneļa pārskats",
     "providersSubtitle": "Pārvaldīt AI nodrošinātājus",
+    "modelCatalog": "Modeļu katalogs",
+    "modelCatalogSubtitle": "Pārlūkojiet visu pakalpojumu sniedzēju modeļus",
     "quotaTrackerSubtitle": "Sekot lietojuma limitiem",
     "providerQuotaSubtitle": "Sekot nodrošinātāja lietojuma limitiem",
     "runtimeSubtitle": "Reāllaika noturība un sesijas",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Sajauc modeļu secību — izmanto katru modeli vienreiz, pirms secību sajauc no jauna",
     "fusion": "Apvienošana",
     "fusionDesc": "Nosūta uzvedni paralēli visiem paneļa modeļiem, pēc tam vērtētāja modelis sintezē vienu galīgo atbildi",
+    "pipeline": "Konveijers",
+    "pipelineDesc": "Palaiž modeļus secīgi, katra soļa izvadi nododot nākamajam; tiek atgriezta tikai galīgā atbilde",
     "fusionJudgeModel": "Vērtētāja modelis",
     "fusionJudgeModelHelp": "Modelis, kas sintezē paneļa atbildes vienā galīgajā atbildē. Atstājiet tukšu, lai izmantotu pirmo paneļa modeli.",
     "fusionMinPanel": "Minimālais paneļa atbilžu skaits",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Bezmaksas pakotne ($0)",
-    "templateFreeStackDesc": "Cikliska maršrutēšana starp visiem bezmaksas pakalpojumu sniedzējiem: Kiro (Claude), Qoder (5 modeļi), Qwen (4 modeļi). Nekādu izmaksu, kodēšana bez pārtraukuma.",
+    "templateFreeStackDesc": "Cikliska maršrutēšana starp visiem bezmaksas pakalpojumu sniedzējiem: Antigravity (Gemini), Kiro (Claude), Qoder (3 modeļi), NVIDIA, Groq. Nekādu izmaksu, kodēšana bez pārtraukuma.",
     "auto": "Viedais automātiskais režīms",
     "autoDesc": "Pašatjaunojošs viedās maršrutēšanas kopums ar daudzfaktoru vērtēšanu",
     "lkgp": "LKGP režīms",
@@ -4960,6 +4964,7 @@
     "export": "Eksportēt",
     "exporting": "Notiek eksportēšana...",
     "exportFailed": "Eksportēšana neizdevās",
+    "exportTruncated": "Eksportēšana saīsināta: iekļauti tikai {exported} no {total} žurnāla ierakstiem. Lai eksportētu pārējos, izvēlieties īsāku laika diapazonu.",
     "cleanHistoryButton": "Notīrīt vēsturi",
     "cleanHistoryTitle": "Notīrīt žurnāla vēsturi?",
     "cleanHistoryMessage": "Šī darbība neatgriezeniski dzēsīs visas pieprasījumu žurnāla rindas, mantotās detalizētās rindas un lokālos artefaktu failus mapē DATA_DIR/call_logs. Pēc notīrīšanas lapa tiks atsvaidzināta.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Iespējot atlasītos ({count})",
     "testPassed": "✓ Labi",
     "sweepVerdict": "Pēdējā skenēšana: {cause} ({code}) {age}",
+    "blockedHistory": "Bloķētā vēsture: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Kopš palaišanas vēl nav skenēšanas",
     "sweepLabel": {
       "unproven": "mērķis noraidīja",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "Nolikts malā: {kind}",
     "poolSetAsideKindProxyUnreachable": "starpniekserveris nav sasniedzams",
     "poolSetAsideKindIpQuota429": "IP pieprasījumu ierobežojums (429)",
+    "poolSetAsideKindSlow": "lēnas atbildes",
     "poolSetAsideUntil": "Atpakaļ rotācijā {endsAt}",
     "poolSetAsideRepeat": "Nolikts malā {count, plural, one {# reizi} other {# reizes}}",
     "poolUnknownAddress": "Nezināma adrese",
@@ -11515,6 +11522,7 @@
       "compressed": "Saspiests: {from} → {to} (ietaupīts {percent}%)",
       "output": "Izvade",
       "totalOut": "Kopā izvadē: {value}",
+      "reasoningObserved": "{value} · novērotas {chars} rakstzīmes",
       "reasoning": "Spriešana: {value}",
       "requestedModel": "Pieprasītais modelis",
       "requestProtocol": "Pieprasījuma protokols",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Manto savienojumu: {host}",
     "inheritedPool": "Manto savienojumu pūlu ({count})",
     "poolEmptyBlocked": "Pūls tukšs — pieprasījumi neizdodas (ne tieši)",
-    "directEgress": "Tiešs (bez starpniekservera)"
+    "directEgress": "Tiešs (bez starpniekservera)",
+    "ownProxy": "Savs starpniekserveris"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "Augšupe status",
     "noResponse": "Nav atbildes",
     "egressIp": "Izvades IP",
+    "headersAfter": "Virsraksti pēc",
+    "firstChunkAfter": "Pirmais gabals pēc",
     "servedBy": "Piegādā",
     "correlationId": "Korelācijas ID"
   },

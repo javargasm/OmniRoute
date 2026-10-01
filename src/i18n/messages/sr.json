@@ -1203,6 +1203,8 @@
     "batchGroup": "Пакетна обрада",
     "homeSubtitle": "Преглед контролне табле",
     "providersSubtitle": "Управљање AI провајдерима",
+    "modelCatalog": "Каталог модела",
+    "modelCatalogSubtitle": "Прегледајте моделе свих провајдера",
     "quotaTrackerSubtitle": "Праћење ограничења коришћења",
     "providerQuotaSubtitle": "Праћење ограничења коришћења провајдера",
     "runtimeSubtitle": "Отпорност и сесије у реалном времену",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Мешање шпила — користи сваки модел једном пре поновног мешања",
     "fusion": "Фузија",
     "fusionDesc": "Шаље упит паралелно свим моделима у панелу, затим модел-судија синтетизује један коначан одговор",
+    "pipeline": "Ток обраде",
+    "pipelineDesc": "Покреће моделе редом и прослеђује излаз сваког корака следећем; враћа се само коначни одговор",
     "fusionJudgeModel": "Модел-судија",
     "fusionJudgeModelHelp": "Модел који синтетизује одговоре панела у један коначан одговор. Оставите празно да користите први модел у панелу.",
     "fusionMinPanel": "Мин. број одговора панела",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Бесплатан стек ($0)",
-    "templateFreeStackDesc": "Кружна расподела (round-robin) на све бесплатне провајдере: Kiro (Claude), Qoder (5 модела), Qwen (4 модела). Без трошкова и без прекида кодирања.",
+    "templateFreeStackDesc": "Кружна расподела (round-robin) на све бесплатне провајдере: Antigravity (Gemini), Kiro (Claude), Qoder (3 модела), NVIDIA, Groq. Без трошкова и без прекида кодирања.",
     "auto": "Интелигентно аутоматско рутирање",
     "autoDesc": "Самоопорављајући паметни пул за рутирање са оцењивањем на основу више фактора",
     "lkgp": "LKGP режим",
@@ -4960,6 +4964,7 @@
     "export": "Izvezi",
     "exporting": "Izvoz u toku...",
     "exportFailed": "Izvoz nije uspeo",
+    "exportTruncated": "Извоз је скраћен: укључено је само {exported} од {total} уноса дневника. Изаберите краћи временски опсег да бисте извезли остатак.",
     "cleanHistoryButton": "Očisti istoriju",
     "cleanHistoryTitle": "Očistiti istoriju logova?",
     "cleanHistoryMessage": "Ovo trajno briše sve redove logova zahteva, zastarele redove detalja i lokalne fajlove artefakata u DATA_DIR/call_logs. Aktuelna stranica će se osvežiti nakon čišćenja.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Омогући {count} изабрано",
     "testPassed": "✓ У реду",
     "sweepVerdict": "Poslednje skeniranje: {cause} ({code}) {age}",
+    "blockedHistory": "Блокирана историја: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Nema skeniranja od pokretanja",
     "sweepLabel": {
       "unproven": "meta odbila",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "По страни: {kind}",
     "poolSetAsideKindProxyUnreachable": "прокси недоступан",
     "poolSetAsideKindIpQuota429": "ограничење брзине по IP адреси (429)",
+    "poolSetAsideKindSlow": "спори одговори",
     "poolSetAsideUntil": "Назад у ротацији {endsAt}",
     "poolSetAsideRepeat": "По страни {count, plural, one {# пут} other {# пута}}",
     "poolUnknownAddress": "Непозната адреса",
@@ -11516,6 +11523,7 @@
       "output": "Излаз",
       "totalOut": "Укупно на излазу: {value}",
       "reasoning": "Резоновање: {value}",
+      "reasoningObserved": "{value} · уочено {chars} знакова",
       "requestedModel": "Захтевани модел",
       "requestProtocol": "Протокол захтева",
       "cacheSource": "Извор кеша",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Наслеђује везу: {host}",
     "inheritedPool": "Наслеђује базен веза ({count})",
     "poolEmptyBlocked": "Базен празан — захтеви не успевају (не директно)",
-    "directEgress": "Директно (без проксија)"
+    "directEgress": "Директно (без проксија)",
+    "ownProxy": "Сопствени прокси"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "Uzvodni status",
     "noResponse": "Nema odgovora",
     "egressIp": "Egress IP",
+    "headersAfter": "Zaglavlja nakon",
+    "firstChunkAfter": "Prvi deo nakon",
     "servedBy": "Poslužuje",
     "correlationId": "ID korelacije"
   },

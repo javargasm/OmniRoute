@@ -1203,6 +1203,8 @@
     "batchGroup": "කාණ්ඩ සැකසීම",
     "homeSubtitle": "උපකරණ පුවරු සාරාංශය",
     "providersSubtitle": "AI සපයන්නන් කළමනාකරණය කරන්න",
+    "modelCatalog": "මාදිලි නාමාවලිය",
+    "modelCatalogSubtitle": "සපයන්නන් හරහා මාදිලි පිරික්සන්න",
     "quotaTrackerSubtitle": "භාවිත සීමා නිරීක්ෂණය කරන්න",
     "providerQuotaSubtitle": "සපයන්නාගේ භාවිත සීමා නිරීක්ෂණය කරන්න",
     "runtimeSubtitle": "තත්යකාලීන ප්රත්යස්ථතාව සහ සැසි",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "කාඩ් කුට්ටම කලවම් කිරීම — නැවත කලවම් කිරීමට පෙර සෑම ආකෘතියක්ම එක් වරක් භාවිත කරයි",
     "fusion": "සංකලනය",
     "fusionDesc": "ප්රේරකය සෑම මණ්ඩල ආකෘතියකටම සමාන්තරව යවා, ඉන්පසු විනිශ්චයකරු ආකෘතියක් ඒවා සංශ්ලේෂණය කර එක් අවසන් පිළිතුරක් සකසයි.",
+    "pipeline": "ක්රියාමාලාව",
+    "pipelineDesc": "ආකෘති අනුපිළිවෙලින් ධාවනය කර, සෑම පියවරකම ප්‍රතිදානය ඊළඟ පියවරට ලබා දෙයි; අවසාන පිළිතුර පමණක් ආපසු ලබා දේ",
     "fusionJudgeModel": "විනිශ්චයකරු ආකෘතිය",
     "fusionJudgeModelHelp": "මණ්ඩල පිළිතුරු සංශ්ලේෂණය කර එක් අවසන් ප්රතිචාරයක් සකසන ආකෘතිය. පළමු මණ්ඩල ආකෘතිය භාවිත කිරීමට මෙය හිස්ව තබන්න.",
     "fusionMinPanel": "අවම මණ්ඩල ප්රමාණය",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "නොමිලේ සංචිතය ($0)",
-    "templateFreeStackDesc": "සියලු නොමිලේ සැපයුම්කරුවන් හරහා අනුක්රමිකව මාරු වන්න: Kiro (Claude), Qoder (මාදිලි 5), Qwen (මාදිලි 4). කිසිදු වියදමක් නැත, කේතනය කිසිදා නවතින්නේ නැත.",
+    "templateFreeStackDesc": "සියලු නොමිලේ සැපයුම්කරුවන් හරහා අනුක්රමිකව මාරු වන්න: Antigravity (Gemini), Kiro (Claude), Qoder (මාදිලි 3), NVIDIA, Groq. කිසිදු වියදමක් නැත, කේතනය කිසිදා නවතින්නේ නැත.",
     "auto": "බුද්ධිමත් ස්වයංක්රීය ක්රමය",
     "autoDesc": "බහු-සාධක ලකුණුකරණය සහිත ස්වයං-ප්රතිසාධන ස්මාර්ට් මාර්ගගත කිරීමේ සංචිතය",
     "lkgp": "LKGP මාදිලිය",
@@ -4960,6 +4964,7 @@
     "export": "නිර්යාත කරන්න",
     "exporting": "නිර්යාත කරමින්...",
     "exportFailed": "නිර්යාත කිරීම අසාර්ථක විය",
+    "exportTruncated": "අපනයනය කපා හරින ලදී: ලොග් ඇතුළත් කිරීම් {total} න් {exported} ක් පමණක් ඇතුළත් විය. ඉතිරිය අපනයනය කිරීමට කෙටි කාල පරාසයක් තෝරන්න.",
     "cleanHistoryButton": "ඉතිහාසය පිරිසිදු කරන්න",
     "cleanHistoryTitle": "ලොග් ඉතිහාසය පිරිසිදු කරන්නද?",
     "cleanHistoryMessage": "මෙය සියලුම ඉල්ලීම් ලොග් පේළි, පැරණි විස්තර පේළි සහ DATA_DIR/call_logs යටතේ ඇති දේශීය artifact ගොනු ස්ථිරවම මකා දමයි. පිරිසිදු කිරීමෙන් පසු සජීවී පිටුව නැවුම් කෙරේ.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "තෝරාගත් {count}ක් සබල කරන්න",
     "testPassed": "✓ හරි",
     "sweepVerdict": "අවසාන ස්කෑන්: {cause} ({code}) {age}",
+    "blockedHistory": "අවහිරිත ඉතිහාසය: {count}× {cause} ({code}) {age}",
     "sweepNoData": "ආරම්භයේ සිට තවම ස්කෑන් නැත",
     "sweepLabel": {
       "unproven": "ඉලක්කය ප්‍රතික්ෂේප කළා",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "වෙන්කර ඇත: {kind}",
     "poolSetAsideKindProxyUnreachable": "ප්‍රොක්සියට ළඟා විය නොහැක",
     "poolSetAsideKindIpQuota429": "IP අනුපාත සීමාව (429)",
+    "poolSetAsideKindSlow": "මන්දගාමී ප්‍රතිචාර",
     "poolSetAsideUntil": "භ්‍රමණයට ආපසු {endsAt}",
     "poolSetAsideRepeat": "වෙන්කර ඇත {count, plural, one {# වතාවක්} other {# වතාවක්}}",
     "poolUnknownAddress": "නොදන්නා ලිපිනය",
@@ -11515,6 +11522,7 @@
       "compressed": "සම්පීඩිතයි: {from} → {to} ({percent}% ඉතිරි විය)",
       "output": "ප්රතිදානය",
       "totalOut": "මුළු ප්රතිදානය: {value}",
+      "reasoningObserved": "{value} · අක්ෂර {chars}ක් නිරීක්ෂණය විය",
       "reasoning": "තාර්කිකකරණය: {value}",
       "requestedModel": "ඉල්ලා ඇති මාදිලිය",
       "requestProtocol": "ඉල්ලීම් ප්රොටෝකෝලය",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "සම්බන්ධතාව උරුම වේ: {host}",
     "inheritedPool": "සම්බන්ධතා තටාකය උරුම වේ ({count})",
     "poolEmptyBlocked": "තටාකය හිස් — ඉල්ලීම් අසාර්ථකයි (සෘජු නොවේ)",
-    "directEgress": "සෘජු (ප්‍රොක්සි නැතිව)"
+    "directEgress": "සෘජු (ප්‍රොක්සි නැතිව)",
+    "ownProxy": "ස්වකීය ප්‍රොක්සිය"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "උඩුගත තත්වය",
     "noResponse": "ප්‍රතිචාරයක් නැත",
     "egressIp": "ඉවත් වීමේ IP",
+    "headersAfter": "ශීර්ෂක පසු",
+    "firstChunkAfter": "පළමු කොටස පසු",
     "servedBy": "සැපයුම්කරු",
     "correlationId": "සම්බන්ධතා ID"
   },

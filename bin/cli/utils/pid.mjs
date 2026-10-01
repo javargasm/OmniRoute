@@ -90,15 +90,18 @@ export async function findListeningPids(port, deps = {}) {
       .map((entry) => parseInt(entry, 10))
       .filter((entry) => Number.isFinite(entry) && entry > 0);
   } catch (err) {
-    // POSIX lsof exits with code 1 when no process matches the filter.
-    // That means the port is free, not that lsof failed.
-    if (err && (err.code === 1 || err.status === 1 || err.exitCode === 1) && !err.stdout?.trim()) {
+    // POSIX lsof exits 1 with empty output when there are simply no matches.
+    // That is the normal "port is free" result, not a discovery failure.
+    if (
+      platform !== "win32" &&
+      err?.code === 1 &&
+      !String(err?.stdout ?? "").trim()
+    ) {
       return [];
     }
-    // Tool missing (ENOENT) or unusable: "no listener" cannot be distinguished
-    // from "cannot look" here, so report null and let the caller decide. The
-    // serve preflight bind-probes the port in that case (#14518) — a false
-    // "busy" would block a legitimate start, the worse failure of the two.
+    // Tool missing (ENOENT) or genuinely unusable: "no listener" cannot be
+    // distinguished from "cannot look" here, so report null and let the serve
+    // preflight bind-probe the port instead (#14518).
     return null;
   }
 }
@@ -111,29 +114,24 @@ export async function findListeningPids(port, deps = {}) {
 // actually observe (#14518 keeps the false-"busy" failure mode the worse one).
 export async function probePortFree(port, deps = {}) {
   const net = deps.net || (await import("node:net"));
-  const probeHost = (host) =>
+  const bindable = (host) =>
     new Promise((resolve) => {
       const probe = net.createServer();
       probe.once("error", (err) => {
         probe.close();
         resolve(err.code !== "EADDRINUSE");
       });
-      const onListening = () => {
+      probe.listen({ port, host }, () => {
         probe.close(() => resolve(true));
-      };
-      if (host) {
-        probe.listen(port, host, onListening);
-      } else {
-        probe.listen(port, onListening);
-      }
+      });
     });
-
-  // Probe both loopback and wildcard — on macOS/BSD, a socket bound to 127.0.0.1
-  // does not collide with an unspecified bind (::/0.0.0.0) unless explicitly checked.
-  const freeLoopback = await probeHost("127.0.0.1");
-  if (!freeLoopback) return false;
-  const freeWildcard = await probeHost("0.0.0.0");
-  if (!freeWildcard) return false;
+  // macOS lets a bind on one address succeed while another address holds the
+  // port, so a server on 0.0.0.0 (the default), 127.0.0.1 or ::1 (localhost) is
+  // only visible to a probe on that same address. A host without one of these
+  // addresses gets EADDRNOTAVAIL, which reads as free.
+  for (const host of [undefined, "0.0.0.0", "127.0.0.1", "::1"]) {
+    if (!(await bindable(host))) return false;
+  }
   return true;
 }
 

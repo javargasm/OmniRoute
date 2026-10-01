@@ -208,14 +208,14 @@ test("ensureCallLogsColumns back-fills video_content_removed on a pre-173 lineag
   }
 });
 
-test("migration 190 and ensureCallLogsColumns add nullable effective reasoning effort", () => {
+test("migration 197 and ensureCallLogsColumns add nullable effective reasoning effort", () => {
   const migrationDb = openMemoryDb();
   try {
     migrationDb.exec("CREATE TABLE call_logs (id TEXT PRIMARY KEY, timestamp TEXT)");
     const sql = fs.readFileSync(
       path.join(
         process.cwd(),
-        "src/lib/db/migrations/190_call_logs_effective_reasoning_effort.sql"
+        "src/lib/db/migrations/197_call_logs_effective_reasoning_effort.sql"
       ),
       "utf8"
     );
@@ -244,5 +244,28 @@ test("migration 190 and ensureCallLogsColumns add nullable effective reasoning e
     assert.doesNotThrow(() => ensureCallLogsColumns(legacyDb));
   } finally {
     legacyDb.close?.();
+  }
+});
+
+// #13130: migration 195 adds call_logs.ttft_ms (dashboard generation-time TPS
+// reads it via mapSummaryRow on every row). A lineage that skipped 195 must
+// still expose the column, same reconciliation pattern as #12150/#12470.
+test("ensureCallLogsColumns back-fills ttft_ms on a pre-195 lineage", () => {
+  const db = openMemoryDb();
+  try {
+    db.exec("CREATE TABLE call_logs (id TEXT PRIMARY KEY, timestamp TEXT)");
+    assert.equal(hasColumn(db, "call_logs", "ttft_ms"), false);
+
+    ensureCallLogsColumns(db);
+
+    assert.equal(hasColumn(db, "call_logs", "ttft_ms"), true);
+    db.prepare("INSERT INTO call_logs (id, timestamp) VALUES ('x', 't')").run();
+    const row = db.prepare("SELECT ttft_ms AS v FROM call_logs WHERE id = ?").get("x") as {
+      v: number | null;
+    };
+    assert.equal(row.v, null, "untimed rows stay NULL so TPS falls back to duration");
+    assert.doesNotThrow(() => ensureCallLogsColumns(db));
+  } finally {
+    db.close?.();
   }
 });

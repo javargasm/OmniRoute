@@ -1203,6 +1203,8 @@
     "batchGroup": "ब्याच",
     "homeSubtitle": "ड्यासबोर्ड अवलोकन",
     "providersSubtitle": "AI प्रदायकहरू व्यवस्थापन गर्नुहोस्",
+    "modelCatalog": "मोडेल सूची",
+    "modelCatalogSubtitle": "प्रदायकहरूभरिका मोडेलहरू हेर्नुहोस्",
     "quotaTrackerSubtitle": "प्रयोग सीमाहरू ट्र्याक गर्नुहोस्",
     "providerQuotaSubtitle": "प्रदायकका प्रयोग सीमाहरू ट्र्याक गर्नुहोस्",
     "runtimeSubtitle": "वास्तविक-समयको लचिलोपन र सत्रहरू",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "डेकलाई सफ्ल गर्छ — फेरि सफ्ल गर्नुअघि प्रत्येक मोडेल एक पटक प्रयोग गर्छ",
     "fusion": "फ्युजन",
     "fusionDesc": "प्रम्प्टलाई प्रत्येक प्यानल मोडेलमा समानान्तर रूपमा पठाउँछ, त्यसपछि निर्णायक मोडेलले एउटा अन्तिम उत्तर संश्लेषण गर्छ",
+    "pipeline": "पाइपलाइन",
+    "pipelineDesc": "मोडेलहरूलाई क्रमशः चलाउँछ, प्रत्येक चरणको आउटपुट अर्को चरणमा दिन्छ; अन्तिम उत्तर मात्र फर्काइन्छ",
     "fusionJudgeModel": "निर्णायक मोडेल",
     "fusionJudgeModelHelp": "प्यानलका उत्तरहरूलाई संश्लेषण गरेर एउटा अन्तिम प्रतिक्रिया बनाउने मोडेल। पहिलो प्यानल मोडेल प्रयोग गर्न खाली छोड्नुहोस्।",
     "fusionMinPanel": "न्यूनतम प्यानल",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "निःशुल्क स्ट्याक ($0)",
-    "templateFreeStackDesc": "सबै निःशुल्क प्रदायकहरूमा राउन्ड-रोबिन: Kiro (Claude), Qoder (5 मोडेल), Qwen (4 मोडेल)। शून्य लागत, कोडिङ कहिल्यै रोकिँदैन।",
+    "templateFreeStackDesc": "सबै निःशुल्क प्रदायकहरूमा राउन्ड-रोबिन: Antigravity (Gemini), Kiro (Claude), Qoder (3 मोडेल), NVIDIA, Groq। शून्य लागत, कोडिङ कहिल्यै रोकिँदैन।",
     "auto": "बुद्धिमान स्वचालित मोड",
     "autoDesc": "बहु-कारक स्कोरिङसहितको स्व-मर्मतकारी स्मार्ट रुटिङ पूल",
     "lkgp": "LKGP मोड",
@@ -4960,6 +4964,7 @@
     "export": "निर्यात गर्नुहोस्",
     "exporting": "निर्यात हुँदैछ...",
     "exportFailed": "निर्यात असफल भयो",
+    "exportTruncated": "निर्यात काटिएको छ: {total} लग प्रविष्टिहरूमध्ये {exported} मात्र समावेश गरिए। बाँकी निर्यात गर्न छोटो समय दायरा छान्नुहोस्।",
     "cleanHistoryButton": "इतिहास सफा गर्नुहोस्",
     "cleanHistoryTitle": "लग इतिहास सफा गर्ने हो?",
     "cleanHistoryMessage": "यसले सबै अनुरोध लग पङ्क्तिहरू, पुराना विवरण पङ्क्तिहरू र DATA_DIR/call_logs अन्तर्गतका स्थानीय आर्टिफ्याक्ट फाइलहरू स्थायी रूपमा हटाउँछ। सफाइपछि लाइभ पृष्ठ रिफ्रेस हुनेछ।",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "चयनित {count} सक्षम गर्नुहोस्",
     "testPassed": "✓ ठीक छ",
     "sweepVerdict": "अन्तिम स्क्यान: {cause} ({code}) {age}",
+    "blockedHistory": "अवरोधित इतिहास: {count}× {cause} ({code}) {age}",
     "sweepNoData": "सुरु भएदेखि अहिलेसम्म स्क्यान छैन",
     "sweepLabel": {
       "unproven": "लक्ष्यले अस्वीकार गर्‍यो",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "छेउमा राखियो: {kind}",
     "poolSetAsideKindProxyUnreachable": "प्रोक्सीमा पुग्न सकिएन",
     "poolSetAsideKindIpQuota429": "IP दर सीमा (429)",
+    "poolSetAsideKindSlow": "ढिलो प्रतिक्रिया",
     "poolSetAsideUntil": "रोटेसनमा फर्कियो {endsAt}",
     "poolSetAsideRepeat": "छेउमा राखियो {count, plural, one {# पटक} other {# पटक}}",
     "poolUnknownAddress": "अज्ञात ठेगाना",
@@ -11516,6 +11523,7 @@
       "output": "आउटपुट",
       "totalOut": "कुल आउटपुट: {value}",
       "reasoning": "तर्क: {value}",
+      "reasoningObserved": "{value} · {chars} अक्षर देखिए",
       "requestedModel": "अनुरोध गरिएको मोडेल",
       "requestProtocol": "अनुरोध प्रोटोकल",
       "cacheSource": "क्यास स्रोत",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "जडान उत्तराधिकार: {host}",
     "inheritedPool": "जडान पुल उत्तराधिकार ({count})",
     "poolEmptyBlocked": "पुल खाली — अनुरोधहरू असफल हुन्छन् (प्रत्यक्ष होइन)",
-    "directEgress": "प्रत्यक्ष (प्रोक्सी बिना)"
+    "directEgress": "प्रत्यक्ष (प्रोक्सी बिना)",
+    "ownProxy": "आफ्नै प्रोक्सी"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "उपधारा स्थिति",
     "noResponse": "कोई प्रतिक्रिया छैन",
     "egressIp": "निष्कासन आईपी",
+    "headersAfter": "हेडरहरू पछि",
+    "firstChunkAfter": "पहिलो टुक्रा पछि",
     "servedBy": "द्वारा सेवा गरिएको",
     "correlationId": "संबंधित ID"
   },

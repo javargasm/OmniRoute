@@ -1203,6 +1203,8 @@
     "batchGroup": "Փաթեթային մշակում",
     "homeSubtitle": "Վահանակի ակնարկ",
     "providersSubtitle": "Կառավարել AI մատակարարներին",
+    "modelCatalog": "Մոդելների կատալոգ",
+    "modelCatalogSubtitle": "Դիտեք մոդելները բոլոր մատակարարներից",
     "quotaTrackerSubtitle": "Հետևել օգտագործման սահմանաչափերին",
     "providerQuotaSubtitle": "Հետևել մատակարարների օգտագործման սահմանաչափերին",
     "runtimeSubtitle": "Իրական ժամանակի դիմակայունություն և աշխատաշրջաններ",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Խառնված տրցակ․ յուրաքանչյուր մոդել օգտագործվում է մեկ անգամ՝ մինչև հաջորդ վերախառնումը",
     "fusion": "Միաձուլում",
     "fusionDesc": "Հարցումը զուգահեռ ուղարկում է վահանակի բոլոր մոդելներին, ապա դատավոր մոդելը համադրում է մեկ վերջնական պատասխան",
+    "pipeline": "Մշակման շղթա",
+    "pipelineDesc": "Մոդելները գործարկում է հաջորդաբար՝ յուրաքանչյուր քայլի ելքը փոխանցելով հաջորդին. վերադարձվում է միայն վերջնական պատասխանը",
     "fusionJudgeModel": "Դատավոր մոդել",
     "fusionJudgeModelHelp": "Մոդել, որը վահանակի պատասխանները համադրում է մեկ վերջնական պատասխանի մեջ։ Դատարկ թողեք՝ վահանակի առաջին մոդելն օգտագործելու համար։",
     "fusionMinPanel": "Վահանակի նվազագույն չափ",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Անվճար փաթեթ ($0)",
-    "templateFreeStackDesc": "Շրջանաձև բաշխում բոլոր անվճար մատակարարների միջև՝ Kiro (Claude), Qoder (5 մոդել), Qwen (4 մոդել)։ Զրոյական արժեք, կոդավորումը երբեք չի ընդհատվում։",
+    "templateFreeStackDesc": "Շրջանաձև բաշխում բոլոր անվճար մատակարարների միջև՝ Antigravity (Gemini), Kiro (Claude), Qoder (3 մոդել), NVIDIA, Groq։ Զրոյական արժեք, կոդավորումը երբեք չի ընդհատվում։",
     "auto": "Խելացի ինքնաշխատ ռեժիմ",
     "autoDesc": "Ինքնավերականգնվող խելացի երթուղավորման խումբ՝ բազմագործոն գնահատմամբ",
     "lkgp": "LKGP ռեժիմ",
@@ -4960,6 +4964,7 @@
     "export": "Արտահանել",
     "exporting": "Արտահանվում է...",
     "exportFailed": "Արտահանումը ձախողվեց",
+    "exportTruncated": "Արտահանումը կրճատվել է. ներառվել է {total} մատյանի գրառումից միայն {exported}-ը։ Մնացածն արտահանելու համար ընտրեք ավելի կարճ ժամանակահատված։",
     "cleanHistoryButton": "Մաքրել պատմությունը",
     "cleanHistoryTitle": "Մաքրե՞լ մատյանի պատմությունը",
     "cleanHistoryMessage": "Սա ընդմիշտ մաքրում է հարցումների մատյանի բոլոր տողերը, հին մանրամասների տողերը և DATA_DIR/call_logs-ում գտնվող տեղային արտեֆակտների ֆայլերը։ Մաքրումից հետո ընթացիկ էջը կթարմացվի։",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Միացնել ընտրված {count} պրոքսիները",
     "testPassed": "✓ OK",
     "sweepVerdict": "Վերջին սկանավորում՝ {cause} ({code}) {age}",
+    "blockedHistory": "Անցյալ արգելված: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Մեկնարկից ի վեր սկանավորում չկա",
     "sweepLabel": {
       "unproven": "թիրախը մերժեց",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "Մի կողմ դրված՝ {kind}",
     "poolSetAsideKindProxyUnreachable": "պրոքսին անհասանելի է",
     "poolSetAsideKindIpQuota429": "IP արագության սահմանափակում (429)",
+    "poolSetAsideKindSlow": "դանդաղ պատասխաններ",
     "poolSetAsideUntil": "Վերադարձ ռոտացիայի {endsAt}",
     "poolSetAsideRepeat": "Մի կողմ դրված {count, plural, one {# անգամ} other {# անգամ}}",
     "poolUnknownAddress": "Անհայտ հասցե",
@@ -11516,6 +11523,7 @@
       "output": "Ելք",
       "totalOut": "Ընդհանուր ելք՝ {value}",
       "reasoning": "Դատողություն՝ {value}",
+      "reasoningObserved": "{value} · դիտարկվել է {chars} նիշ",
       "requestedModel": "Պահանջված մոդել",
       "requestProtocol": "Հարցման արձանագրություն",
       "cacheSource": "Քեշի աղբյուր",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Ժառանգում է կապը՝ {host}",
     "inheritedPool": "Ժառանգում է կապերի խումբը ({count})",
     "poolEmptyBlocked": "Խումբը դատարկ է — հարցումները ձախողվում են (ոչ ուղիղ)",
-    "directEgress": "Ուղիղ (առանց պրոքսիի)"
+    "directEgress": "Ուղիղ (առանց պրոքսիի)",
+    "ownProxy": "Սեփական պրոքսի"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "Վերին հոսքի կարգավիճակ",
     "noResponse": "Պատասխան չկա",
     "egressIp": "Ելքային IP",
+    "headersAfter": "Վերնագրերը հետո",
+    "firstChunkAfter": "Առաջին հատվածը հետո",
     "servedBy": "Մատակարարող",
     "correlationId": "Համապատասխանության ID"
   },

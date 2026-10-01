@@ -87,6 +87,22 @@ async function loadAgentBridgeHook(): Promise<{
 export const MITM_PIPE_MAX_COLLECT_BYTES = 1 * 1024 * 1024;
 
 /**
+ * Resolve once the response emits "drain" or "close", removing both listeners.
+ * A close during the wait is caught by the caller's downstreamClosed check.
+ */
+function waitForDrainOrClose(res: ServerResponse): Promise<void> {
+  return new Promise<void>((resolve) => {
+    const done = () => {
+      res.off("drain", done);
+      res.off("close", done);
+      resolve();
+    };
+    res.once("drain", done);
+    res.once("close", done);
+  });
+}
+
+/**
  * Bounded string accumulator for piped SSE transcripts. Stops retaining past
  * `maxBytes` but keeps counting true bytes, so the inspector still reports
  * the exact `responseSize` it reported before (`Buffer.byteLength` of the
@@ -242,7 +258,10 @@ export abstract class MitmHandlerBase {
           }
         }
         if (downstreamClosed || res.closed || res.destroyed) break;
-        res.write(buf);
+        // A slow client must be allowed to drain before we read another upstream
+        // chunk, otherwise Node queues the whole stream in memory. A close during
+        // the wait is caught by the downstreamClosed check at the top of the loop.
+        if (!res.write(buf)) await waitForDrainOrClose(res);
       }
     } finally {
       res.off("close", onClose);

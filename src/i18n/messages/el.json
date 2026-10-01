@@ -1203,6 +1203,8 @@
     "batchGroup": "Μαζική Επεξεργασία",
     "homeSubtitle": "Επισκόπηση πίνακα ελέγχου",
     "providersSubtitle": "Διαχείριση παρόχων AI",
+    "modelCatalog": "Κατάλογος μοντέλων",
+    "modelCatalogSubtitle": "Περιηγηθείτε σε μοντέλα όλων των παρόχων",
     "quotaTrackerSubtitle": "Παρακολούθηση ορίων χρήσης",
     "providerQuotaSubtitle": "Παρακολούθηση ορίων χρήσης παρόχου",
     "runtimeSubtitle": "Ανθεκτικότητα και συνεδρίες σε πραγματικό χρόνο",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Ανακάτεμα τράπουλας — χρησιμοποιεί κάθε μοντέλο μία φορά πριν ξανανακατέψει",
     "fusion": "Σύντηξη",
     "fusionDesc": "Διανέμει την προτροπή παράλληλα σε κάθε μοντέλο του πάνελ και, στη συνέχεια, ένα μοντέλο-κριτής συνθέτει μία τελική απάντηση",
+    "pipeline": "Ροή επεξεργασίας",
+    "pipelineDesc": "Εκτελεί τα μοντέλα διαδοχικά, περνώντας την έξοδο κάθε βήματος στο επόμενο· επιστρέφεται μόνο η τελική απάντηση",
     "fusionJudgeModel": "Μοντέλο-κριτής",
     "fusionJudgeModelHelp": "Μοντέλο που συνθέτει τις απαντήσεις του πάνελ σε μία τελική απόκριση. Αφήστε το κενό για να χρησιμοποιηθεί το πρώτο μοντέλο του πάνελ.",
     "fusionMinPanel": "Ελάχιστες απαντήσεις πάνελ",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Δωρεάν Πακέτο ($0)",
-    "templateFreeStackDesc": "Εναλλαγή round-robin σε όλους τους δωρεάν παρόχους: Kiro (Claude), Qoder (5 μοντέλα), Qwen (4 μοντέλα). Μηδενικό κόστος, χωρίς διακοπές στη συγγραφή κώδικα.",
+    "templateFreeStackDesc": "Εναλλαγή round-robin σε όλους τους δωρεάν παρόχους: Antigravity (Gemini), Kiro (Claude), Qoder (3 μοντέλα), NVIDIA, Groq. Μηδενικό κόστος, χωρίς διακοπές στη συγγραφή κώδικα.",
     "auto": "Έξυπνη αυτόματη λειτουργία",
     "autoDesc": "Ομάδα έξυπνης δρομολόγησης με δυνατότητα αυτόματης αποκατάστασης και βαθμολόγηση πολλαπλών παραγόντων",
     "lkgp": "Λειτουργία LKGP",
@@ -4960,6 +4964,7 @@
     "export": "Εξαγωγή",
     "exporting": "Εξαγωγή σε εξέλιξη...",
     "exportFailed": "Η εξαγωγή απέτυχε",
+    "exportTruncated": "Η εξαγωγή περικόπηκε: συμπεριλήφθηκαν μόνο {exported} από {total} εγγραφές καταγραφής. Επιλέξτε μικρότερο χρονικό διάστημα για να εξαγάγετε τις υπόλοιπες.",
     "cleanHistoryButton": "Εκκαθάριση ιστορικού",
     "cleanHistoryTitle": "Εκκαθάριση ιστορικού καταγραφών;",
     "cleanHistoryMessage": "Αυτό διαγράφει οριστικά όλες τις γραμμές καταγραφής αιτημάτων, τις παλαιές γραμμές λεπτομερειών και τα τοπικά αρχεία τεχνουργημάτων στον κατάλογο DATA_DIR/call_logs. Η ζωντανή σελίδα θα ανανεωθεί μετά την εκκαθάριση.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Ενεργοποίηση {count} επιλεγμένων",
     "testPassed": "✓ ΟΚ",
     "sweepVerdict": "Τελευταία σάρωση: {cause} ({code}) {age}",
+    "blockedHistory": "Αποκλεισμένο ιστορικό: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Καμία σάρωση ακόμη από την εκκίνηση",
     "sweepLabel": {
       "unproven": "ο στόχος αρνήθηκε",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "Στην άκρη: {kind}",
     "poolSetAsideKindProxyUnreachable": "ο διακομιστής μεσολάβησης δεν είναι προσβάσιμος",
     "poolSetAsideKindIpQuota429": "όριο ρυθμού ανά IP (429)",
+    "poolSetAsideKindSlow": "αργές απαντήσεις",
     "poolSetAsideUntil": "Πίσω σε rotation {endsAt}",
     "poolSetAsideRepeat": "Στην άκρη {count, plural, one {# φορά} other {# φορές}}",
     "poolUnknownAddress": "Άγνωστη διεύθυνση",
@@ -11516,6 +11523,7 @@
       "output": "Έξοδος",
       "totalOut": "Σύνολο εξόδου: {value}",
       "reasoning": "Συλλογισμός: {value}",
+      "reasoningObserved": "{value} · παρατηρήθηκαν {chars} χαρακτήρες",
       "requestedModel": "Μοντέλο που ζητήθηκε",
       "requestProtocol": "Πρωτόκολλο αιτήματος",
       "cacheSource": "Πηγή κρυφής μνήμης",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Κληρονομεί τη σύνδεση: {host}",
     "inheritedPool": "Κληρονομεί το pool συνδέσεων ({count})",
     "poolEmptyBlocked": "Το pool άδειο — τα αιτήματα αποτυγχάνουν (όχι απευθείας)",
-    "directEgress": "Απευθείας (χωρίς proxy)"
+    "directEgress": "Απευθείας (χωρίς proxy)",
+    "ownProxy": "Δικός σας διακομιστής μεσολάβησης"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "Κατάσταση ανάντη",
     "noResponse": "Καμία απάντηση",
     "egressIp": "Διεύθυνση IP εξόδου",
+    "headersAfter": "Κεφαλίδες μετά",
+    "firstChunkAfter": "Πρώτο τμήμα μετά",
     "servedBy": "Παρέχεται από",
     "correlationId": "Αναγνωριστικό συσχέτισης"
   },

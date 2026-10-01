@@ -1203,6 +1203,8 @@
     "batchGroup": "Ìdìpọ̀",
     "homeSubtitle": "Àkópò Dashboard",
     "providersSubtitle": "Ṣàkóso àwọn olùpèsè AI",
+    "modelCatalog": "Àkójọ àwọn àwòṣe",
+    "modelCatalogSubtitle": "Wo àwọn àwòṣe láti ọ̀dọ̀ gbogbo olùpèsè",
     "quotaTrackerSubtitle": "Tọpinpin àwọn òpin lílò",
     "providerQuotaSubtitle": "Tọpinpin àwọn òpin lílò olùpèsè",
     "runtimeSubtitle": "Ìfaradà àti àwọn sáà ní àkókò gidi",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Dà deck rú — ó máa ń lo model kọ̀ọ̀kan lẹ́ẹ̀kan kí ó tó tún wọn dà rú",
     "fusion": "Àkópapọ̀",
     "fusionDesc": "Ó ń fi prompt ránṣẹ́ sí gbogbo panel model lẹ́ẹ̀kan náà, lẹ́yìn náà judge model kan yóò ṣàkópọ̀ àwọn ìdáhùn wọn sí ìdáhùn ìkẹyìn kan",
+    "pipeline": "Ọ̀nà Ìṣiṣẹ́",
+    "pipelineDesc": "Ó ń ṣiṣẹ́ àwọn model ní ìtẹ̀léra, ó ń fi àbájáde ìgbésẹ̀ kọ̀ọ̀kan fún èyí tó kàn; ìdáhùn ìkẹyìn nìkan ni a ń dá padà",
     "fusionJudgeModel": "Àwòṣe adájọ́",
     "fusionJudgeModelHelp": "Model tó ń ṣàkópọ̀ àwọn ìdáhùn panel sí ìdáhùn ìkẹyìn kan. Fi sílẹ̀ ní òfo láti lo panel model àkọ́kọ́.",
     "fusionMinPanel": "Pánẹ́lì tó kéré jù",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Àkójọpọ̀ Ọ̀fẹ́ ($0)",
-    "templateFreeStackDesc": "Lo Round-robin káàkiri gbogbo àwọn olùpèsè ọ̀fẹ́: Kiro (Claude), Qoder (5 models), Qwen (4 models). Kò náwó rárá, kò sì ní dá coding dúró.",
+    "templateFreeStackDesc": "Lo Round-robin káàkiri gbogbo àwọn olùpèsè ọ̀fẹ́: Antigravity (Gemini), Kiro (Claude), Qoder (3 models), NVIDIA, Groq. Kò náwó rárá, kò sì ní dá coding dúró.",
     "auto": "Àìfọwọ́ṣe Olóye",
     "autoDesc": "Àkójọpọ̀ ìdarí ipa-ọ̀nà olóye tó ń tún ara rẹ̀ ṣe pẹ̀lú ìṣírò ọ̀pọ̀ ifosiwewe",
     "lkgp": "Ìpo LKGP",
@@ -4960,6 +4964,7 @@
     "export": "Gbé jáde",
     "exporting": "Ń gbé jáde...",
     "exportFailed": "Gígbé jáde kùnà",
+    "exportTruncated": "A ti gé ìkójáde kúrú: {exported} péré nínú àwọn àkọsílẹ̀ {total} ni a fi kún un. Yan àkókò kúkúrú láti kó ìyókù jáde.",
     "cleanHistoryButton": "Pa ìtàn rẹ́",
     "cleanHistoryTitle": "Pa ìtàn àkọsílẹ̀ rẹ́?",
     "cleanHistoryMessage": "Èyí yóò pa gbogbo àwọn ìlà àkọsílẹ̀ ìbéèrè, àwọn ìlà àlàyé àtijọ́, àti àwọn fáìlì artifact abẹ́ DATA_DIR/call_logs rẹ́ pátápátá. Ojú-ìwé tó ń ṣiṣẹ́ yóò tún sọ ara rẹ̀ di tuntun lẹ́yìn ìparẹ́.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Mú àwọn {count} tí a yàn ṣiṣẹ́",
     "testPassed": "✓ Ó DÁRA",
     "sweepVerdict": "Ọlọjẹ ikẹhin: {cause} ({code}) {age}",
+    "blockedHistory": "Itan ti a dènà: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Ko si ọlọjẹ sibẹsibe lati ibẹrẹ",
     "sweepLabel": {
       "unproven": "àfojúsùn kọ",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "A ya sọtọ: {kind}",
     "poolSetAsideKindProxyUnreachable": "kò lè dé proxy",
     "poolSetAsideKindIpQuota429": "ìdíwọ̀n ìyára IP (429)",
+    "poolSetAsideKindSlow": "ìdáhùn tó lọ́ra",
     "poolSetAsideUntil": "Pada si yiyi {endsAt}",
     "poolSetAsideRepeat": "A ya sọtọ {count, plural, one {# igba} other {# igba}}",
     "poolUnknownAddress": "Adirẹsi aimọ",
@@ -11516,6 +11523,7 @@
       "output": "Àbájáde",
       "totalOut": "Àpapọ̀ Tó Jáde: {value}",
       "reasoning": "Ìrònú: {value}",
+      "reasoningObserved": "{value} · a ṣàkíyèsí àwọn lẹ́tà {chars}",
       "requestedModel": "Mọ́dẹ́lì Tí A Béèrè",
       "requestProtocol": "Ìlànà Ìbéèrè",
       "cacheSource": "Orísun Cache",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Jogun asopọ: {host}",
     "inheritedPool": "Jogun adagun asopọ ({count})",
     "poolEmptyBlocked": "Adagun ṣofo — awọn ibeere kuna (kii ṣe taara)",
-    "directEgress": "Taara (laisi proxy)"
+    "directEgress": "Taara (laisi proxy)",
+    "ownProxy": "Proxy tirẹ"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "Ipo isalẹ",
     "noResponse": "Ko si idahun",
     "egressIp": "IP Egress",
+    "headersAfter": "Àkọlé lẹ́yìn",
+    "firstChunkAfter": "Apá àkọ́kọ́ lẹ́yìn",
     "servedBy": "Ti a ṣe nipasẹ",
     "correlationId": "ID Iṣọkan"
   },

@@ -1203,6 +1203,8 @@
     "batchGroup": "ባች",
     "homeSubtitle": "የዳሽቦርድ አጠቃላይ እይታ",
     "providersSubtitle": "የAI አቅራቢዎችን ያስተዳድሩ",
+    "modelCatalog": "የሞዴል ካታሎግ",
+    "modelCatalogSubtitle": "በአቅራቢዎች መካከል ሞዴሎችን ያስሱ",
     "quotaTrackerSubtitle": "የአጠቃቀም ገደቦችን ይከታተሉ",
     "providerQuotaSubtitle": "የአቅራቢዎችን የአጠቃቀም ገደቦች ይከታተሉ",
     "runtimeSubtitle": "ቅጽበታዊ የመቋቋም ችሎታ እና ክፍለ ጊዜዎች",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "የካርድ እሽግ እንደማደባለቅ — እንደገና ከመደባለቁ በፊት እያንዳንዱን ሞዴል አንድ ጊዜ ይጠቀማል",
     "fusion": "ውህደት",
     "fusionDesc": "ጥያቄውን በትይዩ ወደ እያንዳንዱ የፓነል ሞዴል ይልካል፣ ከዚያም ዳኛ ሞዴል አንድ የመጨረሻ መልስ ያዋህዳል",
+    "pipeline": "የሂደት መስመር",
+    "pipelineDesc": "ሞዴሎቹን በቅደም ተከተል ያስኬዳል፣ የእያንዳንዱን ደረጃ ውጤት ለቀጣዩ ያስተላልፋል፤ የመጨረሻው መልስ ብቻ ይመለሳል",
     "fusionJudgeModel": "ዳኛ ሞዴል",
     "fusionJudgeModelHelp": "የፓነሉን መልሶች ወደ አንድ የመጨረሻ ምላሽ የሚያዋህድ ሞዴል። የመጀመሪያውን የፓነል ሞዴል ለመጠቀም ባዶውን ይተዉት።",
     "fusionMinPanel": "ዝቅተኛው የፓነል ምላሽ ብዛት",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "ነፃ ስብስብ ($0)",
-    "templateFreeStackDesc": "በሁሉም ነፃ አቅራቢዎች መካከል በዙር ያዘዋውራል፦ Kiro (Claude)፣ Qoder (5 ሞዴሎች)፣ Qwen (4 ሞዴሎች)። ምንም ወጪ የለም፣ ፈጽሞ ኮድ መጻፉን አያቆምም።",
+    "templateFreeStackDesc": "በሁሉም ነፃ አቅራቢዎች መካከል በዙር ያዘዋውራል፦ Antigravity (Gemini)፣ Kiro (Claude)፣ Qoder (3 ሞዴሎች)፣ NVIDIA፣ Groq። ምንም ወጪ የለም፣ ፈጽሞ ኮድ መጻፉን አያቆምም።",
     "auto": "ብልህ ራስ-ሰር",
     "autoDesc": "በብዙ-ሁኔታ ውጤት አሰጣጥ ራሱን የሚጠግን ብልህ የማዘዋወር ስብስብ",
     "lkgp": "የLKGP ሁነታ",
@@ -4960,6 +4964,7 @@
     "export": "ወደ ውጭ ላክ",
     "exporting": "ወደ ውጭ በመላክ ላይ...",
     "exportFailed": "ወደ ውጭ መላክ አልተሳካም",
+    "exportTruncated": "ወደ ውጭ መላኩ ተቆርጧል፦ ከ{total} የምዝግብ ማስታወሻ ግቤቶች ውስጥ {exported} ብቻ ተካተዋል። ቀሪውን ለመላክ አጭር የጊዜ ክልል ይምረጡ።",
     "cleanHistoryButton": "ታሪክን አጽዳ",
     "cleanHistoryTitle": "የምዝግብ ታሪኩ ይጽዳ?",
     "cleanHistoryMessage": "ይህ ሁሉንም የጥያቄ ምዝግብ ረድፎች፣ የቆዩ ዝርዝር ረድፎች እና በDATA_DIR/call_logs ስር ያሉ የአካባቢ አርቲፋክት ፋይሎችን በቋሚነት ያጸዳል። ከማጽዳቱ በኋላ ቀጥታ ገጹ ይታደሳል።",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "የተመረጡትን {count} አንቃ",
     "testPassed": "✓ ትክክል",
     "sweepVerdict": "የመጨረሻ ማጣሪያ፡ {cause} ({code}) {age}",
+    "blockedHistory": "የተከለከለ ታሪክ: {count}× {cause} ({code}) {age}",
     "sweepNoData": "ከመነሳት ጀምሮ ምንም ማጣሪያ የለም",
     "sweepLabel": {
       "unproven": "ዒላማው ውድቅ አደረገ",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "ወደ ጎን ተቀምጧል: {kind}",
     "poolSetAsideKindProxyUnreachable": "ፕሮክሲው ሊደረስበት አልቻለም",
     "poolSetAsideKindIpQuota429": "የIP ፍጥነት ገደብ (429)",
+    "poolSetAsideKindSlow": "ዝግታ ምላሾች",
     "poolSetAsideUntil": "ወደ ሽክርክር ተመልሷል {endsAt}",
     "poolSetAsideRepeat": "ወደ ጎን ተቀምጧል {count, plural, one {# ጊዜ} other {# ጊዜ}}",
     "poolUnknownAddress": "ያልታወቀ አድራሻ",
@@ -11516,6 +11523,7 @@
       "output": "ውጤት",
       "totalOut": "ጠቅላላ ውጤት፦ {value}",
       "reasoning": "ምክንያታዊ ትንተና፦ {value}",
+      "reasoningObserved": "{value} · {chars} ቁምፊዎች ተስተውለዋል",
       "requestedModel": "የተጠየቀው ሞዴል",
       "requestProtocol": "የጥያቄ ፕሮቶኮል",
       "cacheSource": "የመሸጎጫ ምንጭ",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "ግንኙነት ይወርሳል: {host}",
     "inheritedPool": "የግንኙነት ፑል ይወርሳል ({count})",
     "poolEmptyBlocked": "ፑል ባዶ — ጥያቄዎች ይሳናሉ (ቀጥተኛ አይደለም)",
-    "directEgress": "ቀጥተኛ (ፕሮክሲ የሌለው)"
+    "directEgress": "ቀጥተኛ (ፕሮክሲ የሌለው)",
+    "ownProxy": "የራስ ፕሮክሲ"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "ከላይ የሚገኝ ሁኔታ",
     "noResponse": "አንድ እንደማይመልስ",
     "egressIp": "ወጣት አይፒ",
+    "headersAfter": "አርከቶች በኋላ",
+    "firstChunkAfter": "የመጀመሪያ ቁርጽ በኋ�",
     "servedBy": "የተሰጠ በ",
     "correlationId": "የተያያዘ መለያ"
   },

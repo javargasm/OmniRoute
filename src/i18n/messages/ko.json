@@ -1203,6 +1203,8 @@
     "batchGroup": "일괄 처리",
     "homeSubtitle": "대시보드 개요",
     "providersSubtitle": "AI 제공업체 관리",
+    "modelCatalog": "모델 카탈로그",
+    "modelCatalogSubtitle": "여러 제공업체의 모델 둘러보기",
     "quotaTrackerSubtitle": "사용량 한도 추적",
     "providerQuotaSubtitle": "제공업체 사용량 한도 추적",
     "runtimeSubtitle": "실시간 복원력 및 세션",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "셔플 덱 — 다시 섞기 전에 각 모델을 한 번씩 사용합니다",
     "fusion": "퓨전",
     "fusionDesc": "프롬프트를 모든 패널 모델에 병렬로 전송한 다음, 평가자 모델이 하나의 최종 답변을 합성합니다",
+    "pipeline": "파이프라인",
+    "pipelineDesc": "모델을 순서대로 실행하며 각 단계의 출력을 다음 단계에 전달합니다. 최종 답변만 반환됩니다",
     "fusionJudgeModel": "평가자 모델",
     "fusionJudgeModelHelp": "패널 답변을 하나의 최종 응답으로 합성하는 모델입니다. 첫 번째 패널 모델을 사용하려면 비워 두세요.",
     "fusionMinPanel": "최소 패널",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "무료 스택 ($0)",
-    "templateFreeStackDesc": "모든 무료 제공업체에 라운드 로빈 방식으로 분배합니다: Kiro (Claude), Qoder (5개 모델), Qwen (4개 모델). 비용은 전혀 들지 않으며 코딩이 중단되지 않습니다.",
+    "templateFreeStackDesc": "모든 무료 제공업체에 라운드 로빈 방식으로 분배합니다: Antigravity (Gemini), Kiro (Claude), Qoder (3개 모델), NVIDIA, Groq. 비용은 전혀 들지 않으며 코딩이 중단되지 않습니다.",
     "auto": "Auto Combo",
     "autoDesc": "Self-healing smart routing pool (Performance optimized)",
     "lkgp": "LKGP 모드",
@@ -4960,6 +4964,7 @@
     "export": "내보내기",
     "exporting": "내보내는 중...",
     "exportFailed": "내보내기 실패",
+    "exportTruncated": "내보내기가 잘렸습니다: 로그 항목 {total}개 중 {exported}개만 포함되었습니다. 나머지를 내보내려면 더 짧은 시간 범위를 선택하세요.",
     "cleanHistoryButton": "기록 정리",
     "cleanHistoryTitle": "로그 기록을 정리하시겠습니까?",
     "cleanHistoryMessage": "이 작업은 DATA_DIR/call_logs 아래의 모든 요청 로그 행, 레거시 상세 행 및 로컬 아티팩트 파일을 영구적으로 삭제합니다. 정리 후 실시간 페이지가 새로고침됩니다.",
@@ -5631,7 +5636,7 @@
     "accountName": "계정 이름",
     "email": "이메일",
     "healthCheckMinutes": "상태 점검(분)",
-    "healthCheckHint": "사전 토큰 새로 고침 간격. 0 = 비활성화됨.",
+    "healthCheckHint": "이 연결에 대한 개별 설정입니다. 비워 두면 전역 기본값을 따릅니다(설정 › 복원력). 0 = 이 연결을 확인하지 않음. 최대 1440(24시간).",
     "deselectAllModels": "모두 선택 해제",
     "modelsActiveCount": "{active}/{total}개 활성",
     "noModelsMatch": "\"{filter}\"와 일치하는 모델이 없습니다",
@@ -6192,7 +6197,7 @@
       "bluesminds": "https://www.bluesminds.com에서 API 키를 받으세요 — 매일 무료 크레딧이 제공되는 OpenAI 호환 엔드포인트: https://api.bluesminds.com/v1. VIP 모델(Claude Opus 4.5, Gemini 2.5 Pro)은 pi 크레딧을 사용합니다.",
       "byteplus": "API 키로 BytePlus ModelArk를 연결합니다.",
       "bytez": "$1 무료 크레딧, 4주마다 갱신됨",
-      "cerebras": "무료 체험: 1일당 1M 토큰, 30K TPM, 5 RPM — 신용카드 필요 없음.",
+      "cerebras": "가입 시 1회성 $5 크레딧(30일간 유효), 결제 수단 등록이 필요합니다. 반복 제공되는 무료 등급이 아닙니다.",
       "charm-hyper": "https://hyper.charm.land에서 API 키를 생성한 다음, 여기에 Bearer 토큰으로 붙여넣으세요.",
       "chutes": "Chutes OpenAI 호환 게이트웨이용 Bearer API 키입니다.",
       "clarifai": "Clarifai는 /v2/ext/openai/v1에서 OpenAI 호환 채팅, 응답 및 /models를 노출합니다. 공개/커뮤니티 모델은 일반적으로 PAT가 필요하며, 앱 범위 키는 해당 앱 내부의 리소스에만 작동합니다.",
@@ -6884,8 +6889,8 @@
       "globalModeDesc": "모든 공급자 트래픽은 이 구독의 프록시 풀을 통과합니다.",
       "ruleModeDesc": "선택된 공급자의 트래픽만 프록시를 통과합니다. 나머지는 직접 연결됩니다.",
       "localCoreEndpoint": "로컬 코어 SOCKS5/HTTP 끝점(선택 사항)",
-      "localCoreEndpointPlaceholder": "socks5://127.0.0.1:1080",
-      "localCoreEndpointDesc": "127.0.0.1 / localhost만 허용합니다(SS/VMess/Trojan/VLESS에는 로컬 sing-box/clash 코어가 필요함).",
+      "localCoreEndpointPlaceholder": "socks5://127.0.0.1:1080\nsocks5://127.0.0.1:1081",
+      "localCoreEndpointDesc": "한 줄에 하나씩. 127.0.0.1 / localhost만 허용합니다(SS/VMess/Trojan/VLESS에는 로컬 sing-box/clash 코어가 필요함).",
       "routeByProvider": "공급자별 라우팅(다중 선택)",
       "loadingProviders": "제공업체 목록 로드 중…",
       "autoRefreshInterval": "자동 새로 고침 간격(분)",
@@ -9571,7 +9576,7 @@
     "redeemResetCredit": "재설정 사용",
     "manageResetCredits": "크레딧 보기",
     "viewResetCredits": "재설정 크레딧 보기",
-    "resetCreditsModalTitle": "Codex 재설정 크레딧",
+    "resetCreditsModalTitle": "재설정 크레딧",
     "resetCreditsModalExplainer": "크레딧은 만료일 순으로 정렬됩니다. 자동 사용 시 항상 만료일이 가장 빠른 크레딧이 먼저 사용됩니다.",
     "resetCreditsLoadFailed": "재설정 크레딧을 불러오지 못했습니다",
     "resetCreditsDetailsUnavailable": "현재 크레딧 세부 정보를 사용할 수 없습니다. 새로 고침 후 다시 시도해 주세요.",
@@ -9582,7 +9587,7 @@
     "resetCreditNoExpiry": "만료일 없음",
     "redeemThisResetCredit": "사용",
     "confirmRedeemResetCreditTitle": "이 재설정 크레딧을 사용하시겠습니까?",
-    "confirmRedeemResetCredit": "사용 시 대상 Codex 사용 기간이 즉시 재설정되며 이 크레딧은 영구적으로 소멸됩니다.",
+    "confirmRedeemResetCredit": "사용 시 대상 사용 기간이 즉시 재설정되며 이 크레딧은 영구적으로 소멸됩니다.",
     "confirmRedeemResetCreditButton": "크레딧 사용",
     "resetCreditRedeemed": "재설정이 적용되었습니다",
     "resetCreditRedeemFailed": "재설정 크레딧을 사용하지 못했습니다",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "선택한 {count}개 활성화",
     "testPassed": "✓ 확인",
     "sweepVerdict": "마지막 스캔: {cause} ({code}) {age}",
+    "blockedHistory": "차단된 기록: {count}× {cause} ({code}) {age}",
     "sweepNoData": "시작 이후 스캔 없음",
     "sweepLabel": {
       "unproven": "대상이 거부함",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "제외됨: {kind}",
     "poolSetAsideKindProxyUnreachable": "프록시에 연결할 수 없음",
     "poolSetAsideKindIpQuota429": "IP 속도 제한 (429)",
+    "poolSetAsideKindSlow": "느린 응답",
     "poolSetAsideUntil": "{endsAt}에 로테이션 복귀",
     "poolSetAsideRepeat": "제외됨 {count, plural, one {#번} other {#번}}",
     "poolUnknownAddress": "알 수 없는 주소",
@@ -11516,6 +11523,7 @@
       "output": "출력",
       "totalOut": "총 출금: {value}",
       "reasoning": "추론: {value}",
+      "reasoningObserved": "{value} · {chars}자 관측됨",
       "requestedModel": "요청된 모델",
       "requestProtocol": "요청 프로토콜",
       "cacheSource": "캐시 소스",
@@ -12571,7 +12579,7 @@
       },
       "omni-mcp": {
         "name": "MCP 서버",
-        "description": "OmniRoute MCP 서버(37개 도구, 3개 전송: SSE/stdio/HTTP)에 연결합니다. 16개 권한 범위에 걸쳐 라우팅, 캐시, 압축, 메모리, 스킬, 제공업체 및 감사 도구를 다룹니다."
+        "description": "OmniRoute MCP 서버(110개 도구, 3개 전송: SSE/stdio/HTTP)에 연결합니다. 33개 권한 범위에 걸쳐 라우팅, 캐시, 압축, 메모리, 스킬, 제공업체 및 감사 도구를 다룹니다."
       },
       "omni-agents-a2a": {
         "name": "에이전트 및 A2A 프로토콜",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "연결 상속: {host}",
     "inheritedPool": "연결 풀 상속({count})",
     "poolEmptyBlocked": "풀 비어 있음 — 요청 실패(직접 아님)",
-    "directEgress": "직접(프록시 없음)"
+    "directEgress": "직접(프록시 없음)",
+    "ownProxy": "자체 프록시"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "업스트림 상태",
     "noResponse": "응답 없음",
     "egressIp": "Egress IP",
+    "headersAfter": "헤더 이후",
+    "firstChunkAfter": "첫 번째 청크 이후",
     "servedBy": "제공자",
     "correlationId": "상관관계 ID"
   },

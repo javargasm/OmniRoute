@@ -1203,6 +1203,8 @@
     "batchGroup": "ਬੈਚ",
     "homeSubtitle": "ਡੈਸ਼ਬੋਰਡ ਦੀ ਸੰਖੇਪ ਜਾਣਕਾਰੀ",
     "providersSubtitle": "AI ਪ੍ਰਦਾਤਿਆਂ ਦਾ ਪ੍ਰਬੰਧਨ ਕਰੋ",
+    "modelCatalog": "ਮਾਡਲ ਕੈਟਾਲਾਗ",
+    "modelCatalogSubtitle": "ਸਾਰੇ ਪ੍ਰਦਾਤਿਆਂ ਦੇ ਮਾਡਲ ਬ੍ਰਾਊਜ਼ ਕਰੋ",
     "quotaTrackerSubtitle": "ਵਰਤੋਂ ਦੀਆਂ ਸੀਮਾਵਾਂ ਟ੍ਰੈਕ ਕਰੋ",
     "providerQuotaSubtitle": "ਪ੍ਰਦਾਤਾ ਦੀਆਂ ਵਰਤੋਂ ਸੀਮਾਵਾਂ ਟ੍ਰੈਕ ਕਰੋ",
     "runtimeSubtitle": "ਰੀਅਲ-ਟਾਈਮ ਲਚਕੀਲਾਪਣ ਅਤੇ ਸੈਸ਼ਨ",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "ਡੈੱਕ ਨੂੰ ਸ਼ਫ਼ਲ ਕਰਦਾ ਹੈ — ਮੁੜ ਸ਼ਫ਼ਲ ਕਰਨ ਤੋਂ ਪਹਿਲਾਂ ਹਰ ਮਾਡਲ ਨੂੰ ਇੱਕ ਵਾਰ ਵਰਤਦਾ ਹੈ",
     "fusion": "ਫਿਊਜ਼ਨ",
     "fusionDesc": "ਪ੍ਰੌਂਪਟ ਨੂੰ ਸਮਾਂਤਰ ਰੂਪ ਵਿੱਚ ਹਰ ਪੈਨਲ ਮਾਡਲ ਨੂੰ ਭੇਜਦਾ ਹੈ, ਫਿਰ ਇੱਕ ਜੱਜ ਮਾਡਲ ਇੱਕ ਅੰਤਿਮ ਜਵਾਬ ਤਿਆਰ ਕਰਦਾ ਹੈ",
+    "pipeline": "ਪਾਈਪਲਾਈਨ",
+    "pipelineDesc": "ਮਾਡਲਾਂ ਨੂੰ ਕ੍ਰਮ ਵਿੱਚ ਚਲਾਉਂਦਾ ਹੈ, ਹਰ ਕਦਮ ਦਾ ਆਉਟਪੁੱਟ ਅਗਲੇ ਕਦਮ ਨੂੰ ਦਿੰਦਾ ਹੈ; ਸਿਰਫ਼ ਅੰਤਿਮ ਜਵਾਬ ਵਾਪਸ ਕੀਤਾ ਜਾਂਦਾ ਹੈ",
     "fusionJudgeModel": "ਜੱਜ ਮਾਡਲ",
     "fusionJudgeModelHelp": "ਉਹ ਮਾਡਲ ਜੋ ਪੈਨਲ ਦੇ ਜਵਾਬਾਂ ਨੂੰ ਜੋੜ ਕੇ ਇੱਕ ਅੰਤਿਮ ਜਵਾਬ ਤਿਆਰ ਕਰਦਾ ਹੈ। ਪਹਿਲਾ ਪੈਨਲ ਮਾਡਲ ਵਰਤਣ ਲਈ ਇਸਨੂੰ ਖਾਲੀ ਛੱਡੋ।",
     "fusionMinPanel": "ਘੱਟੋ-ਘੱਟ ਪੈਨਲ",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "ਮੁਫ਼ਤ ਸਟੈਕ ($0)",
-    "templateFreeStackDesc": "ਸਾਰੇ ਮੁਫ਼ਤ ਪ੍ਰਦਾਤਾਵਾਂ ਵਿੱਚ ਰਾਊਂਡ-ਰੌਬਿਨ: Kiro (Claude), Qoder (5 ਮਾਡਲ), Qwen (4 ਮਾਡਲ)। ਕੋਈ ਲਾਗਤ ਨਹੀਂ, ਕੋਡਿੰਗ ਕਦੇ ਨਹੀਂ ਰੁਕਦੀ।",
+    "templateFreeStackDesc": "ਸਾਰੇ ਮੁਫ਼ਤ ਪ੍ਰਦਾਤਾਵਾਂ ਵਿੱਚ ਰਾਊਂਡ-ਰੌਬਿਨ: Antigravity (Gemini), Kiro (Claude), Qoder (3 ਮਾਡਲ), NVIDIA, Groq। ਕੋਈ ਲਾਗਤ ਨਹੀਂ, ਕੋਡਿੰਗ ਕਦੇ ਨਹੀਂ ਰੁਕਦੀ।",
     "auto": "ਬੁੱਧੀਮਾਨ ਆਟੋ",
     "autoDesc": "ਆਪਣੇ ਆਪ ਠੀਕ ਹੋਣ ਵਾਲਾ, ਬਹੁ-ਕਾਰਕ ਸਕੋਰਿੰਗ ਨਾਲ ਸਮਾਰਟ ਰੂਟਿੰਗ ਪੂਲ",
     "lkgp": "LKGP ਮੋਡ",
@@ -4960,6 +4964,7 @@
     "export": "ਨਿਰਯਾਤ ਕਰੋ",
     "exporting": "ਨਿਰਯਾਤ ਕੀਤਾ ਜਾ ਰਿਹਾ ਹੈ...",
     "exportFailed": "ਨਿਰਯਾਤ ਅਸਫਲ ਰਿਹਾ",
+    "exportTruncated": "ਨਿਰਯਾਤ ਕੱਟਿਆ ਗਿਆ: {total} ਲੌਗ ਐਂਟਰੀਆਂ ਵਿੱਚੋਂ ਸਿਰਫ਼ {exported} ਸ਼ਾਮਲ ਕੀਤੀਆਂ ਗਈਆਂ। ਬਾਕੀ ਨਿਰਯਾਤ ਕਰਨ ਲਈ ਛੋਟੀ ਸਮਾਂ ਸੀਮਾ ਚੁਣੋ।",
     "cleanHistoryButton": "ਇਤਿਹਾਸ ਸਾਫ਼ ਕਰੋ",
     "cleanHistoryTitle": "ਲੌਗ ਇਤਿਹਾਸ ਸਾਫ਼ ਕਰਨਾ ਹੈ?",
     "cleanHistoryMessage": "ਇਹ ਸਾਰੀਆਂ ਬੇਨਤੀ ਲੌਗ ਕਤਾਰਾਂ, ਪੁਰਾਣੀਆਂ ਵੇਰਵਾ ਕਤਾਰਾਂ ਅਤੇ DATA_DIR/call_logs ਅਧੀਨ ਸਥਾਨਕ ਆਰਟੀਫੈਕਟ ਫ਼ਾਈਲਾਂ ਨੂੰ ਸਥਾਈ ਤੌਰ 'ਤੇ ਸਾਫ਼ ਕਰ ਦਿੰਦਾ ਹੈ। ਸਫ਼ਾਈ ਤੋਂ ਬਾਅਦ ਲਾਈਵ ਪੰਨਾ ਰਿਫ੍ਰੈਸ਼ ਹੋਵੇਗਾ।",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "ਚੁਣੀਆਂ ਗਈਆਂ {count} ਪ੍ਰੌਕਸੀਆਂ ਸਮਰੱਥ ਕਰੋ",
     "testPassed": "✓ ਠੀਕ ਹੈ",
     "sweepVerdict": "ਆਖਰੀ ਸਕੈਨ: {cause} ({code}) {age}",
+    "blockedHistory": "ਬਲੌਕ ਕੀਤੀ ਇਤਿਹਾਸ: {count}× {cause} ({code}) {age}",
     "sweepNoData": "ਸ਼ੁਰੂ ਤੋਂ ਹੁਣ ਤੱਕ ਕੋਈ ਸਕੈਨ ਨਹੀਂ",
     "sweepLabel": {
       "unproven": "ਟੀਚੇ ਨੇ ਇਨਕਾਰ ਕੀਤਾ",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "ਪਾਸੇ ਰੱਖਿਆ: {kind}",
     "poolSetAsideKindProxyUnreachable": "ਪ੍ਰੌਕਸੀ ਤੱਕ ਪਹੁੰਚ ਨਹੀਂ ਹੋ ਸਕੀ",
     "poolSetAsideKindIpQuota429": "IP ਦਰ ਸੀਮਾ (429)",
+    "poolSetAsideKindSlow": "ਧੀਮੇ ਜਵਾਬ",
     "poolSetAsideUntil": "ਰੋਟੇਸ਼ਨ ਵਿੱਚ ਵਾਪਸ {endsAt}",
     "poolSetAsideRepeat": "ਪਾਸੇ ਰੱਖਿਆ {count, plural, one {# ਵਾਰ} other {# ਵਾਰ}}",
     "poolUnknownAddress": "ਅਣਜਾਣ ਪਤਾ",
@@ -11516,6 +11523,7 @@
       "output": "ਆਉਟਪੁੱਟ",
       "totalOut": "ਕੁੱਲ ਆਉਟਪੁੱਟ: {value}",
       "reasoning": "ਤਰਕ: {value}",
+      "reasoningObserved": "{value} · {chars} ਅੱਖਰ ਦੇਖੇ ਗਏ",
       "requestedModel": "ਬੇਨਤੀ ਕੀਤਾ ਗਿਆ ਮਾਡਲ",
       "requestProtocol": "ਬੇਨਤੀ ਪ੍ਰੋਟੋਕੋਲ",
       "cacheSource": "ਕੈਸ਼ ਸਰੋਤ",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "ਕਨੈਕਸ਼ਨ ਵਿਰਾਸਤ: {host}",
     "inheritedPool": "ਕਨੈਕਸ਼ਨ ਪੂਲ ਵਿਰਾਸਤ ({count})",
     "poolEmptyBlocked": "ਪੂਲ ਖਾਲੀ — ਬੇਨਤੀਆਂ ਅਸਫਲ (ਸਿੱਧਾ ਨਹੀਂ)",
-    "directEgress": "ਸਿੱਧਾ (ਬਿਨਾਂ ਪ੍ਰੌਕਸੀ)"
+    "directEgress": "ਸਿੱਧਾ (ਬਿਨਾਂ ਪ੍ਰੌਕਸੀ)",
+    "ownProxy": "ਆਪਣੀ ਪ੍ਰੌਕਸੀ"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "ਉਪਰਲੀ ਧਾਰਾ ਦੀ ਸਥਿਤੀ",
     "noResponse": "ਕੋਈ ਜਵਾਬ ਨਹੀਂ",
     "egressIp": "ਇਗਰੈਸ IP",
+    "headersAfter": "ਹੈਡਰਜ਼ ਬਾਅਦ",
+    "firstChunkAfter": "ਪਹਿਲਾ ਚੰਕ ਬਾਅਦ",
     "servedBy": "ਦੁਆਰਾ ਸੇਵਾ ਕੀਤੀ ਗਈ",
     "correlationId": "ਸੰਬੰਧਿਤਤਾ ID"
   },

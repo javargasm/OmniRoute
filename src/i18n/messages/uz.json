@@ -1203,6 +1203,8 @@
     "batchGroup": "Paketli ishlov berish",
     "homeSubtitle": "Boshqaruv panelining umumiy ko‘rinishi",
     "providersSubtitle": "AI provayderlarini boshqarish",
+    "modelCatalog": "Modellar katalogi",
+    "modelCatalogSubtitle": "Provayderlar bo'ylab modellarni ko'rib chiqing",
     "quotaTrackerSubtitle": "Foydalanish limitlarini kuzatish",
     "providerQuotaSubtitle": "Provayderdan foydalanish limitlarini kuzatish",
     "runtimeSubtitle": "Real vaqt rejimidagi barqarorlik va seanslar",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Aralashtirilgan dasta — qayta aralashtirishdan oldin har bir modeldan bir marta foydalanadi",
     "fusion": "Birlashtirish",
     "fusionDesc": "Promptni barcha panel modellariga parallel ravishda yuboradi, so‘ng hakam modeli javoblarni bitta yakuniy javobga birlashtiradi",
+    "pipeline": "Konveyer",
+    "pipelineDesc": "Modellarni ketma-ket ishga tushiradi, har bir qadam natijasini keyingisiga uzatadi; faqat yakuniy javob qaytariladi",
     "fusionJudgeModel": "Hakam modeli",
     "fusionJudgeModelHelp": "Panel javoblarini bitta yakuniy javobga birlashtiradigan model. Birinchi panel modelidan foydalanish uchun bo‘sh qoldiring.",
     "fusionMinPanel": "Minimal panel",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Bepul toʻplam ($0)",
-    "templateFreeStackDesc": "Barcha bepul provayderlar boʻylab navbatma-navbat yoʻnaltirish: Kiro (Claude), Qoder (5 ta model), Qwen (4 ta model). Xarajat yoʻq, kod yozish hech qachon toʻxtamaydi.",
+    "templateFreeStackDesc": "Barcha bepul provayderlar boʻylab navbatma-navbat yoʻnaltirish: Antigravity (Gemini), Kiro (Claude), Qoder (3 ta model), NVIDIA, Groq. Xarajat yoʻq, kod yozish hech qachon toʻxtamaydi.",
     "auto": "Aqlli avtomatik rejim",
     "autoDesc": "Koʻp omilli baholashga ega, oʻzini tiklaydigan aqlli yoʻnaltirish guruhi",
     "lkgp": "LKGP rejimi",
@@ -4960,6 +4964,7 @@
     "export": "Eksport qilish",
     "exporting": "Eksport qilinmoqda...",
     "exportFailed": "Eksport amalga oshmadi",
+    "exportTruncated": "Eksport qisqartirildi: {total} ta jurnal yozuvidan faqat {exported} tasi kiritildi. Qolganini eksport qilish uchun qisqaroq vaqt oralig‘ini tanlang.",
     "cleanHistoryButton": "Tarixni tozalash",
     "cleanHistoryTitle": "Jurnal tarixini tozalaysizmi?",
     "cleanHistoryMessage": "Bu barcha so‘rov jurnali qatorlari, eski tafsilot qatorlari va DATA_DIR/call_logs ichidagi mahalliy artefakt fayllarini butunlay o‘chiradi. Tozalashdan keyin joriy sahifa yangilanadi.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Tanlangan {count} tasini yoqish",
     "testPassed": "✓ OK",
     "sweepVerdict": "So'nggi tekshiruv: {cause} ({code}) {age}",
+    "blockedHistory": "Toʻxtatilgan tarix: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Ishga tushgandan beri tekshiruv yo'q",
     "sweepLabel": {
       "unproven": "nishon rad etdi",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "Chetga qo‘yilgan: {kind}",
     "poolSetAsideKindProxyUnreachable": "proksiga ulanib bo'lmadi",
     "poolSetAsideKindIpQuota429": "IP tezlik cheklovi (429)",
+    "poolSetAsideKindSlow": "sekin javoblar",
     "poolSetAsideUntil": "Rotatsiyaga qaytish {endsAt}",
     "poolSetAsideRepeat": "Chetga qo‘yilgan {count, plural, one {# marta} other {# marta}}",
     "poolUnknownAddress": "Noma’lum manzil",
@@ -11516,6 +11523,7 @@
       "output": "Chiqish",
       "totalOut": "Jami chiqish: {value}",
       "reasoning": "Mulohaza yuritish: {value}",
+      "reasoningObserved": "{value} · {chars} ta belgi kuzatildi",
       "requestedModel": "Soʻralgan model",
       "requestProtocol": "Soʻrov protokoli",
       "cacheSource": "Kesh manbasi",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Ulanishni meros oladi: {host}",
     "inheritedPool": "Ulanishlar hovuzini meros oladi ({count})",
     "poolEmptyBlocked": "Hovuz bo‘sh — so‘rovlar muvaffaqiyatsiz (to‘g‘ridan-to‘g‘ri emas)",
-    "directEgress": "To‘g‘ridan-to‘g‘ri (proksisiz)"
+    "directEgress": "To‘g‘ridan-to‘g‘ri (proksisiz)",
+    "ownProxy": "Shaxsiy proksi"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "Oqim holati",
     "noResponse": "Javob yo'q",
     "egressIp": "Chiqish IP",
+    "headersAfter": "Sarlavhalar keyin",
+    "firstChunkAfter": "Birinchi bo'lak keyin",
     "servedBy": "Ta'minlovchi",
     "correlationId": "Korelatsiya ID"
   },

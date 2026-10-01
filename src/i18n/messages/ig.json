@@ -1203,6 +1203,8 @@
     "batchGroup": "Ogbe",
     "homeSubtitle": "Nchịkọta dashboard",
     "providersSubtitle": "Jikwaa ndị na-eweta AI",
+    "modelCatalog": "Katalọgụ ụdị",
+    "modelCatalogSubtitle": "Chọgharịa ụdị n'ofe ndị na-eweta",
     "quotaTrackerSubtitle": "Sochie oke ojiji",
     "providerQuotaSubtitle": "Sochie oke ojiji nke onye na-eweta",
     "runtimeSubtitle": "Nkwụsi ike na nnọkọ ozugbo",
@@ -3287,6 +3289,8 @@
     "strictRandomDesc": "Gwakọta oche kaadị — na-eji model ọ bụla otu ugboro tupu ịgwakọta oche ahụ ọzọ",
     "fusion": "Njikọta",
     "fusionDesc": "Na-ezigara model panel niile prompt n'otu oge, mesịa judge model achịkọta otu azịza ikpeazụ",
+    "pipeline": "Usoro ọrụ",
+    "pipelineDesc": "Na-agba models n'usoro, na-enye nsonaazụ nke ọ bụla nzọụkwụ na nke na-esote; ọ bụ naanị azịza ikpeazụ ka a na-eweghachi",
     "fusionJudgeModel": "Model ikpe",
     "fusionJudgeModelHelp": "Model nke na-achịkọta azịza ndị dị na panel ka ha bụrụ otu nzaghachi ikpeazụ. Hapụ ya oghere iji model panel mbụ.",
     "fusionMinPanel": "Opekempe panel",
@@ -3668,7 +3672,7 @@
       }
     },
     "templateFreeStack": "Nchịkọta Efُ ($0)",
-    "templateFreeStackDesc": "Na-atụgharị n'usoro n'etiti ndị na-eweta ọrụ efu niile: Kiro (Claude), Qoder (5 models), Qwen (4 models). Ọ dịghị ego ọ bụla, ọ naghị akwụsị ide code.",
+    "templateFreeStackDesc": "Na-atụgharị n'usoro n'etiti ndị na-eweta ọrụ efu niile: Antigravity (Gemini), Kiro (Claude), Qoder (3 models), NVIDIA, Groq. Ọ dịghị ego ọ bụla, ọ naghị akwụsị ide code.",
     "auto": "Akpaka Nwere Nghọta",
     "autoDesc": "Nchịkọta nhọrọ ụzọ nwere ọgụgụ isi nke na-edozi onwe ya site na akara dabere n'ọtụtụ ihe",
     "lkgp": "Ọnọdụ LKGP",
@@ -4960,6 +4964,7 @@
     "export": "Bupụ",
     "exporting": "Na-ebupụ...",
     "exportFailed": "Mbupụ dara",
+    "exportTruncated": "E bepụrụ mbupụ: naanị {exported} n'ime ndenye ndekọ {total} ka etinyere. Họrọ oge dị mkpụmkpụ iji bupụ ndị fọdụrụ.",
     "cleanHistoryButton": "Hichapụ akụkọ",
     "cleanHistoryTitle": "Hichapụ akụkọ ndekọ?",
     "cleanHistoryMessage": "Nke a ga-ehichapụ kpamkpam ahịrị ndekọ arịrịọ niile, ahịrị nkọwa ochie, na faịlụ artifact mpaghara dị n'okpuru DATA_DIR/call_logs. Ihuakwụkwọ dị ugbu a ga-emegharị mgbe nhichapụ ahụ gasịrị.",
@@ -11033,6 +11038,7 @@
     "batchActivateSelected": "Kwado {count} ahọpụtara",
     "testPassed": "✓ Ọ DỊ MMA",
     "sweepVerdict": "Nyocha ikpeazụ: {cause} ({code}) {age}",
+    "blockedHistory": "Emechiri akụkọ: {count}× {cause} ({code}) {age}",
     "sweepNoData": "Enweghị nyocha kemgbe mmalite",
     "sweepLabel": {
       "unproven": "ebumnuche jụrụ",
@@ -11079,6 +11085,7 @@
     "poolSetAsideReason": "E wepụrụ: {kind}",
     "poolSetAsideKindProxyUnreachable": "enweghị ike iru proxy",
     "poolSetAsideKindIpQuota429": "oke ọsọ IP (429)",
+    "poolSetAsideKindSlow": "nzaghachi nwayọ",
     "poolSetAsideUntil": "Laghachi na ntụgharị {endsAt}",
     "poolSetAsideRepeat": "E wepụrụ {count, plural, one {# ugboro} other {# ugboro}}",
     "poolUnknownAddress": "Adreesị amaghị",
@@ -11516,6 +11523,7 @@
       "output": "Mmepụta",
       "totalOut": "Mkpokọta Ọpụpụ: {value}",
       "reasoning": "Ntụgharị Uche: {value}",
+      "reasoningObserved": "{value} · a hụrụ mkpụrụedemede {chars}",
       "requestedModel": "Ụdị A Rịọrọ",
       "requestProtocol": "Protokol Arịrịọ",
       "cacheSource": "Ebe Cache Si",
@@ -12862,7 +12870,8 @@
     "inheritedProxy": "Na-eketa njikọ: {host}",
     "inheritedPool": "Na-eketa ọdọ njikọ ({count})",
     "poolEmptyBlocked": "Ọdọ tọgbọrọ — arịrịọ na-ada (ọ bụghị ozugbo)",
-    "directEgress": "Ozugbo (enweghị proxy)"
+    "directEgress": "Ozugbo (enweghị proxy)",
+    "ownProxy": "Proxy nke gị"
   },
   "gamification": {
     "leaderboardScopes": {
@@ -14195,6 +14204,8 @@
     "upstreamStatus": "N'elu ọnọdụ",
     "noResponse": "Enweghị nzaghachi",
     "egressIp": "Egress IP",
+    "headersAfter": "Isi mgbe",
+    "firstChunkAfter": "Akụkụ mbụ mgbe",
     "servedBy": "Nyeere site na",
     "correlationId": "Njikọ ID"
   },
