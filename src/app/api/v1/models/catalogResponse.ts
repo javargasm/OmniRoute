@@ -307,7 +307,8 @@ export async function finalizeCatalogResponse(
   for (const model of finalModels) {
     let listedModel: Record<string, unknown>;
     if (model.owned_by === "combo") {
-      listedModel = maybeOmitCatalogModelName(model, includeModelNames);
+      const name = model.name || model.display_name || model.id;
+      listedModel = maybeOmitCatalogModelName({ ...model, name }, includeModelNames);
     } else {
       const entry = enrichCatalogModelEntry(model, undefined, {
         ...enrichmentSnapshot,
@@ -361,7 +362,11 @@ export async function finalizeCatalogResponse(
     }
   }
   await yieldTurn();
-  const enrichedModels = disambiguateCatalogModelNames(enriched);
+  const enrichedModels = disambiguateCatalogModelNames(enriched).map((entry) =>
+    entry.owned_by === "combo" && includeModelNames
+      ? { ...entry, name: entry.display_name || entry.name || entry.id }
+      : entry
+  );
   await yieldTurn();
   const orderedModels = sortCatalogModelsProviderGrouped(enrichedModels);
   await yieldTurn();

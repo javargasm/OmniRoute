@@ -32,6 +32,8 @@ import {
 } from "./kiroExternalIdp.ts";
 import { DEFAULT_PROFILE_ARN, resolveKiroRuntimeRegion } from "./kiroRegion.ts";
 import { KIRO_CLI_VERSION } from "../config/providerHeaderProfiles.ts";
+import { getProviderModels } from "../config/providerModels.ts";
+import { formatKiroModelName } from "../utils/kiroModelName.ts";
 import { supportsKiroNativeReasoning } from "../translator/request/openai-to-kiro/adaptiveThinking.ts";
 import {
   parseKiroModelCapabilities,
@@ -167,18 +169,19 @@ export function parseKiroModels(data: unknown): KiroModel[] {
 }
 
 function formatDisplayName(modelName: unknown, modelId: string, rateMultiplier: unknown): string {
-  const base = toNonEmptyString(modelName) || modelId;
-  const rate = Number(rateMultiplier);
-  if (!Number.isFinite(rate) || Math.abs(rate - 1.0) < 1e-9 || rate <= 0) {
-    return `Kiro ${base}`;
-  }
-  return `Kiro ${base} (${rate.toFixed(1)}x credit)`;
+  const registeredName = getProviderModels("kiro").find((model) => model.id === modelId)?.name;
+  return formatKiroModelName(
+    toNonEmptyString(modelName) || modelId,
+    modelId,
+    rateMultiplier,
+    registeredName
+  );
 }
 
 export const KIRO_GPT_EFFORT_TIERS = ["none", "low", "medium", "high", "xhigh", "max"] as const;
 
 function buildVariants(upstream: string, displayName: string): KiroModel[] {
-  const display = displayName || `Kiro ${upstream}`;
+  const display = displayName || formatKiroModelName(upstream, upstream);
   const isNativeReasoning = supportsKiroNativeReasoning(upstream);
 
   const baseCapabilities: { thinking: boolean; agentic: boolean; effort_tiers?: string[] } = {
