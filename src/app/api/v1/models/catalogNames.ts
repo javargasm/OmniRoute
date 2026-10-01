@@ -1,6 +1,7 @@
 import { getProviderModels } from "@omniroute/open-sse/config/providerModels";
 import { formatKiroModelName } from "@omniroute/open-sse/utils/kiroModelName";
 import { getManagedModelAliasNames, getModelAliases } from "@/lib/db/models/aliases";
+import { DEFAULT_MODEL_ALIAS_SEED } from "@/lib/modelAliasSeed";
 
 type Entry = Record<string, unknown>;
 
@@ -24,7 +25,7 @@ export async function applyCatalogModelNames(
     if (
       aliasModelId === modelId ||
       aliasModelId === modelId.split("/").pop() ||
-      aliasModelId.startsWith(`${modelId}-`)
+      (DEFAULT_MODEL_ALIAS_SEED as Record<string, string>)[name] === target
     )
       continue;
     manualNames.set(`${canonical(target.slice(0, slash))}/${modelId}`, name.trim());
@@ -45,7 +46,10 @@ export async function applyCatalogModelNames(
     const registeredName =
       registryNames.get(provider)?.get(modelId) || registryNames.get(provider)?.get(publicModelId);
     const existingName = typeof entry.name === "string" ? entry.name.trim() : "";
-    let name = (existingName !== modelId && existingName) || registeredName || modelId;
+    let name =
+      (existingName !== modelId && existingName !== publicModelId && existingName) ||
+      registeredName ||
+      modelId;
     if (provider === "kiro") name = formatKiroModelName(name, modelId, undefined, registeredName);
     name =
       manualNames.get(`${provider}/${modelId}`) ||

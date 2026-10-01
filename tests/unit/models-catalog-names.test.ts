@@ -191,6 +191,48 @@ test("aliases match public model IDs when upstream root has a provider path", as
   assert.equal(entries[0].name, "My DeepSeek");
 });
 
+test("manual aliases retain meaningful suffixes after a model ID", async () => {
+  await seed();
+  await models.setModelAlias("claude-sonnet-4.6-work", "kiro/claude-sonnet-4.6");
+  assert.equal((await list()).get("kr/claude-sonnet-4.6")?.name, "claude-sonnet-4.6-work");
+});
+
+test("default routing aliases preserve friendly registry labels", async () => {
+  const { applyCatalogModelNames } = await import("../../src/app/api/v1/models/catalogNames.ts");
+  const entries = await applyCatalogModelNames(
+    [
+      {
+        id: "gemini/gemini-3.1-flash-lite",
+        owned_by: "gemini",
+        root: "gemini-3.1-flash-lite",
+        name: "Gemini 3.1 Flash Lite",
+      },
+    ],
+    {},
+    {},
+    { "gemini-3.1-flash-lite-preview": "gemini/gemini-3.1-flash-lite" }
+  );
+  assert.equal(entries[0].name, "Gemini 3.1 Flash Lite");
+});
+
+test("raw public labels use registry names when root contains an upstream path", async () => {
+  const { applyCatalogModelNames } = await import("../../src/app/api/v1/models/catalogNames.ts");
+  const entries = await applyCatalogModelNames(
+    [
+      {
+        id: "fw/deepseek-v4-flash",
+        owned_by: "fireworks",
+        root: "accounts/fireworks/models/deepseek-v4-flash",
+        name: "deepseek-v4-flash",
+      },
+    ],
+    { fw: "fireworks" },
+    {},
+    {}
+  );
+  assert.equal(entries[0].name, "DeepSeek V4 Flash");
+});
+
 test("combo display names remain identical when provider names collide", async () => {
   await seed();
   await models.addCustomModel(NODE_ID, "collision-model", "Friendly Combo");
