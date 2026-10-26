@@ -96,6 +96,8 @@ test("GitHub Copilot registry reflects the current supported model lineup", () =
     "claude-fable-5.1",
     "claude-opus-5",
     "claude-sonnet-5",
+    // claude-sonnet-5-5 came from the release tip (#15035) after this catalog was captured.
+    "claude-sonnet-5-5",
     "claude-opus-4.8-fast",
     "claude-opus-4.8",
     "claude-haiku-4.5",
@@ -103,6 +105,8 @@ test("GitHub Copilot registry reflects the current supported model lineup", () =
     "mai-code-1.1-flash",
     "kimi-k3",
     "grok-4.6",
+    // Copilot's server-side "auto" model selection (#16679).
+    "auto",
   ]);
   for (const id of [
     "gpt-6-astra",
@@ -140,15 +144,13 @@ test("Kiro registry exposes the current CLI model lineup with context windows", 
   const kiroModels = getProviderModels("kr");
   const byId = new Map(kiroModels.map((model) => [model.id, model]));
 
-  // Kiro's real upstream Claude lineup (#6170): Sonnet 5 / Sonnet 4.5 / Haiku 4.5.
-  // The Opus 4.x and Sonnet 4.6 ids were fabricated (copied from the Anthropic
-  // catalog) and returned upstream 400 "Invalid model" — removed.
+  // Preserve the locally verified CLI catalog alongside upstream Sonnet 5.
   assert.ok(byId.has("claude-sonnet-5"));
   assert.equal(byId.get("claude-sonnet-5")?.contextLength, 1000000);
   assert.ok(byId.has("claude-sonnet-4.5"));
   assert.ok(byId.has("claude-haiku-4.5"));
-  assert.equal(byId.has("claude-opus-4.7"), false);
-  assert.equal(byId.has("claude-sonnet-4.6"), false);
+  assert.ok(byId.has("claude-opus-4.7"));
+  assert.ok(byId.has("claude-sonnet-4.6"));
   assert.equal(byId.has("claude-sonnet-4-6"), false);
   assert.equal(byId.has("claude-haiku-4-5"), false);
 });

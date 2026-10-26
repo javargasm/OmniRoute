@@ -40,7 +40,9 @@ const STORES = ["src/lib/quota/sqliteQuotaStore.ts", "src/lib/quota/redisQuotaSt
 
 for (const store of STORES) {
   test(`${store} applies the equal-split fallback to effectiveWeight`, () => {
-    const src = read(store);
+    const storeSource = read(store);
+    assert.match(storeSource, /return buildPoolUsageSnapshot\(/);
+    const src = read("src/lib/quota/poolUsageSnapshot.ts");
     assert.ok(
       /100 \/ allocations\.length/.test(src),
       "store must fall back to an equal 100/N share when the pool has no weights"
@@ -52,7 +54,7 @@ for (const store of STORES) {
   });
 
   test(`${store} no longer zeroes effectiveWeight when the pool has no weights`, () => {
-    const src = read(store);
+    const src = read("src/lib/quota/poolUsageSnapshot.ts");
     assert.ok(
       !/const effectiveWeight = totalWeight > 0 \? alloc\.weight : 0;/.test(src),
       "the old ternary was a no-op and must not come back"

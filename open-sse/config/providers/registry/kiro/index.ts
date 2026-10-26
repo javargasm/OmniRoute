@@ -80,11 +80,13 @@ export const kiroProvider: RegistryEntry = {
     { id: "qwen3-coder-next", name: "Qwen3 Coder Next" },
     // Kiro's first OpenAI-family models (kiro.dev/changelog/models, 2026-07-14):
     // three tiers — Sol (flagship), Terra (balanced mid-tier), Luna (fastest/
-    // cheapest) — all sharing the announced 272k context window.
+    // cheapest). They launched with a 272k context window; Kiro raised all three
+    // to 1M on 2026-09-14
+    // (https://kiro.dev/changelog/models/gpt-5-6-1m-context-window/).
     {
       id: "gpt-5.6-sol",
       name: "GPT-5.6 Sol",
-      contextLength: 272000,
+      contextLength: 1000000,
       maxOutputTokens: 128000,
       supportsReasoning: true,
       supportedThinkingEfforts: ["none", "low", "medium", "high", "xhigh", "max"],
@@ -92,7 +94,7 @@ export const kiroProvider: RegistryEntry = {
     {
       id: "gpt-5.6-terra",
       name: "GPT-5.6 Terra",
-      contextLength: 272000,
+      contextLength: 1000000,
       maxOutputTokens: 128000,
       supportsReasoning: true,
       supportedThinkingEfforts: ["none", "low", "medium", "high", "xhigh", "max"],
@@ -100,7 +102,7 @@ export const kiroProvider: RegistryEntry = {
     {
       id: "gpt-5.6-luna",
       name: "GPT-5.6 Luna",
-      contextLength: 272000,
+      contextLength: 1000000,
       maxOutputTokens: 128000,
       supportsReasoning: true,
       supportedThinkingEfforts: ["none", "low", "medium", "high", "xhigh", "max"],

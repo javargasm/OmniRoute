@@ -4,7 +4,7 @@
 
 ## Why this and not `@omniroute/opencode-provider`?
 
-`@omniroute/opencode-provider` is the legacy config-generator package — it writes a frozen `provider.omniroute` block into `opencode.json` with a **hardcoded list of 8 models** ([`OMNIROUTE_DEFAULT_OPENCODE_MODELS`](https://github.com/diegosouzapw/OmniRoute/blob/main/%40omniroute/opencode-provider/src/index.ts#L48-L56)). It works on the CLI but in the **OpenCode Desktop / Web** builds (Tauri / Electron) the runtime re-runs the model picker and the static block surfaces only a few of those — and they drift behind the live OmniRoute catalog.
+`@omniroute/opencode-provider` is the legacy config-generator package — it writes a frozen `provider.omniroute` block into `opencode.json` with a **hardcoded list of 8 models** ([`OMNIROUTE_DEFAULT_OPENCODE_MODELS`](https://github.com/cheaper-inference/OmniRoute/blob/main/%40omniroute/opencode-provider/src/index.ts#L48-L56)). It works on the CLI but in the **OpenCode Desktop / Web** builds (Tauri / Electron) the runtime re-runs the model picker and the static block surfaces only a few of those — and they drift behind the live OmniRoute catalog.
 
 This plugin solves that by:
 
@@ -214,7 +214,7 @@ npm install --prefix ~/.config/opencode/plugins/omniroute-opencode-plugin-prepro
 | `managementReadToken` | `string` | falls back to `apiKey`                     | Optional read-only token for management catalog GETs; `/v1` inference stays on the connected `apiKey` |
 | `features`            | `object` | see below                                  | Feature toggles (all opt-in/out, defaults preserve v0.1.0)                                            |
 
-For least-privilege deployments, set top-level `managementReadToken` to a read-only management token. It is sent only to catalog reads (`/api/combos`, `/api/combos/auto`, `/api/pricing/models`, `/api/pricing`, `/api/context/combos`, and `/api/providers`). Inference requests under `/v1`, including chat, continue to use the `apiKey` stored by OpenCode. `features.mcpToken` remains independent. If `managementReadToken` is omitted, catalog reads retain the previous `apiKey` behavior.
+For least-privilege deployments, set top-level `managementReadToken` to a read-only management token. It is sent only to catalog reads (`/api/combos`, `/api/pricing/models`, `/api/pricing`, `/api/context/combos`, and `/api/providers`). Inference requests under `/v1`, including chat, continue to use the `apiKey` stored by OpenCode. `features.mcpToken` remains independent. If `managementReadToken` is omitted, catalog reads retain the previous `apiKey` behavior. `features.autoCombos` is accepted but ignored: the gateway serves the `auto/*` entries through `/v1/models` with server-computed limits and modalities, so no separate fetch is needed.
 
 ### `features` block
 
@@ -342,7 +342,7 @@ A typical OmniRoute instance serves 600+ models. The OpenCode TUI/CLI picker bec
 - Both compose with `usableOnly` (all filters AND together: a model must pass usableOnly AND visibleModels AND not be in hiddenModels).
 - Unset or empty = no filter (current behavior).
 
-[`@omniroute/opencode-provider`](https://github.com/diegosouzapw/OmniRoute/tree/main/%40omniroute/opencode-provider) is the existing config-generator package — it writes a frozen `provider.<id>` block into `opencode.json` at build time. This plugin is the runtime integration.
+[`@omniroute/opencode-provider`](https://github.com/cheaper-inference/OmniRoute/tree/main/%40omniroute/opencode-provider) is the existing config-generator package — it writes a frozen `provider.<id>` block into `opencode.json` at build time. This plugin is the runtime integration.
 
 |                   | `@omniroute/opencode-plugin` (this) | `@omniroute/opencode-provider`    |
 | ----------------- | ----------------------------------- | --------------------------------- |

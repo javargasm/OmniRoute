@@ -1,9 +1,11 @@
-import { z } from "zod";
 import {
   CODEX_CLI_RS_ORIGINATOR,
   getCodexClientVersion,
   getCodexDefaultHeaders,
+  refreshCodexClientVersion,
+  type CodexClientVersionFetch,
 } from "@omniroute/open-sse/config/codexClient.ts";
+import { readCodexReasoningMetadata } from "@/shared/reasoning/codexEfforts";
 import {
   normalizeCodexEffortLevels,
   registerCodexReasoningLevels,
@@ -40,6 +42,8 @@ export type CodexDiscoveryModel = {
   inputTokenLimit?: number;
   outputTokenLimit?: number;
   description?: string;
+  supportedThinkingEfforts?: string[];
+  defaultThinkingEffort?: string;
   supportsThinking?: boolean;
   supportsVision?: boolean;
   // Upstream `supported_reasoning_levels`, canonical order; drives the effort variants.
@@ -52,13 +56,7 @@ export type CodexDiscoveryModel = {
   compatibilityReason?: string;
 };
 
-export type CodexModelsFetch = (
-  input: string,
-  init: {
-    method: "GET";
-    headers: Record<string, string>;
-  }
-) => Promise<Response>;
+export type CodexModelsFetch = CodexClientVersionFetch;
 
 type CodexGithubCatalogCache = {
   models: CodexDiscoveryModel[];
@@ -99,10 +97,29 @@ function getCodexModelItems(payload: unknown): unknown[] {
   if (Array.isArray(record.data)) return record.data;
   if (Array.isArray(payload)) return payload;
 
+  // An error envelope is not a model map. Without this, `{"error":{...}}`
+  // becomes a phantom model with id "error" and the caller counts it as a
+  // successful live catalog. It yields no items, and fetchCodexDiscoveryModels
+  // reports it as a failure (null) because it is not a recognised empty list.
+  if (record.error) return [];
+
   const objectItems = Object.entries(record)
     .filter(([, value]) => value && typeof value === "object" && !Array.isArray(value))
     .map(([key, value]) => ({ id: key, ...asRecord(value) }));
   return objectItems.length > 0 ? objectItems : [];
+}
+
+/**
+ * True only for an answer that is a model list and is empty: `[]`,
+ * `{"models": []}` or `{"data": []}` with no error. Anything else that yields no
+ * models (an error envelope, `{"detail": ...}`, an unknown shape) is a failure.
+ */
+function isEmptyCodexModelList(payload: unknown): boolean {
+  if (Array.isArray(payload)) return payload.length === 0;
+  const record = asRecord(payload);
+  if (record.error) return false;
+  const list = Array.isArray(record.models) ? record.models : record.data;
+  return Array.isArray(list) && list.length === 0;
 }
 
 function getCodexModelMetadata(record: JsonRecord): {
@@ -150,23 +167,6 @@ function recordSupportsThinking(record: JsonRecord): boolean {
   );
 }
 
-// Hard Rule #7: `supported_reasoning_levels` entries are untrusted upstream data — each
-// is either an effort string or `{ effort, description }`; a malformed entry is dropped
-// on its own. `default_reasoning_level` is deliberately not captured (it would inject a
-// request default).
-const CodexReasoningLevelEntrySchema = z.union([z.string(), z.object({ effort: z.string() })]);
-
-function recordReasoningEfforts(record: JsonRecord): CodexEffortLevel[] {
-  if (!Array.isArray(record.supported_reasoning_levels)) return [];
-  return normalizeCodexEffortLevels(
-    record.supported_reasoning_levels.flatMap((entry) => {
-      const parsed = CodexReasoningLevelEntrySchema.safeParse(entry);
-      if (!parsed.success) return [];
-      return [typeof parsed.data === "string" ? parsed.data : parsed.data.effort];
-    })
-  );
-}
-
 function isImageModality(modality: unknown): boolean {
   return toNonEmptyString(modality)?.toLowerCase() === "image";
 }
@@ -183,7 +183,7 @@ function buildCodexDiscoveryModel(
   if (!id) return null;
 
   const metadata = getCodexModelMetadata(record);
-  if (metadata.visibility === "hide" || metadata.supportedInApi === false) return null;
+  if (metadata.supportedInApi === false) return null;
 
   const topProvider = asRecord(record.top_provider);
   const limits = asRecord(record.limits);
@@ -195,6 +195,7 @@ function buildCodexDiscoveryModel(
     supportedEndpoints: ["responses"],
     ...(source === "github" ? { discoverySource: source } : {}),
     ...metadata,
+    ...readCodexReasoningMetadata(record),
   };
   // The live Codex OAuth catalog reports BOTH `context_window` (the first
   // pricing tier, ~272K) and `max_context_window` (the real usable window,
@@ -224,14 +225,12 @@ function buildCodexDiscoveryModel(
     limits.max_output_tokens
   );
   const description = toNonEmptyString(record.description);
-  const reasoningEfforts = recordReasoningEfforts(record);
 
   if (typeof inputTokenLimit === "number") model.inputTokenLimit = inputTokenLimit;
   if (typeof outputTokenLimit === "number") model.outputTokenLimit = outputTokenLimit;
   if (description) model.description = description;
   if (recordSupportsThinking(record)) model.supportsThinking = true;
   if (recordSupportsVision(record)) model.supportsVision = true;
-  if (reasoningEfforts.length > 0) model.supportedThinkingEfforts = reasoningEfforts;
 
   return model;
 }
@@ -416,13 +415,19 @@ export function mergeCodexLiveModelsWithLocalCatalog(
     if (!localModel.id) continue;
     const normalizedLocal = localCatalogModelToCodexDiscoveryModel(localModel);
     const existing = merged.get(localModel.id);
-    merged.set(
-      localModel.id,
-      existing ? mergeLiveAndLocalCodexModel(existing, normalizedLocal) : normalizedLocal
-    );
+    if (existing) {
+      merged.set(localModel.id, mergeLiveAndLocalCodexModel(existing, normalizedLocal));
+    }
   }
 
   return Array.from(merged.values());
+}
+
+/** Static entries are only a fallback when no remote or cached inventory exists. */
+export function buildCodexLocalFallbackCatalog(
+  localCatalogModels: CodexLocalCatalogModel[]
+): CodexDiscoveryModel[] {
+  return applyCodexDiscoveryFilters(localCatalogModels.map(localCatalogModelToCodexDiscoveryModel));
 }
 
 /** Return true to KEEP the model. */
@@ -585,10 +590,15 @@ export function enrichCodexModelsFromGithubCatalog(
   githubCatalogModels: CodexDiscoveryModel[]
 ): CodexDiscoveryModel[] {
   const byId = new Map(githubCatalogModels.map((model) => [model.id, model]));
-  return models.map((model) => {
+  const enriched = models.map((model) => {
     const githubModel = byId.get(model.id);
     return githubModel ? { ...githubModel, ...model } : model;
   });
+  // A non-empty live entitlement list is authoritative for membership and
+  // order. GitHub rows may only fill metadata on those ids. Catalog models
+  // the account did not return are used only when there is no live list.
+  if (models.length > 0) return enriched;
+  return [...githubCatalogModels];
 }
 
 export async function fetchCodexDiscoveryModels({
@@ -603,6 +613,7 @@ export async function fetchCodexDiscoveryModels({
   if (!accessToken) return null;
 
   try {
+    await refreshCodexClientVersion(fetchImpl);
     const workspaceId =
       toNonEmptyString(providerSpecificData?.workspaceId) ||
       toNonEmptyString(providerSpecificData?.chatgptAccountId) ||
@@ -623,8 +634,14 @@ export async function fetchCodexDiscoveryModels({
 
     if (!response.ok) return null;
 
-    const models = normalizeCodexModelsResponse(await response.json());
-    return models.length > 0 ? models : null;
+    // `[]` means the upstream answered with a recognised, empty model list: the
+    // account may simply have nothing discoverable right now (measured
+    // 2026-10-23 on both pro accounts, every client version). Every other body
+    // that yields no models, including an unparseable one, is a failure (null).
+    const payload: unknown = await response.json();
+    const models = normalizeCodexModelsResponse(payload);
+    if (models.length > 0) return models;
+    return isEmptyCodexModelList(payload) ? [] : null;
   } catch {
     return null;
   }

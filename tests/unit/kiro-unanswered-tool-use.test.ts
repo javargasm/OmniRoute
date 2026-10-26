@@ -2,11 +2,10 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 const { buildKiroPayload } = await import("../../open-sse/translator/request/openai-to-kiro.ts");
-const { toKiroToolUseId } = await import(
-  "../../open-sse/translator/request/openai-to-kiro/messageHelpers.ts"
-);
+const { toKiroToolUseId } =
+  await import("../../open-sse/translator/request/openai-to-kiro/messageHelpers.ts");
 
-test("openai-to-kiro: synthesizes error toolResult when client omits a tool result in final turn", () => {
+test("openai-to-kiro: drops unanswered tool calls without fabricating final-turn results", () => {
   const tools = [
     {
       type: "function",
@@ -57,7 +56,7 @@ test("openai-to-kiro: synthesizes error toolResult when client omits a tool resu
       ?.toolResults;
 
   assert.ok(Array.isArray(currentResults), "currentMessage should have toolResults");
-  assert.equal(currentResults.length, 2, "Both tool calls should be answered");
+  assert.equal(currentResults.length, 1, "Only actual tool results are forwarded");
 
   const expectedIdA = toKiroToolUseId("call_a");
   const expectedIdB = toKiroToolUseId("call_b");
@@ -69,12 +68,10 @@ test("openai-to-kiro: synthesizes error toolResult when client omits a tool resu
   assert.equal(resultA.status, "success");
   assert.deepEqual(resultA.content, [{ text: "result a" }]);
 
-  assert.ok(resultB, "resultB should exist as synthetic error");
-  assert.equal(resultB.status, "error");
-  assert.ok(resultB.content[0]?.text?.includes("omitted or cancelled"));
+  assert.equal(resultB, undefined);
 });
 
-test("openai-to-kiro: synthesizes error toolResult in intermediate history turns", () => {
+test("openai-to-kiro: drops unanswered tool calls without fabricating history results", () => {
   const body = {
     messages: [
       { role: "user", content: "Step 1" },
@@ -116,7 +113,7 @@ test("openai-to-kiro: synthesizes error toolResult in intermediate history turns
 
   assert.ok(userTurn, "Should find user turn with toolResults in history");
   const histResults = userTurn.userInputMessage.userInputMessageContext.toolResults;
-  assert.equal(histResults.length, 2, "Should have 2 toolResults in history turn");
+  assert.equal(histResults.length, 1, "Only actual tool results are forwarded");
 
   const id1 = toKiroToolUseId("call_hist_1");
   const id2 = toKiroToolUseId("call_hist_2");
@@ -127,8 +124,7 @@ test("openai-to-kiro: synthesizes error toolResult in intermediate history turns
   assert.ok(r1, "r1 should exist with success");
   assert.equal(r1.status, "success");
 
-  assert.ok(r2, "r2 should exist as synthetic error");
-  assert.equal(r2.status, "error");
+  assert.equal(r2, undefined);
 });
 
 test("openai-to-kiro: leaves all toolResults untouched when all tool_calls are fulfilled", () => {

@@ -166,7 +166,8 @@ describe("CompareColumn", () => {
     });
 
     expect(writeText).toHaveBeenCalledWith("Column-specific answer");
-    expect(copyBtn.textContent).toContain("check");
+    // KEA-7886: icons are Lucide svgs (no ligature text); the copied state shows the check icon.
+    expect(copyBtn.querySelector("svg[data-icon='check']")).not.toBeNull();
   });
 
   it("disables response copy while the column has no response", () => {

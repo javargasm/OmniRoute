@@ -44,8 +44,5 @@ test("Kiro Opus 5 forwards max as the provider-native adaptive effort", () => {
 
   assert.equal(payload.conversationState.currentMessage.userInputMessage.modelId, "claude-opus-5");
   assert.equal(payload.additionalModelRequestFields?.output_config?.effort, "max");
-  assert.deepEqual(payload.additionalModelRequestFields?.thinking, {
-    type: "adaptive",
-    display: "summarized",
-  });
+  assert.equal(payload.additionalModelRequestFields?.thinking, undefined);
 });

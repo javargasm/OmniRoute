@@ -226,26 +226,32 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
   {
     fromVersion: "177",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "197",
+    toVersion: "214",
     toName: "call_logs_effective_reasoning_effort",
   },
   {
     fromVersion: "186",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "197",
+    toVersion: "214",
     toName: "call_logs_effective_reasoning_effort",
   },
   {
     fromVersion: "190",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "197",
+    toVersion: "214",
     toName: "call_logs_effective_reasoning_effort",
   },
   {
-    // Upstream claimed 194 (proxy_logs_attempt_timing); the fork migration moved to 197.
+    // Upstream claimed 194 (proxy_logs_attempt_timing); the fork migration moved to 214.
     fromVersion: "194",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "197",
+    toVersion: "214",
+    toName: "call_logs_effective_reasoning_effort",
+  },
+  {
+    fromVersion: "197",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "214",
     toName: "call_logs_effective_reasoning_effort",
   },
 ] as const;
@@ -294,8 +300,8 @@ export const PHYSICAL_SCHEMA_SENTINELS = [
 ] as const;
 
 export const INITIAL_SCHEMA_SENTINELS = ["provider_connections", "combos", "call_logs"] as const;
-// "178" added by #13717: migration 178 currently hard-fails on sql.js/no-FTS5
+// "178" (#13717) and "203" (#15707) recreate memory_fts and hard-fail on sql.js/no-FTS5
 // drivers. If #13331 (adds "180") lands before this, reconcile to the union
-// ({"022","023","178","180"}) and update the assertion in
+// ({"022","023","178","180","203"}) and update the assertion in
 // tests/unit/db-migrationrunner-constants-split.test.ts accordingly.
-export const OPTIONAL_FTS5_MIGRATION_VERSIONS = new Set(["022", "023", "178"]);
+export const OPTIONAL_FTS5_MIGRATION_VERSIONS = new Set(["022", "023", "178", "203"]);

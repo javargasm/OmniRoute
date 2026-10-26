@@ -3,8 +3,7 @@
 // schemas shared a cache key — the second was served the first's stored body
 // under a 200, violating the schema it asked for. The signature now folds an
 // "output contract" (response_format, text.format, tools, tool_choice) into the
-// digest when present, and stays byte-identical to the legacy key when absent
-// so existing plain-chat cache entries survive the upgrade.
+// digest when present. The current key schema versions all entries.
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -65,7 +64,7 @@ test("tools presence splits the signature from a tool-less request", () => {
   assert.notEqual(withTools, without);
 });
 
-test("plain chat keeps the legacy signature — existing cache entries stay valid", () => {
+test("plain chat and transport-only variants share the current signature", () => {
   const legacy = generateSignature("m", MESSAGES, 0, 1, "key");
   const withNullContract = generateSignature(
     "m",

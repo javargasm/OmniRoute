@@ -878,7 +878,11 @@ test("OpenAI -> Kiro generates stable non-random toolUseId when tool_call has no
 
   assert.ok(id1, "toolUseId must be set even when id is absent");
   assert.equal(id1, id2, "toolUseId must be deterministic (same input → same id)");
-  assert.equal(id1, EXPECTED_STABLE_ID, "toolUseId must be the uuidv5 of name:index");
+  assert.equal(
+    id1,
+    toKiroToolUseId(EXPECTED_STABLE_ID),
+    "toolUseId must normalize the stable uuidv5 seed"
+  );
 });
 
 // Regression for #2446: an OpenAI-style `role:"tool"` message carrying NON-string

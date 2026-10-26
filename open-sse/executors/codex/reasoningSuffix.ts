@@ -9,17 +9,21 @@ export const CODEX_EFFORT_ORDER = [
 ] as const;
 export type CodexEffortLevel = (typeof CODEX_EFFORT_ORDER)[number];
 export const CODEX_MAX_ALIAS_MODELS = new Set([
+  "gpt-6.1-sol",
   "gpt-5.6-sol",
   "gpt-5.6-terra",
   "gpt-5.6-luna",
   "gpt-6-astra",
+  "gpt-6.1-sol",
   "gpt-6-sol",
   "gpt-6-luna",
 ]);
 export const CODEX_ULTRA_ALIAS_MODELS = new Set([
+  "gpt-6.1-sol",
   "gpt-5.6-sol",
   "gpt-5.6-terra",
   "gpt-6-astra",
+  "gpt-6.1-sol",
   "gpt-6-sol",
 ]);
 
@@ -69,6 +73,7 @@ export function getCodexMaxEffort(baseModel: unknown): CodexEffortLevel | null {
  */
 export function isCodexDelegationEffort(baseModel: string, effort: unknown): boolean {
   if (effort !== "max" && effort !== "ultra") return false;
+  if (baseModel === "gpt-6-luna") return false;
   const topTier = CODEX_ULTRA_ALIAS_MODELS.has(baseModel)
     ? "ultra"
     : CODEX_MAX_ALIAS_MODELS.has(baseModel)
@@ -103,11 +108,7 @@ function splitCodexReasoningSuffixWith(
   if (maxTierMatch) {
     const [, baseModel, hyphenEffort, parenthesizedEffort] = maxTierMatch;
     const effort = (hyphenEffort ?? parenthesizedEffort) as CodexEffortLevel;
-    const supportedModels = parenthesizedEffort
-      ? CODEX_MAX_ALIAS_MODELS
-      : effort === "ultra"
-        ? CODEX_ULTRA_ALIAS_MODELS
-        : CODEX_MAX_ALIAS_MODELS;
+    const supportedModels = effort === "ultra" ? CODEX_ULTRA_ALIAS_MODELS : CODEX_MAX_ALIAS_MODELS;
     if (
       supportedModels.has(baseModel) ||
       isDiscoveredTopTierAlias(lookup(baseModel), effort, Boolean(parenthesizedEffort))

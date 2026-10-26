@@ -1,4 +1,8 @@
-import { MUSE_CODE_INFERENCE_USER_AGENT, MUSE_CODE_RESPONSES_URL } from "../../../museCode.ts";
+import {
+  MUSE_CODE_API_BASE_URL,
+  MUSE_CODE_INFERENCE_USER_AGENT,
+  MUSE_CODE_RESPONSES_URL,
+} from "../../../museCode.ts";
 import type { RegistryEntry } from "../../shared.ts";
 import { buildOpenAiCompatibleRegistryEntry } from "../../shared.ts";
 
@@ -38,6 +42,7 @@ export const muse_codeProvider: RegistryEntry = buildOpenAiCompatibleRegistryEnt
   id: "muse-code",
   alias: "mc",
   baseUrl: MUSE_CODE_RESPONSES_URL,
+  modelsUrl: `${MUSE_CODE_API_BASE_URL}/models`,
   extraHeaders: { "User-Agent": MUSE_CODE_INFERENCE_USER_AGENT },
   passthroughModels: true,
   reasoningTransport: "opaque",

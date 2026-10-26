@@ -147,6 +147,82 @@ test("fetchKiroAvailableModels carries upstream prompt-caching metadata to model
   }
 });
 
+test("fetchKiroAvailableModels does not invent a context window when tokenLimits is missing", async () => {
+  // A stamped 200k default would reach syncedAvailableModels as inputTokenLimit and get
+  // pinned as an auto:discovery override over the registry / models.dev window
+  // (claude-sonnet-5 is 1M) — the same bug class as grok-cli's old 256k fallback.
+  const fetchImpl = (async () =>
+    jsonResponse({
+      models: [
+        { modelId: "claude-sonnet-5" },
+        { modelId: "claude-sonnet-4.6", tokenLimits: { maxInputTokens: 200000 } },
+      ],
+    })) as unknown as typeof fetch;
+
+  const result = await fetchKiroAvailableModels({
+    accessToken: "tok",
+    providerSpecificData: {},
+    fetchImpl,
+    fallbackModels: FALLBACK,
+  });
+
+  const omitted = result.models.filter((m) => m.upstreamModelId === "claude-sonnet-5");
+  const declared = result.models.filter((m) => m.upstreamModelId === "claude-sonnet-4.6");
+  assert.ok(omitted.length >= 1 && declared.length >= 1);
+  for (const model of omitted) assert.equal("contextLength" in model, false);
+  for (const model of declared) assert.equal(model.contextLength, 200000);
+});
+
+test("fetchKiroAvailableModels preserves the upstream output-token limit", async () => {
+  const fetchImpl = (async () =>
+    jsonResponse({
+      models: [
+        {
+          modelId: "claude-opus-5",
+          modelName: "Claude Opus 5",
+          tokenLimits: { maxInputTokens: 1000000, maxOutputTokens: 128000 },
+        },
+      ],
+    })) as unknown as typeof fetch;
+
+  const result = await fetchKiroAvailableModels({
+    accessToken: "tok",
+    providerSpecificData: {},
+    fetchImpl,
+    fallbackModels: FALLBACK,
+  });
+
+  const models = result.models.filter((m) => m.upstreamModelId === "claude-opus-5");
+  assert.ok(models.length >= 1);
+  for (const model of models) {
+    assert.equal(model.contextLength, 1000000);
+    assert.equal(model.outputTokenLimit, 128000);
+  }
+});
+
+test("fetchKiroAvailableModels does not invent an output-token limit", async () => {
+  // Same rule as contextLength: only a finite, positive upstream number is kept, so a
+  // missing/zero/garbage value never pins an auto:discovery override over the registry.
+  const fetchImpl = (async () =>
+    jsonResponse({
+      models: [
+        { modelId: "claude-sonnet-5", tokenLimits: { maxInputTokens: 200000 } },
+        { modelId: "claude-sonnet-4.6", tokenLimits: { maxOutputTokens: 0 } },
+        { modelId: "claude-haiku-4.5", tokenLimits: { maxOutputTokens: "lots" } },
+      ],
+    })) as unknown as typeof fetch;
+
+  const result = await fetchKiroAvailableModels({
+    accessToken: "tok",
+    providerSpecificData: {},
+    fetchImpl,
+    fallbackModels: FALLBACK,
+  });
+
+  assert.ok(result.models.length >= 3);
+  for (const model of result.models) assert.equal("outputTokenLimit" in model, false);
+});
+
 test("resolveKiroRegion prefers stored region, then profileArn, else us-east-1", () => {
   assert.equal(resolveKiroRegion({ region: "eu-central-1" }), "eu-central-1");
   assert.equal(
@@ -182,10 +258,12 @@ test("fetchKiroAvailableModels: simple (Builder ID) account, us-east-1, origin K
   });
 
   assert.equal(result.source, "api");
-  assert.deepEqual(result.models.map((m) => m.id).sort(), [
-    "claude-sonnet-4.6",
-  ]);
-  assert.ok(calls.some((c) => c.startsWith("https://management.us-east-1.kiro.dev/?origin=KIRO_CLI&profileArn=")));
+  assert.deepEqual(result.models.map((m) => m.id).sort(), ["claude-sonnet-4.6"]);
+  assert.ok(
+    calls.some((c) =>
+      c.startsWith("https://management.us-east-1.kiro.dev/?origin=KIRO_CLI&profileArn=")
+    )
+  );
 });
 
 test("fetchKiroAvailableModels: IAM Identity Center account, region-matched endpoint", async () => {
@@ -209,7 +287,9 @@ test("fetchKiroAvailableModels: IAM Identity Center account, region-matched endp
     ["claude-opus-4.8"]
   );
   assert.ok(
-    calls.some((c) => c.startsWith("https://management.eu-central-1.kiro.dev/?origin=KIRO_CLI&profileArn="))
+    calls.some((c) =>
+      c.startsWith("https://management.eu-central-1.kiro.dev/?origin=KIRO_CLI&profileArn=")
+    )
   );
 });
 
@@ -263,12 +343,7 @@ test("fetchKiroAvailableModels filters fable and unusable models", async () => {
 
   assert.deepEqual(
     result.models.map((model) => model.id),
-    [
-      "claude-sonnet-5",
-      "claude-sonnet-4.5",
-      "deepseek-3.2",
-      "gpt-5.6-sol",
-    ]
+    ["claude-sonnet-5", "claude-sonnet-4.5", "deepseek-3.2", "gpt-5.6-sol"]
   );
 });
 
@@ -293,12 +368,20 @@ test("fetchKiroAvailableModels sends auth-method headers for API key and Externa
 
   await fetchKiroAvailableModels({
     accessToken: "api-key",
-    providerSpecificData: { authMethod: "api_key", clientId: "api-client", profileArn: "arn:test:profile" },
+    providerSpecificData: {
+      authMethod: "api_key",
+      clientId: "api-client",
+      profileArn: "arn:test:profile",
+    },
     fetchImpl,
   });
   await fetchKiroAvailableModels({
     accessToken: "external-token",
-    providerSpecificData: { authMethod: "external_idp", clientId: "external-client", profileArn: "arn:test:profile" },
+    providerSpecificData: {
+      authMethod: "external_idp",
+      clientId: "external-client",
+      profileArn: "arn:test:profile",
+    },
     fetchImpl,
   });
 

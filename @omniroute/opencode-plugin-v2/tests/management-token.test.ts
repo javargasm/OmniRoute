@@ -66,9 +66,6 @@ describe("plugin-v2 managementReadToken wiring (F1)", () => {
     globalThis.fetch = (async (url: unknown, init?: { headers?: Record<string, string> }) => {
       const href = String(url);
       seen.set(href, String(init?.headers?.Authorization ?? ""));
-      if (href.includes("/api/combos/auto")) {
-        return { ok: true, status: 200, statusText: "OK", json: async () => ({ combos: [] }) };
-      }
       if (href.includes("/api/combos")) {
         return { ok: true, status: 200, statusText: "OK", json: async () => ({ combos: [] }) };
       }
@@ -76,7 +73,7 @@ describe("plugin-v2 managementReadToken wiring (F1)", () => {
         ok: true,
         status: 200,
         statusText: "OK",
-        json: async () => ({ data: [{ id: "m1" }] }),
+        json: async () => ({ data: [{ id: "m1", capabilities: { tool_calling: true } }] }),
       };
     }) as typeof fetch;
     const guard = silence();
@@ -106,9 +103,6 @@ describe("plugin-v2 managementReadToken wiring (F1)", () => {
     globalThis.fetch = (async (url: unknown, init?: { headers?: Record<string, string> }) => {
       const href = String(url);
       seen.set(href, String(init?.headers?.Authorization ?? ""));
-      if (href.includes("/api/combos/auto")) {
-        return { ok: true, status: 200, statusText: "OK", json: async () => ({ combos: [] }) };
-      }
       if (href.includes("/api/combos")) {
         return { ok: true, status: 200, statusText: "OK", json: async () => ({ combos: [] }) };
       }
@@ -116,7 +110,7 @@ describe("plugin-v2 managementReadToken wiring (F1)", () => {
         ok: true,
         status: 200,
         statusText: "OK",
-        json: async () => ({ data: [{ id: "m1" }] }),
+        json: async () => ({ data: [{ id: "m1", capabilities: { tool_calling: true } }] }),
       };
     }) as typeof fetch;
     const guard = silence();
@@ -149,7 +143,7 @@ describe("plugin-v2 managementReadToken wiring (F1)", () => {
       {
         fetcher: async (_baseURL, token) => {
           calls.push(["models", token]);
-          return [{ id: "m1" }];
+          return [{ id: "m1", capabilities: { tool_calling: true } }];
         },
         combosFetcher: async (_baseURL, token) => {
           calls.push(["combos", token]);
@@ -158,7 +152,7 @@ describe("plugin-v2 managementReadToken wiring (F1)", () => {
       }
     );
     const res = collected.counts;
-    assert.deepEqual(res, { models: 1, combos: 0, autoCombos: 0 });
+    assert.deepEqual(res, { models: 1, combos: 0 });
     assert.deepEqual(calls, [
       ["models", "chat-key"],
       ["combos", "mgmt-key"],
@@ -178,9 +172,6 @@ describe("plugin-v2 fail-closed models (F2)", () => {
     const origFetch = globalThis.fetch;
     globalThis.fetch = (async (url: unknown) => {
       const href = String(url);
-      if (href.includes("/api/combos/auto")) {
-        return { ok: true, status: 200, statusText: "OK", json: async () => ({ combos: [] }) };
-      }
       if (href.includes("/api/combos")) {
         return { ok: true, status: 200, statusText: "OK", json: async () => ({ combos: [] }) };
       }
@@ -190,7 +181,7 @@ describe("plugin-v2 fail-closed models (F2)", () => {
           ok: true,
           status: 200,
           statusText: "OK",
-          json: async () => ({ data: [{ id: "m1" }] }),
+          json: async () => ({ data: [{ id: "m1", capabilities: { tool_calling: true } }] }),
         };
       }
       return { ok: false, status: 500, statusText: "Error", json: async () => ({}) };

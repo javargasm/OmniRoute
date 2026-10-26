@@ -127,6 +127,14 @@ export const githubProvider: RegistryEntry = {
       supportedThinkingEfforts: ["low", "medium", "high", "xhigh", "max"],
     },
     {
+      id: "claude-sonnet-5-5",
+      name: "Claude Sonnet 5.5",
+      targetFormat: "claude",
+      contextLength: 1000000,
+      maxOutputTokens: 128000,
+      supportedThinkingEfforts: ["low", "medium", "high", "xhigh"],
+    },
+    {
       id: "claude-opus-4.8-fast",
       name: "Claude Opus 4.8 (fast mode)",
       targetFormat: "claude",
@@ -208,5 +216,9 @@ export const githubProvider: RegistryEntry = {
       contextLength: 500000,
       maxOutputTokens: 128000,
     },
+    // Copilot-side model selection (required for Copilot Free): chatCore resolves
+    // `auto` to a concrete model via POST /auto before routing — see
+    // handlers/chatCore/copilotAutoModel.ts. Vision is decided per request.
+    { id: "auto", name: "Auto", toolCalling: true },
   ],
 };

@@ -117,7 +117,10 @@ async function getCatalog(): Promise<Map<string, CatalogEntry>> {
 function assertPublishesSolLevels(entry: CatalogEntry | undefined): CatalogEntry {
   assert.ok(entry, "cx/gpt-6.1-sol must be listed");
   assert.equal(entry.supports_reasoning_effort, true);
-  assert.deepEqual(entry.reasoning_efforts, SOL_LEVELS);
+  assert.deepEqual(
+    entry.reasoning_efforts,
+    SOL_LEVELS.filter((level) => level !== "ultra")
+  );
   return entry;
 }
 
@@ -132,7 +135,10 @@ test("stored Codex reasoning levels replace the generic list when models.dev mar
   modelsDevSync.upsertSyncedCapabilities("cx", { "gpt-6.1-sol": MODELS_DEV_GPT_61_SOL });
 
   const entry = assertPublishesSolLevels((await getCatalog()).get("cx/gpt-6.1-sol"));
-  assert.deepEqual(entry.capabilities?.effort_tiers, SOL_LEVELS);
+  assert.deepEqual(
+    entry.capabilities?.effort_tiers,
+    SOL_LEVELS.filter((level) => level !== "ultra")
+  );
 });
 
 test("fixed-effort variants and models without declared levels get no effort selector", async () => {

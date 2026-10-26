@@ -98,6 +98,67 @@ test("#3120 parseGitHubCopilotModels keeps every entitled CHAT model (capability
   assert.ok(!ids.includes("hidden-from-picker"), "model_picker_enabled=false is not routable");
 });
 
+test("discovery preserves Responses-only routing for newly entitled GPT-6 models", () => {
+  const models = parseGitHubCopilotModels({
+    data: ["gpt-6-luna", "gpt-6.1-sol"].map((id) => ({
+      id,
+      capabilities: { type: "chat" },
+      supported_endpoints: ["/responses"],
+    })),
+  });
+  assert.deepEqual(
+    models,
+    ["gpt-6-luna", "gpt-6.1-sol"].map((id) => ({
+      id,
+      name: id,
+      owned_by: "github",
+      supportedEndpoints: ["responses"],
+      targetFormat: "openai-responses",
+    }))
+  );
+});
+
+test("discovery normalizes nested endpoint metadata without guessing from GPT versions", () => {
+  const models = parseGitHubCopilotModels({
+    data: [
+      {
+        id: "new-responses-model",
+        capabilities: {
+          type: "chat",
+          supported_endpoints: [" /v1/responses/ ", "/v1/responses/", null, 42, ""],
+        },
+      },
+      {
+        id: "top-level-wins",
+        capabilities: { type: "chat", supported_endpoints: ["/responses"] },
+        supported_endpoints: ["/chat/completions"],
+      },
+      {
+        id: "messages-capable",
+        capabilities: { type: "chat" },
+        supported_endpoints: ["/responses", "/v1/messages"],
+      },
+      ...["gpt-6-unlisted", "gemini-future", "claude-future"].map((id) => ({
+        id,
+        capabilities: { type: "chat" },
+        ...(id === "gpt-6-unlisted" ? {} : { supported_endpoints: ["/responses"] }),
+      })),
+    ],
+  });
+  assert.deepEqual(models[0], {
+    id: "new-responses-model",
+    name: "new-responses-model",
+    owned_by: "github",
+    supportedEndpoints: ["responses"],
+    targetFormat: "openai-responses",
+  });
+  assert.deepEqual(models[1].supportedEndpoints, ["chat"]);
+  assert.deepEqual(models[2].supportedEndpoints, ["chat", "responses"]);
+  for (const model of models.slice(1)) {
+    assert.equal(model.targetFormat, undefined, `${model.id} must not infer Responses-only`);
+  }
+});
+
 test("#3121 a model NOT in the live response is not advertised (entitlement filtering)", () => {
   const models = parseGitHubCopilotModels(MOCK_COPILOT_MODELS_RESPONSE);
   const ids = models.map((m) => m.id);
@@ -134,6 +195,7 @@ test("#3120 fetchGitHubCopilotModels does a live fetch and returns parsed models
   // Copilot chat headers must be present (e.g. copilot-integration-id).
   assert.ok(capturedHeaders["copilot-integration-id"], "must send Copilot integration header");
   assert.equal(result.source, "api");
+  assert.equal(result.failure, undefined);
   const ids = result.models.map((m) => m.id);
   assert.deepEqual(ids, ["gpt-6-astra", "claude-sonnet-5", "grok-4.6"]);
   assert.ok(!ids.includes("gemini-3.1-pro-preview"));
@@ -154,6 +216,12 @@ test("#3120/#3121 fetch falls back to static catalog when the live fetch fails",
   });
 
   assert.equal(result.source, "fallback");
+  assert.deepEqual(result.failure, {
+    kind: "http_status",
+    upstreamStatus: 503,
+    contentType: "text/plain",
+    bodyShape: "text",
+  });
   assert.deepEqual(
     result.models.map((m) => m.id),
     ["gpt-6-astra"],
@@ -217,8 +285,96 @@ test("fetch falls back when no token is provided (unauthed refresh stays safe)",
 
   assert.equal(called, false, "must not fetch without a token");
   assert.equal(result.source, "fallback");
+  assert.deepEqual(result.failure, { kind: "missing_token" });
   assert.deepEqual(
     result.models.map((m) => m.id),
     ["gpt-6-astra"]
   );
+});
+
+test("Copilot discovery classifies invalid JSON without retaining upstream body text", async () => {
+  const upstreamSecret = "upstream-body-secret-should-never-escape";
+  const result = await fetchGitHubCopilotModels({
+    token: "token-secret-should-never-escape",
+    fetchImpl: (async () =>
+      new Response(`<html>${upstreamSecret}</html>`, {
+        status: 200,
+        headers: { "content-type": "text/html; charset=utf-8" },
+      })) as typeof fetch,
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.deepEqual(result.failure, {
+    kind: "invalid_json",
+    upstreamStatus: 200,
+    contentType: "text/html",
+    bodyShape: "unparseable",
+  });
+  const serialized = JSON.stringify(result);
+  assert.doesNotMatch(serialized, /upstream-body-secret|token-secret/);
+});
+
+test("Copilot discovery classifies an empty parsed catalog by safe JSON shape", async () => {
+  const result = await fetchGitHubCopilotModels({
+    token: "copilot-token",
+    fetchImpl: (async () =>
+      Response.json({ data: [], diagnostic: "private upstream detail" })) as typeof fetch,
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.deepEqual(result.failure, {
+    kind: "empty_catalog",
+    upstreamStatus: 200,
+    contentType: "application/json",
+    bodyShape: "object.data_array",
+  });
+  assert.doesNotMatch(JSON.stringify(result), /private upstream detail/);
+});
+
+test("Copilot discovery classifies network failures without retaining exception text", async () => {
+  const result = await fetchGitHubCopilotModels({
+    token: "copilot-token-secret",
+    fetchImpl: (async () => {
+      throw new Error("network failed with token copilot-token-secret and upstream body secret");
+    }) as typeof fetch,
+  });
+
+  assert.equal(result.source, "fallback");
+  assert.deepEqual(result.failure, { kind: "network" });
+  assert.doesNotMatch(JSON.stringify(result), /copilot-token-secret|upstream body secret/);
+});
+
+test("Copilot HTTP diagnostics retain status and safe shape but redact body and malformed headers", async () => {
+  const result = await fetchGitHubCopilotModels({
+    token: "copilot-token-secret",
+    fetchImpl: (async () =>
+      new Response('{"secret":"raw-upstream-body"}', {
+        status: 429,
+        headers: {
+          "content-type": "application/json; charset=utf-8",
+        },
+      })) as typeof fetch,
+  });
+
+  assert.deepEqual(result.failure, {
+    kind: "http_status",
+    upstreamStatus: 429,
+    contentType: "application/json",
+    bodyShape: "json",
+  });
+  assert.doesNotMatch(JSON.stringify(result), /copilot-token-secret|raw-upstream-body/);
+
+  const malformedHeaderResult = await fetchGitHubCopilotModels({
+    token: "copilot-token-secret",
+    fetchImpl: (async () =>
+      new Response("private body", {
+        status: 502,
+        headers: { "content-type": "not a media type with private-header-detail" },
+      })) as typeof fetch,
+  });
+  assert.deepEqual(malformedHeaderResult.failure, {
+    kind: "http_status",
+    upstreamStatus: 502,
+  });
+  assert.doesNotMatch(JSON.stringify(malformedHeaderResult), /private-header-detail|private body/);
 });

@@ -9,7 +9,7 @@
  *
  *   GET https://q.{region}.amazonaws.com/ListAvailableModels?origin=AI_EDITOR
  *   Authorization: Bearer <accessToken>
- *   → { models: [ { modelId, modelName?, tokenLimits?: { maxInputTokens } }, ... ] }
+ *   → { models: [ { modelId, modelName?, tokenLimits?: { maxInputTokens, maxOutputTokens } } ] }
  *
  * This works for both "simple" Builder ID / social logins and AWS IAM Identity
  * Center accounts:
@@ -107,6 +107,7 @@ export type KiroModel = {
   contextLength?: number;
   maxOutputTokens?: number;
   supportsVision?: boolean;
+  outputTokenLimit?: number;
   rateMultiplier?: number;
   upstreamModelId?: string;
   description?: string;
@@ -234,8 +235,15 @@ function expandKiroModels(data: unknown): KiroModel[] {
     if (!upstreamId || isUnusableKiroCatalogModelId(upstreamId)) continue;
     const display = formatDisplayName(item.modelName || item.name, upstreamId, item.rateMultiplier);
     const tokenLimits = asRecord(item.tokenLimits);
-    const contextLength = Number(tokenLimits.maxInputTokens) || 200000;
+    // Only the upstream number. Stamping a 200k default here would be persisted as the
+    // discovered window and pinned as an auto:discovery override over the registry /
+    // models.dev window (claude-sonnet-5 is 1M).
+    const maxInputTokens = Number(tokenLimits.maxInputTokens);
+    const contextLength =
+      Number.isFinite(maxInputTokens) && maxInputTokens > 0 ? maxInputTokens : undefined;
     const maxOutputTokens = Number(tokenLimits.maxOutputTokens);
+    const outputTokenLimit =
+      Number.isFinite(maxOutputTokens) && maxOutputTokens > 0 ? maxOutputTokens : undefined;
     const inputTypes = Array.isArray(item.supportedInputTypes) ? item.supportedInputTypes : [];
     const supportsVision = inputTypes.some(
       (type) => typeof type === "string" && type.toUpperCase() === "IMAGE"
@@ -257,9 +265,10 @@ function expandKiroModels(data: unknown): KiroModel[] {
               capabilities: { ...variant.capabilities, effort_tiers: [...catalogEfforts] },
             }
           : {}),
-        contextLength,
+        ...(contextLength ? { contextLength } : {}),
         ...(Number.isFinite(maxOutputTokens) && maxOutputTokens > 0 ? { maxOutputTokens } : {}),
         ...(supportsVision ? { supportsVision: true } : {}),
+        ...(outputTokenLimit ? { outputTokenLimit } : {}),
         rateMultiplier: Number.isFinite(rateMultiplier) ? rateMultiplier : 1.0,
         upstreamModelId: upstreamId,
         description: toNonEmptyString(item.description) || "",

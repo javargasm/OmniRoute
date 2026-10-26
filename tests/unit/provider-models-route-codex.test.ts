@@ -1,3 +1,4 @@
+import { setSafeOutboundPinnedFetchTestOverride } from "../../src/shared/network/safeOutboundFetch.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
@@ -7,6 +8,8 @@ import path from "node:path";
 import {
   DEFAULT_CODEX_CLIENT_VERSION,
   getCodexClientVersion,
+  clearCodexClientVersionCache,
+  resetCodexClientVersionCacheForTests,
 } from "../../open-sse/config/codexClient.ts";
 
 const TEST_DATA_DIR = fs.mkdtempSync(
@@ -56,6 +59,8 @@ const CODEX_NPM_LATEST_URL = "https://registry.npmjs.org/@openai/codex/latest";
 
 async function resetStorage() {
   globalThis.fetch = originalFetch;
+  clearCodexClientVersionCache();
+  resetCodexClientVersionCacheForTests();
   codexDiscovery.clearCodexGithubCatalogCacheForTests();
   codexClientVersionTracker.__resetCodexClientVersionTrackerForTests();
   codexReasoningSuffix.__resetCodexReasoningLevelsForTests();
@@ -86,17 +91,62 @@ async function callRoute(connectionId: string, search = "") {
 }
 
 test.beforeEach(async () => {
+  setSafeOutboundPinnedFetchTestOverride(() => globalThis.fetch);
   await resetStorage();
 });
 
 test.after(async () => {
+  setSafeOutboundPinnedFetchTestOverride(undefined);
   globalThis.fetch = originalFetch;
+  clearCodexClientVersionCache();
+  resetCodexClientVersionCacheForTests();
   codexDiscovery.clearCodexGithubCatalogCacheForTests();
   codexClientVersionTracker.__resetCodexClientVersionTrackerForTests();
   codexReasoningSuffix.__resetCodexReasoningLevelsForTests();
   codexReasoningLevels.__resetCodexReasoningLevelsHydrationForTests();
   core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
+});
+
+test("hidden Codex models survive live sync and cached routing while picker filtering stays separate", async () => {
+  const connection = await seedCodexConnection({
+    accessToken: "test-token",
+    providerSpecificData: { codexDiscoveryMode: "safe" },
+  });
+  globalThis.fetch = async (url) =>
+    new URL(String(url)).hostname === "raw.githubusercontent.com"
+      ? Response.json({ models: [] })
+      : Response.json({
+          models: [
+            {
+              slug: "codex-auto-review",
+              visibility: "hide",
+              supported_in_api: true,
+              minimal_client_version: "0.98.0",
+            },
+            { slug: "visible-model", visibility: "list", supported_in_api: true },
+          ],
+        });
+  const fresh = await callRoute(connection.id, "?refresh=true");
+  assert.equal(fresh.status, 200);
+  const synced = await modelsDb.getSyncedAvailableModelsForConnection("codex", connection.id);
+  assert.equal(synced.find((model) => model.id === "codex-auto-review")?.visibility, "hide");
+  const { getModelInfo } = await import("../../src/sse/services/model.ts");
+  const resolved = await getModelInfo("codex/codex-auto-review");
+  assert.equal(resolved.provider, "codex");
+  assert.equal(resolved.model, "codex-auto-review");
+  assert.equal(resolved.error, undefined);
+  const cached = await callRoute(connection.id);
+  assert.ok(
+    ((await cached.json()) as RouteBody).models?.some((model) => model.id === "codex-auto-review")
+  );
+  const picker = await callRoute(connection.id, "?excludeHidden=true");
+  assert.equal(
+    ((await picker.json()) as RouteBody).models?.some((model) => model.id === "codex-auto-review"),
+    false
+  );
+  const stillSynced = await modelsDb.getSyncedAvailableModelsForConnection("codex", connection.id);
+  assert.ok(stillSynced.some((model) => model.id === "codex-auto-review"));
 });
 
 test("provider models route merges live Codex models with the local catalog then filters denylist", async () => {
@@ -112,6 +162,8 @@ test("provider models route merges live Codex models with the local catalog then
   globalThis.fetch = async (url, init) => {
     const requestUrl = String(url);
     const headers = new Headers(init?.headers as HeadersInit | undefined);
+    if (requestUrl.includes("registry.npmjs.org"))
+      return new Response("registry unavailable", { status: 503 });
     seenRequests.push({
       url: requestUrl,
       authorization: headers.get("authorization"),
@@ -176,13 +228,6 @@ test("provider models route merges live Codex models with the local catalog then
   assert.equal(body.discoveredCandidateCount, undefined);
   assert.deepEqual(seenRequests, [
     {
-      url: CODEX_NPM_LATEST_URL,
-      authorization: null,
-      workspaceId: null,
-      originator: null,
-      userAgent: null,
-    },
-    {
       url: `https://chatgpt.com/backend-api/codex/models?client_version=${getCodexClientVersion()}`,
       authorization: "Bearer codex-access-token",
       workspaceId: "account-123",
@@ -198,10 +243,12 @@ test("provider models route merges live Codex models with the local catalog then
     },
   ]);
   assert.ok(modelIds.has("gpt-5.6-sol"));
-  assert.ok(modelIds.has("gpt-5.6-sol-ultra"));
-  assert.ok(modelIds.has("gpt-5.6-sol-max"));
-  // Live payload wins on overlapping fields; local catalog supplies local-only
-  // variants. EXCEPTION: capacity limits (inputTokenLimit/outputTokenLimit)
+  // The live inventory is authoritative: static effort aliases the account does
+  // not advertise are no longer appended to it.
+  assert.equal(modelIds.has("gpt-5.6-sol-ultra"), false);
+  assert.equal(modelIds.has("gpt-5.6-sol-max"), false);
+  // Live payload wins on overlapping fields; the local catalog only enriches
+  // ids the live payload already lists. EXCEPTION: capacity limits (inputTokenLimit/outputTokenLimit)
   // merge conservatively — the smaller of live vs. pinned wins, never the
   // larger, so a stale/inflated live number can never make OmniRoute promise
   // more context than the account can actually serve (#7012). Here the pinned
@@ -215,13 +262,13 @@ test("provider models route merges live Codex models with the local catalog then
   assert.deepEqual(liveModel?.supportedEndpoints, ["responses"]);
   assert.equal(liveModel?.supportsThinking, true);
   assert.equal(liveModel?.supportsVision, true);
-  assert.ok(modelIds.has("gpt-5.5-low"));
+  assert.equal(modelIds.has("gpt-5.5-low"), false);
   assert.equal(
     [...modelIds].some((id) => String(id).startsWith("gpt-5.4")),
     false
   );
   assert.ok(syncedIds.has("gpt-5.6-sol"));
-  assert.ok(syncedIds.has("gpt-5.5-low"));
+  assert.equal(syncedIds.has("gpt-5.5-low"), false);
   assert.equal(
     [...syncedIds].some((id) => String(id).startsWith("gpt-5.4")),
     false
@@ -312,7 +359,8 @@ test("provider models route uses the GitHub Codex catalog when live discovery fa
   assert.ok(seenUrls.some((url) => url.includes("backend-api/codex/models")));
   assert.ok(seenUrls.some((url) => url.includes("raw.githubusercontent.com/openai/codex")));
   assert.ok(modelIds.has("gpt-5.6-sol"));
-  assert.ok(modelIds.has("gpt-5.5-low"));
+  // GitHub manifest ids only: static effort aliases are not appended to it.
+  assert.equal(modelIds.has("gpt-5.5-low"), false);
   assert.equal(
     [...modelIds].some((id) => String(id).startsWith("gpt-5.4")),
     false
@@ -352,14 +400,16 @@ test("provider models route returns cached Codex models when refresh discovery f
   assert.equal(body.discoveredCandidateCount, undefined);
   const modelIds = new Set((body.models || []).map((model) => model.id));
   assert.ok(modelIds.has("gpt-5.6-sol"));
-  assert.ok(modelIds.has("gpt-5.6-sol-ultra"));
+  // The account's cached inventory is authoritative: no static effort aliases.
+  assert.equal(modelIds.has("gpt-5.6-sol-ultra"), false);
   assert.equal(
     [...modelIds].some((id) => String(id).startsWith("gpt-5.4")),
     false
   );
   const syncedModels = await modelsDb.getSyncedAvailableModelsForConnection("codex", connection.id);
   const syncedIds = new Set(syncedModels.map((model) => model.id));
-  assert.ok(syncedIds.has("gpt-5.6-sol-ultra"));
+  assert.ok(syncedIds.has("gpt-5.6-sol"));
+  assert.equal(syncedIds.has("gpt-5.6-sol-ultra"), false);
   assert.equal(syncedIds.has("gpt-5.4"), false);
 });
 
@@ -455,6 +505,130 @@ test("provider models route returns curated GPT-5.6 variants when auto-fetch is 
   );
 });
 
+const CACHED_CODEX_ROW = {
+  id: "gpt-5.6-sol",
+  name: "Cached GPT 5.6 Sol",
+  source: "imported",
+  apiFormat: "responses",
+  supportedEndpoints: ["responses"],
+};
+
+const GITHUB_NOVA_MANIFEST = {
+  models: [
+    {
+      slug: "gpt-5.7-nova",
+      display_name: "GPT-5.7 Nova",
+      visibility: "list",
+      supported_in_api: true,
+      context_window: 400000,
+    },
+  ],
+};
+
+test("vendor models route keeps the cached catalog when live Codex answers an empty list", async () => {
+  const connection = await seedCodexConnection({ accessToken: "codex-access-token" });
+  await modelsDb.replaceSyncedAvailableModelsForConnection("codex", connection.id, [
+    CACHED_CODEX_ROW,
+  ]);
+
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("raw.githubusercontent.com/openai/codex")) {
+      return Response.json(GITHUB_NOVA_MANIFEST);
+    }
+    // Live answers 200 with an empty catalog (measured 2026-10-23: both pro
+    // accounts, client versions 0.61-0.64, with and without the account id).
+    return Response.json({ models: [] });
+  };
+
+  const response = await callRoute(connection.id, "?refresh=true");
+  const body = (await response.json()) as RouteBody;
+  const modelIds = new Set((body.models || []).map((model) => model.id));
+
+  assert.equal(response.status, 200);
+  // An empty answer can be transient, so the account's own catalog wins and the
+  // response is labelled degraded (model-sync's isDegraded* gates key off source
+  // plus a non-empty warning), with wording distinct from an upstream outage.
+  assert.equal(body.source, "cache");
+  assert.equal(body.warning, "Codex returned no models — using the cached catalog");
+  assert.ok(modelIds.has("gpt-5.6-sol"));
+  const synced = await modelsDb.getSyncedAvailableModelsForConnection("codex", connection.id);
+  assert.deepEqual(
+    synced.map((model) => model.id),
+    ["gpt-5.6-sol"],
+    "an empty answer must not delete the cached catalog"
+  );
+});
+
+test("vendor models route falls through to the public catalog on an empty list with no cache", async () => {
+  const connection = await seedCodexConnection({ accessToken: "codex-access-token" });
+
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("raw.githubusercontent.com/openai/codex")) {
+      return Response.json(GITHUB_NOVA_MANIFEST);
+    }
+    return Response.json({ models: [] });
+  };
+
+  const response = await callRoute(connection.id, "?refresh=true");
+  const body = (await response.json()) as RouteBody;
+
+  assert.equal(response.status, 200);
+  assert.equal(body.source, "github_catalog");
+  assert.equal(body.warning, "Codex returned no models — using the public catalog");
+  assert.ok((body.models || []).some((model) => model.id === "gpt-5.7-nova"));
+});
+
+test("vendor models route keeps the cache on an empty list even when GitHub is down", async () => {
+  const connection = await seedCodexConnection({ accessToken: "codex-access-token" });
+  await modelsDb.replaceSyncedAvailableModelsForConnection("codex", connection.id, [
+    CACHED_CODEX_ROW,
+  ]);
+
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("raw.githubusercontent.com/openai/codex")) {
+      return new Response("github unavailable", { status: 503 });
+    }
+    return Response.json({ models: [] });
+  };
+
+  const response = await callRoute(connection.id, "?refresh=true");
+  const body = (await response.json()) as RouteBody;
+
+  assert.equal(response.status, 200);
+  assert.equal(body.source, "cache");
+  assert.equal(body.warning, "Codex returned no models — using the cached catalog");
+  const synced = await modelsDb.getSyncedAvailableModelsForConnection("codex", connection.id);
+  assert.equal(synced.length, 1, "the cached catalog must survive an empty answer");
+});
+
+test("vendor models route reports an error envelope as a failure, not a live or empty catalog", async () => {
+  const connection = await seedCodexConnection({ accessToken: "codex-access-token" });
+  await modelsDb.replaceSyncedAvailableModelsForConnection("codex", connection.id, [
+    CACHED_CODEX_ROW,
+  ]);
+
+  globalThis.fetch = async (url) => {
+    if (String(url).includes("raw.githubusercontent.com/openai/codex")) {
+      return new Response("github unavailable", { status: 503 });
+    }
+    // 200 with an error body: without the guard this normalizes into a phantom
+    // model with id "error" and the route reports a successful live lookup.
+    return Response.json({ error: { message: "quota exhausted", type: "insufficient_quota" } });
+  };
+
+  const response = await callRoute(connection.id, "?refresh=true");
+  const body = (await response.json()) as RouteBody;
+  const modelIds = (body.models || []).map((model) => model.id);
+
+  assert.equal(response.status, 200);
+  assert.equal(body.source, "cache");
+  assert.equal(body.warning, "Codex live catalog unavailable — using cached catalog");
+  assert.equal(modelIds.includes("error"), false, "an error envelope is not a model");
+  assert.ok(modelIds.includes("gpt-5.6-sol"));
+  const synced = await modelsDb.getSyncedAvailableModelsForConnection("codex", connection.id);
+  assert.equal(synced.length, 1, "a failed lookup must not touch the cached catalog");
+});
+
 test("provider models route tracks the published Codex CLI version so version-gated models are discovered", async () => {
   const connection = await seedCodexConnection({
     accessToken: "codex-access-token",
@@ -487,7 +661,10 @@ test("provider models route tracks the published Codex CLI version so version-ga
 
   globalThis.fetch = async (url, init) => {
     const requestUrl = String(url);
-    if (requestUrl === CODEX_NPM_LATEST_URL) {
+    if (
+      requestUrl === CODEX_NPM_LATEST_URL ||
+      requestUrl.includes("registry.npmjs.org/@openai%2Fcodex")
+    ) {
       return Response.json({ name: "@openai/codex", version: publishedVersion });
     }
     if (requestUrl.includes("raw.githubusercontent.com/openai/codex")) {
@@ -552,7 +729,10 @@ test("provider models route derives effort variants from discovered Codex reason
 
   globalThis.fetch = async (url) => {
     const requestUrl = String(url);
-    if (requestUrl === CODEX_NPM_LATEST_URL) {
+    if (
+      requestUrl === CODEX_NPM_LATEST_URL ||
+      requestUrl.includes("registry.npmjs.org/@openai%2Fcodex")
+    ) {
       return new Response("registry unavailable", { status: 503 });
     }
     if (requestUrl.includes("raw.githubusercontent.com/openai/codex")) {
@@ -601,7 +781,7 @@ test("provider models route derives effort variants from discovered Codex reason
   assert.deepEqual(syncedById.get("gpt-6-sol")?.supportedThinkingEfforts, solLevels);
   assert.deepEqual(syncedById.get("gpt-6-luna")?.supportedThinkingEfforts, lunaLevels);
   assert.equal(syncedById.get("gpt-6-sol-ultra")?.supportedThinkingEfforts, undefined);
-  assert.equal(syncedById.get("gpt-6-sol")?.defaultThinkingEffort, undefined);
+  assert.equal(syncedById.get("gpt-6-sol")?.defaultThinkingEffort, "medium");
   // The executor's runtime level table learned the declared tiers.
   assert.deepEqual(codexReasoningSuffix.splitCodexReasoningSuffix("gpt-6-sol-max"), {
     baseModel: "gpt-6-sol",
@@ -619,7 +799,7 @@ test("provider models route derives effort variants from discovered Codex reason
 
   // After a restart the synced rows alone restore the runtime level table.
   codexReasoningSuffix.__resetCodexReasoningLevelsForTests();
-  assert.equal(codexReasoningSuffix.splitCodexReasoningSuffix("gpt-6-luna-max").effort, null);
+  assert.equal(codexReasoningSuffix.splitCodexReasoningSuffix("gpt-6-luna-max").effort, "max");
   await codexReasoningLevels.hydrateCodexReasoningLevelsFromSyncedModels();
   assert.deepEqual(codexReasoningSuffix.splitCodexReasoningSuffix("gpt-6-luna-max"), {
     baseModel: "gpt-6-luna",

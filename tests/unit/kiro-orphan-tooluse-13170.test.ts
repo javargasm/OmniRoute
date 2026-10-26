@@ -1,3 +1,4 @@
+import { toKiroToolUseId } from "../../open-sse/translator/request/openai-to-kiro/messageHelpers.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 
@@ -71,8 +72,12 @@ test("kiro #13170: an orphaned parallel tool_call (no tool_result ever) is strip
   ]);
 
   const { advertised, answered } = collectToolIds(payload);
-  assert.deepEqual(advertised, ["call_A"], "call_B must not be advertised without a result");
-  assert.deepEqual(answered, ["call_A"]);
+  assert.deepEqual(
+    advertised,
+    [toKiroToolUseId("call_A")],
+    "call_B must not be advertised without a result"
+  );
+  assert.deepEqual(answered, [toKiroToolUseId("call_A")]);
 });
 
 test("kiro #13170: an assistant turn where every tool_call is orphaned drops toolUses entirely", () => {
@@ -81,7 +86,9 @@ test("kiro #13170: an assistant turn where every tool_call is orphaned drops too
     {
       role: "assistant",
       content: "",
-      tool_calls: [{ id: "call_A", type: "function", function: { name: "terminal", arguments: "{}" } }],
+      tool_calls: [
+        { id: "call_A", type: "function", function: { name: "terminal", arguments: "{}" } },
+      ],
     },
     // No tool result anywhere for call_A.
     { role: "user", content: "thanks" },
@@ -107,7 +114,9 @@ test("kiro #13170: a trailing (in-flight) tool_call with no result yet is preser
     {
       role: "assistant",
       content: "",
-      tool_calls: [{ id: "call_A", type: "function", function: { name: "terminal", arguments: "{}" } }],
+      tool_calls: [
+        { id: "call_A", type: "function", function: { name: "terminal", arguments: "{}" } },
+      ],
     },
   ]);
 
@@ -138,8 +147,8 @@ test("kiro #13170: fully-answered parallel tool_calls are unaffected", () => {
   ]);
 
   const { advertised, answered } = collectToolIds(payload);
-  assert.deepEqual(advertised.sort(), ["call_A", "call_B"]);
-  assert.deepEqual(answered.sort(), ["call_A", "call_B"]);
+  assert.deepEqual(advertised.sort(), [toKiroToolUseId("call_A"), toKiroToolUseId("call_B")]);
+  assert.deepEqual(answered.sort(), [toKiroToolUseId("call_A"), toKiroToolUseId("call_B")]);
 });
 
 test("kiro #13170: assistant text is preserved on an ordinary non-tool transcript", () => {

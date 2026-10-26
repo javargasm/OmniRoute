@@ -29,7 +29,10 @@ import os from "node:os";
 import path from "node:path";
 
 const TEST_DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-local-embedding-override-"));
+const TEST_LOG_DIR = path.join(TEST_DATA_DIR, "logs");
 process.env.DATA_DIR = TEST_DATA_DIR;
+process.env.LOG_DIR = TEST_LOG_DIR;
+process.env.APP_LOG_TO_FILE = "false";
 
 const core = await import("../../src/lib/db/core.ts");
 const modelsDb = await import("../../src/lib/db/models.ts");
@@ -177,5 +180,44 @@ test("resolveLocalSyncedEndpointRoute: a model's own genuine supportedEndpoints 
 
   const route = await resolveLocalSyncedEndpointRoute(ALIAS_MODEL_ID, "embeddings");
   assert.ok(route, "a genuinely-annotated synced entry must resolve without needing an override");
+  assert.deepEqual(route!.connectionIds, [CONNECTION_ID]);
+});
+
+test("resolveLocalSyncedEndpointRoute: raw model overrides do not broaden embeddings routing", async () => {
+  const rawModelId = "org/embedding-model-v1";
+  await modelsDb.replaceSyncedAvailableModelsForConnection(PROVIDER, CONNECTION_ID, [
+    { id: rawModelId, name: "Embedding Model" },
+  ]);
+  await modelsDb.updateCustomModel(
+    PROVIDER,
+    rawModelId,
+    { supportedEndpoints: ["embeddings"] },
+    { createIfMissing: true }
+  );
+
+  const route = await resolveLocalSyncedEndpointRoute(`${ALIAS}/${rawModelId}`, "embeddings");
+
+  assert.equal(route, null, "embedding override matching keeps its existing prefixed-id contract");
+});
+
+test("resolveLocalSyncedEndpointRoute: a non-embedding manual row does not hide synced embedding support", async () => {
+  await modelsDb.replaceSyncedAvailableModelsForConnection(PROVIDER, CONNECTION_ID, [
+    {
+      id: RAW_MODEL_ID,
+      name: RAW_MODEL_ID,
+      source: "imported",
+      supportedEndpoints: ["embeddings"],
+    },
+  ]);
+  await modelsDb.updateCustomModel(
+    PROVIDER,
+    ALIAS_MODEL_ID,
+    { supportedEndpoints: ["chat"] },
+    { createIfMissing: true }
+  );
+
+  const route = await resolveLocalSyncedEndpointRoute(ALIAS_MODEL_ID, "embeddings");
+
+  assert.ok(route, "existing synced embedding support remains authoritative for embeddings");
   assert.deepEqual(route!.connectionIds, [CONNECTION_ID]);
 });

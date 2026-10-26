@@ -74,7 +74,7 @@ test("Selected replacements remain eligible", () => {
   }
 });
 
-test("Copilot static catalog and fallback contain exactly the approved fourteen models", () => {
+test("Copilot static catalog and fallback contain exactly the approved fifteen models", () => {
   const expected = [
     "gpt-6-astra",
     "gpt-5.6-sol",
@@ -83,6 +83,8 @@ test("Copilot static catalog and fallback contain exactly the approved fourteen 
     "claude-fable-5.1",
     "claude-opus-5",
     "claude-sonnet-5",
+    // claude-sonnet-5-5 joined the curated catalog on the release tip (#15035).
+    "claude-sonnet-5-5",
     "claude-opus-4.8-fast",
     "claude-opus-4.8",
     "claude-haiku-4.5",
@@ -90,6 +92,8 @@ test("Copilot static catalog and fallback contain exactly the approved fourteen 
     "mai-code-1.1-flash",
     "kimi-k3",
     "grok-4.6",
+    // Copilot-side model selection (Copilot Free); resolved per request via /auto.
+    "auto",
   ];
   assert.deepEqual(
     getModelsByProviderId("github").map((model) => model.id),

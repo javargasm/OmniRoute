@@ -60,7 +60,7 @@ test("Fable 5 catalog exposes claude-fable-5 in cc — but NOT via Kiro (fabrica
   );
 });
 
-test("Opus 5 catalog is limited to verified first-party, web, and Copilot providers", () => {
+test("Opus 5 catalog retains first-party, web, Copilot, and local Kiro models", () => {
   for (const providerId of ["claude", "github", "claude-web", "anthropic"]) {
     const model = getModelsByProviderId(providerId).find((entry) => entry.id === "claude-opus-5");
     assert.ok(model, `${providerId} must expose claude-opus-5`);
@@ -78,7 +78,7 @@ test("Opus 5 catalog is limited to verified first-party, web, and Copilot provid
   assert.equal(github?.targetFormat, "claude");
 
   const kiroIds = new Set(getModelsByProviderId("kiro").map((entry) => entry.id));
-  assert.equal(kiroIds.has("claude-opus-5"), false, "do not fabricate Kiro availability");
+  assert.ok(kiroIds.has("claude-opus-5"), "preserve the local Kiro catalog");
 
   const pricing = DEFAULT_PRICING as Record<string, Record<string, unknown>>;
   for (const providerId of ["cc", "gh", "anthropic"]) {
@@ -90,7 +90,7 @@ test("Opus 5 catalog is limited to verified first-party, web, and Copilot provid
 
 test("Sonnet 5 catalog exposes claude-sonnet-5 across cc/kiro/anthropic/blackbox with Sonnet-tier pricing", () => {
   // Sonnet 5 must be wired everywhere the last flagship (Fable 5) was — but as a
-  // Sonnet-tier model: $3/$15 pricing (NOT the Opus/Fable $15/$75), 1M ctx / 128K out.
+  // Sonnet-tier model: kiro's own table is $3/$15 (not the official $2/$10), 1M ctx / 128K out.
   for (const providerId of ["cc", "kiro", "anthropic", "blackbox"]) {
     const ids = new Set(getModelsByProviderId(providerId).map((m) => m.id));
     assert.ok(ids.has("claude-sonnet-5"), `${providerId} must expose claude-sonnet-5`);
@@ -111,27 +111,11 @@ test("Sonnet 5 catalog exposes claude-sonnet-5 across cc/kiro/anthropic/blackbox
   assert.equal(kiroSonnet5Price.output, 15.0);
 });
 
-test("Kiro catalog does NOT expose Claude Opus (fabricated — Kiro upstream has no Opus)", () => {
-  // Kiro's real upstream never served any Opus model; the Opus 4.8/4.7/4.6 ids had been
-  // copied into the Kiro registry from OmniRoute's Anthropic catalog and returned upstream
-  // 400 "Invalid model. Please select a different model". #6170 removed them.
+test("Kiro catalog retains the local Opus lineup alongside upstream additions", () => {
   const ids = new Set(getModelsByProviderId("kiro").map((model) => model.id));
-
-  assert.equal(
-    ids.has("claude-opus-4.8"),
-    false,
-    "kiro must NOT expose claude-opus-4.8 (fabricated)"
-  );
-  assert.equal(
-    ids.has("claude-opus-4.7"),
-    false,
-    "kiro must NOT expose claude-opus-4.7 (fabricated)"
-  );
-  assert.equal(
-    ids.has("claude-opus-4.6"),
-    false,
-    "kiro must NOT expose claude-opus-4.6 (fabricated)"
-  );
+  for (const id of ["claude-opus-4.8", "claude-opus-4.7", "claude-opus-4.6"]) {
+    assert.ok(ids.has(id), `preserve local Kiro model ${id}`);
+  }
 });
 
 test("Every Kiro registry model resolves a non-zero pricing row (no $0.00 usage)", async () => {

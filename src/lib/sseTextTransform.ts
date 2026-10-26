@@ -1,3 +1,4 @@
+import { resolveStreamIndices } from "./streamIndices";
 export type FieldCategory = "content" | "reasoning" | "toolArgs" | "partialJson";
 
 // Keys that always map to a fixed category, regardless of where they appear in the chunk.
@@ -43,7 +44,25 @@ export const METADATA_KEYS = new Set([
   "event",
   "provider",
   "format",
+  // OpenAI Responses API protocol identifiers / opaque blobs (#15507): never user text.
+  "call_id",
+  "item_id",
+  "obfuscation",
+  "encrypted_content",
+  "response_id",
+  "previous_response_id",
+  "status",
 ]);
+
+// Responses API events whose `delta` carries tool-call arguments (JSON), not answer text.
+export function isResponsesToolArgsDelta(json: any): boolean {
+  const t = json?.type;
+  return (
+    typeof t === "string" &&
+    t.startsWith("response.") &&
+    (t.includes("_arguments.") || t.startsWith("response.custom_tool_call_input."))
+  );
+}
 
 /**
  * Classify a string field as a PII-processed category, or `null` when it is metadata that
@@ -118,7 +137,8 @@ export function createSseTextTransform(
     isSnapshot?: boolean
   ) => string,
   onFlush?: (lastJson: any, isJsonStream?: boolean, lastContentJson?: any) => any,
-  onCancel?: () => void
+  onCancel?: () => void,
+  opts?: { processToolArgs?: boolean }
 ): TransformStream {
   const encoder = new TextEncoder();
   const decoder = new TextDecoder("utf-8");
@@ -199,18 +219,11 @@ export function createSseTextTransform(
           ) => {
             if (!obj || typeof obj !== "object") return;
 
-            let choiceIdx = currentChoiceIdx;
-            let toolIdx = currentToolIdx;
-
-            if (typeof obj.index === "number") {
-              if (obj.delta || obj.message || obj.finish_reason) {
-                choiceIdx = obj.index;
-              } else if (obj.function || obj.id || obj.type === "function") {
-                toolIdx = obj.index;
-              } else {
-                choiceIdx = obj.index;
-              }
-            }
+            const { choiceIdx, toolIdx } = resolveStreamIndices(
+              obj,
+              currentChoiceIdx,
+              currentToolIdx
+            );
 
             const compositeKey = `${choiceIdx}_${toolIdx}`;
             const isArray = Array.isArray(obj);
@@ -218,12 +231,19 @@ export function createSseTextTransform(
             for (const key of Object.keys(obj)) {
               if (typeof obj[key] === "string") {
                 const val = obj[key];
-                const field = classifyField(key, parentKey);
+                const field =
+                  key === "delta" && obj === json && isResponsesToolArgsDelta(json)
+                    ? "toolArgs"
+                    : classifyField(key, parentKey);
                 if (field === null) {
                   continue;
                 }
                 if (field === "toolArgs" || field === "partialJson") {
-                  obj[key] = val;
+                  if (opts?.processToolArgs === true) {
+                    obj[key] = processor(val, field, isStopSignal, compositeKey, isSnapshot);
+                  } else {
+                    obj[key] = val;
+                  }
                   matched = true;
                   continue;
                 }

@@ -4,7 +4,7 @@
 import { PROVIDERS } from "../../../config/constants.ts";
 import { runWithProxyContext } from "../../../utils/proxyFetch.ts";
 import { buildExternalIdpRefreshParams, isExternalIdpAuthMethod } from "../../kiroExternalIdp.ts";
-import { AWS_REGION_PATTERN } from "../../kiroRegion.ts";
+import { safeAwsRegion } from "../../kiroRegion.ts";
 
 /**
  * Specialized refresh for Kiro (AWS CodeWhisperer) tokens
@@ -91,12 +91,18 @@ export async function refreshKiroToken(
     // clientId/clientSecret but their refresh token is Kiro-social-issued — the isolated OIDC client
     // cannot refresh it, so they must fall through to the social auth path (#2467).
     if (clientId && clientSecret && authMethod !== "imported") {
-      const resolvedRegion = region || "us-east-1";
-      if (typeof resolvedRegion !== "string" || !AWS_REGION_PATTERN.test(resolvedRegion)) {
-        log?.error?.("TOKEN_REFRESH", "Invalid Kiro AWS OIDC region");
-        return null;
+      // `region` is interpolated into the OIDC host and the request carries clientId,
+      // clientSecret and the refresh token, so only a canonical AWS region may reach it
+      // (GHSA-6mwv-4mrm-5p3m). Fall back to us-east-1 instead of throwing so a tampered
+      // value cannot put the background refresh into a crash loop.
+      const oidcRegion = safeAwsRegion(region);
+      if (region && oidcRegion !== String(region).trim().toLowerCase()) {
+        log?.warn?.(
+          "TOKEN_REFRESH",
+          "Ignoring invalid Kiro region for OIDC refresh; using us-east-1"
+        );
       }
-      const endpoint = `https://oidc.${resolvedRegion}.amazonaws.com/token`;
+      const endpoint = `https://oidc.${oidcRegion}.amazonaws.com/token`;
 
       const response = await runWithProxyContext(proxyConfig, () =>
         fetch(endpoint, {
@@ -149,7 +155,7 @@ export async function refreshKiroToken(
         );
 
         try {
-          const regEndpoint = `https://oidc.${resolvedRegion}.amazonaws.com/client/register`;
+          const regEndpoint = `https://oidc.${oidcRegion}.amazonaws.com/client/register`;
           const regRes = await runWithProxyContext(proxyConfig, () =>
             fetch(regEndpoint, {
               method: "POST",
