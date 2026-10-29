@@ -72,6 +72,8 @@ export const VIA_PROXY_HEADER = "x-omniroute-via-proxy";
  * like PEER_IP_HEADER and stripped from forwarded headers in pipeline.ts.
  * Keep in sync with CLIENT_IP_HEADER in scripts/dev/peer-stamp.mjs.
  */
+export const LOGIN_CLIENT_IP_HEADER = "x-omniroute-login-client-ip";
+export const AUTHZ_HEADER_TRUSTED_LOGIN_CLIENT_IP = "x-omniroute-trusted-login-client-ip";
 export const CLIENT_IP_HEADER = "x-omniroute-client-ip";
 
 /**
@@ -121,4 +123,5 @@ export const AUTHZ_TRUSTED_HEADERS: ReadonlyArray<string> = [
   AUTHZ_HEADER_PEER_LOCALITY,
   AUTHZ_HEADER_TRUSTED_PEER_IP,
   AUTHZ_HEADER_TRUSTED_CLIENT_IP,
+  AUTHZ_HEADER_TRUSTED_LOGIN_CLIENT_IP,
 ];

@@ -36,6 +36,8 @@ import {
   PEER_IP_HEADER,
   VIA_PROXY_HEADER,
   CLIENT_IP_HEADER,
+  LOGIN_CLIENT_IP_HEADER,
+  AUTHZ_HEADER_TRUSTED_LOGIN_CLIENT_IP,
   AUTHZ_HEADER_TRUSTED_CLIENT_IP,
 } from "./headers";
 import type { AuthSubject, RouteClass, RouteClassification } from "./types";
@@ -315,6 +317,7 @@ export async function runAuthzPipeline(
   requestHeaders.delete(PEER_IP_HEADER);
   requestHeaders.delete(VIA_PROXY_HEADER);
   requestHeaders.delete(CLIENT_IP_HEADER);
+  requestHeaders.delete(LOGIN_CLIENT_IP_HEADER);
 
   requestHeaders.set(AUTHZ_HEADER_ROUTE_CLASS, classification.routeClass);
   requestHeaders.set(AUTHZ_HEADER_REQUEST_ID, requestId);
@@ -348,6 +351,11 @@ export async function runAuthzPipeline(
   // "who is calling" (e.g. the relay throttle) read the same resolution as the IP filter
   // below — a direct caller cannot move it with X-Forwarded-For, and clients behind one
   // reverse proxy are still told apart. Requests without that stamp get no header.
+  const loginClientIp = resolveStampedPeer(
+    request.headers.get(LOGIN_CLIENT_IP_HEADER),
+    process.env.OMNIROUTE_PEER_STAMP_TOKEN
+  );
+  if (loginClientIp) requestHeaders.set(AUTHZ_HEADER_TRUSTED_LOGIN_CLIENT_IP, loginClientIp);
   const stampedClientIp = resolveStampedPeer(
     request.headers.get(CLIENT_IP_HEADER),
     process.env.OMNIROUTE_PEER_STAMP_TOKEN

@@ -154,3 +154,62 @@ test("auth login route returns 403 when OIDC password login is disabled", async 
   const body = (await response.json()) as { error?: string };
   assert.match(body.error || "", /Password login is disabled when OIDC is active/);
 });
+
+test("login audit uses validated client identity without changing peer locality", async () => {
+  const oldToken = process.env.OMNIROUTE_PEER_STAMP_TOKEN;
+  process.env.OMNIROUTE_PEER_STAMP_TOKEN = "audit-fixture-token";
+  try {
+    const response = await loginRoute.POST(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-omniroute-trusted-peer-ip": "127.0.0.1",
+          "x-omniroute-trusted-login-client-ip": "198.51.100.7",
+          "x-request-id": "audit-client-fixture",
+        },
+        body: JSON.stringify({ password: "missing-password" }),
+      })
+    );
+    assert.equal(response.status, 403);
+    const { getAuditLog } = await import("../../src/lib/compliance/index.ts");
+    const entry = getAuditLog().find((row) => row.action === "auth.login.setup_required");
+    assert.equal(entry?.ip, "198.51.100.7");
+  } finally {
+    if (oldToken === undefined) delete process.env.OMNIROUTE_PEER_STAMP_TOKEN;
+    else process.env.OMNIROUTE_PEER_STAMP_TOKEN = oldToken;
+  }
+});
+
+test("all login audit events use validated client IP", () => {
+  const source = fs.readFileSync(
+    new URL("../../src/app/api/auth/login/route.ts", import.meta.url),
+    "utf8"
+  );
+  assert.equal(source.includes("ipAddress: auditContext.ipAddress"), false);
+  assert.ok(
+    source.indexOf("const clientIp = getLoginAuditIp") <
+      source.indexOf("  try {", source.indexOf("export async function POST"))
+  );
+});
+
+test("invalid validated proxy identity rejects before login verification", async () => {
+  const old = process.env.OMNIROUTE_PEER_STAMP_TOKEN;
+  process.env.OMNIROUTE_PEER_STAMP_TOKEN = "test-stamp";
+  try {
+    const response = await loginRoute.POST(
+      new Request("http://localhost/api/auth/login", {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-omniroute-trusted-login-client-ip": "invalid",
+        },
+        body: JSON.stringify({ password: "missing-password" }),
+      })
+    );
+    assert.equal(response.status, 400);
+  } finally {
+    if (old === undefined) delete process.env.OMNIROUTE_PEER_STAMP_TOKEN;
+    else process.env.OMNIROUTE_PEER_STAMP_TOKEN = old;
+  }
+});
