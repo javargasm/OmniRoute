@@ -66,6 +66,7 @@ test("createStreamFailureFinalizers: late pipeline errors retain provider classi
     code?: string;
     type?: string;
     message: string;
+    outputEmitted?: boolean;
   } | null = null;
 
   const { onPipelineStreamError } = createStreamFailureFinalizers({
@@ -89,6 +90,7 @@ test("createStreamFailureFinalizers: late pipeline errors retain provider classi
     message: "Kiro throttled the request",
     code: "rate_limit_exceeded",
     type: "requests",
+    outputEmitted: false,
   });
 });
 

@@ -6,7 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 
-const migrationsDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-migration-214-"));
+const migrationsDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-migration-218-"));
 const repoMigrations = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../src/lib/db/migrations"
@@ -14,7 +14,8 @@ const repoMigrations = path.join(
 for (const file of [
   "177_provider_connection_synced_models_at.sql",
   "194_proxy_logs_attempt_timing.sql",
-  "214_call_logs_effective_reasoning_effort.sql",
+  "214_call_logs_client_session_id.sql",
+  "218_call_logs_effective_reasoning_effort.sql",
 ]) {
   fs.copyFileSync(path.join(repoMigrations, file), path.join(migrationsDir, file));
 }
@@ -54,7 +55,8 @@ const expected = [
   { version: "190", name: "upstream_fixture" },
   { version: "194", name: "proxy_logs_attempt_timing" },
   { version: "197", name: "upstream_fixture" },
-  { version: "214", name: "call_logs_effective_reasoning_effort" },
+  { version: "214", name: "call_logs_client_session_id" },
+  { version: "218", name: "call_logs_effective_reasoning_effort" },
 ];
 
 function hasColumn(db: Database.Database, table: string, column: string): boolean {
@@ -64,10 +66,10 @@ function hasColumn(db: Database.Database, table: string, column: string): boolea
     .some((info: { name: string }) => info.name === column);
 }
 
-test("fresh databases apply upstream 177/194 and the local 214 migration", () => {
+test("fresh databases apply upstream 177/194/214 and the local 218 migration", () => {
   const db = openDb();
   try {
-    assert.equal(runMigrations(db, { isNewDb: true }), 6);
+    assert.equal(runMigrations(db, { isNewDb: true }), 7);
     assert.deepEqual(applied(db), expected);
     assert.ok(
       db
@@ -87,7 +89,7 @@ test("fresh databases apply upstream 177/194 and the local 214 migration", () =>
   }
 });
 
-test("a database with the local 177 migration rehomes its marker and applies upstream 177/194", () => {
+test("a database with the local 177 migration rehomes its marker and applies upstream 177/194/214", () => {
   const db = openDb();
   try {
     db.exec(`
@@ -104,7 +106,7 @@ test("a database with the local 177 migration rehomes its marker and applies ups
       "existing",
       "high"
     );
-    assert.equal(runMigrations(db, { isNewDb: true }), 5);
+    assert.equal(runMigrations(db, { isNewDb: true }), 6);
     assert.deepEqual(applied(db), expected);
     assert.equal(
       (
@@ -120,7 +122,7 @@ test("a database with the local 177 migration rehomes its marker and applies ups
   }
 });
 
-test("a database with the local 194 migration rehomes it to 214 and applies upstream 194", () => {
+test("a database with the local 194 migration rehomes it to 218 and applies upstream 194/214", () => {
   const db = openDb();
   try {
     db.exec(`
@@ -139,10 +141,11 @@ test("a database with the local 194 migration rehomes it to 214 and applies upst
       "existing",
       "max"
     );
-    assert.equal(runMigrations(db, { isNewDb: true }), 4);
+    assert.equal(runMigrations(db, { isNewDb: true }), 5);
     assert.deepEqual(applied(db), expected);
     assert.equal(hasColumn(db, "proxy_logs", "headers_ms"), true);
     assert.equal(hasColumn(db, "proxy_logs", "first_chunk_ms"), true);
+    assert.equal(hasColumn(db, "call_logs", "client_session_id"), true);
     assert.equal(
       (
         db
@@ -157,7 +160,7 @@ test("a database with the local 194 migration rehomes it to 214 and applies upst
   }
 });
 
-for (const version of ["186", "190", "197"]) {
+for (const version of ["186", "190", "197", "214"]) {
   test(`legacy effort migration ${version} is rehomed without losing data`, () => {
     const db = openDb();
     try {

@@ -166,6 +166,45 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
     toVersion: "081",
     toName: "inspector_custom_hosts",
   },
+  // PR #10409 circulated through these draft slots before the current release
+  // claimed them. The name guard is mandatory: canonical migrations using the
+  // same numbers must never be rehomed as Team state.
+  {
+    fromVersion: "153",
+    fromName: "team_cost_centers",
+    toVersion: "215",
+    toName: "team_cost_centers",
+  },
+  {
+    fromVersion: "154",
+    fromName: "team_cost_centers",
+    toVersion: "215",
+    toName: "team_cost_centers",
+  },
+  {
+    fromVersion: "155",
+    fromName: "team_cost_centers",
+    toVersion: "215",
+    toName: "team_cost_centers",
+  },
+  {
+    fromVersion: "161",
+    fromName: "team_cost_centers",
+    toVersion: "215",
+    toName: "team_cost_centers",
+  },
+  {
+    fromVersion: "163",
+    fromName: "team_cost_centers",
+    toVersion: "215",
+    toName: "team_cost_centers",
+  },
+  {
+    fromVersion: "164",
+    fromName: "team_cost_centers",
+    toVersion: "215",
+    toName: "team_cost_centers",
+  },
   {
     fromVersion: "134",
     fromName: "ccr_blocks",
@@ -226,32 +265,38 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
   {
     fromVersion: "177",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "214",
+    toVersion: "218",
     toName: "call_logs_effective_reasoning_effort",
   },
   {
     fromVersion: "186",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "214",
+    toVersion: "218",
     toName: "call_logs_effective_reasoning_effort",
   },
   {
     fromVersion: "190",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "214",
+    toVersion: "218",
     toName: "call_logs_effective_reasoning_effort",
   },
   {
-    // Upstream claimed 194 (proxy_logs_attempt_timing); the fork migration moved to 214.
+    // Upstream claimed 194 (proxy_logs_attempt_timing) and 214 (call_logs_client_session_id); the fork migration moved to 218.
     fromVersion: "194",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "214",
+    toVersion: "218",
     toName: "call_logs_effective_reasoning_effort",
   },
   {
     fromVersion: "197",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "214",
+    toVersion: "218",
+    toName: "call_logs_effective_reasoning_effort",
+  },
+  {
+    fromVersion: "214",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "218",
     toName: "call_logs_effective_reasoning_effort",
   },
 ] as const;

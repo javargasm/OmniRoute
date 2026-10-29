@@ -320,6 +320,8 @@ export function createStreamController({
 
     isConnected: () => !disconnected,
 
+    clearPendingRequest,
+
     // Call when client disconnects
     handleDisconnect: (reason = "client_closed") => {
       if (disconnected) return;

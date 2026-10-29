@@ -1,3 +1,5 @@
+import type { PendingRequestIdentity } from "./pendingRequestCleanup.ts";
+
 /** Callback contracts for the stream controller lifecycle. */
 type StreamDisconnectEvent = {
   reason: string;
@@ -19,7 +21,7 @@ export type StreamControllerOptions = {
   provider?: string;
   model?: string;
   connectionId?: string | null;
-  pendingRequestId?: string | null;
+  pendingRequestId?: PendingRequestIdentity | null;
   clientResponseFormat?: string | null;
   clientAbortSignal?: AbortSignal | null;
   allowCompletedToolHandoffGrace?: boolean;

@@ -429,9 +429,11 @@ test("Codex GitHub catalog cache is a miss once the tracked client version moves
     now: 1_000,
     cacheTtlMs: 60_000,
   });
-  assert.deepEqual(modelIds(atFloor), ["gpt-6-astra", "gpt-6-sol"]);
+  assert.deepEqual(modelIds(atFloor.models), ["gpt-6-astra", "gpt-6-sol"]);
   assert.deepEqual(
-    modelIds(codexDiscovery.reconcileCodexDiscoveryCatalog(atFloor ?? [], []).candidateModels),
+    modelIds(
+      codexDiscovery.reconcileCodexDiscoveryCatalog(atFloor.models ?? [], []).candidateModels
+    ),
     ["gpt-6-sol"]
   );
 
@@ -441,7 +443,7 @@ test("Codex GitHub catalog cache is a miss once the tracked client version moves
     now: 2_000,
     cacheTtlMs: 60_000,
   });
-  assert.deepEqual(modelIds(afterTracking), ["gpt-6-astra", "gpt-6-sol"]);
+  assert.deepEqual(modelIds(afterTracking.models), ["gpt-6-astra", "gpt-6-sol"]);
   // Unconditional re-fetch: no If-None-Match that could revive the stale list.
   assert.deepEqual(ifNoneMatch, [undefined, undefined]);
 
@@ -455,7 +457,7 @@ test("Codex GitHub catalog cache is a miss once the tracked client version moves
     cacheTtlMs: 60_000,
   });
   assert.equal(cacheMisses, 0);
-  assert.deepEqual(modelIds(cached), ["gpt-6-astra", "gpt-6-sol"]);
+  assert.deepEqual(modelIds(cached.models), ["gpt-6-astra", "gpt-6-sol"]);
 });
 
 test("a 304 cannot revive a GitHub catalog filtered for an older client version", async () => {
@@ -472,5 +474,5 @@ test("a 304 cannot revive a GitHub catalog filtered for an older client version"
     cacheTtlMs: 60_000,
   });
 
-  assert.equal(notModified, null);
+  assert.deepEqual(notModified, { models: [], failure: { status: 304 } });
 });
