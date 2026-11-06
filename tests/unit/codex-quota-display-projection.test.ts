@@ -190,7 +190,7 @@ test("complete weekly evidence removes legacy numeric and signal session state",
       limit7d: 100,
       observedAt: newer,
     },
-    ["7d"]
+    { complete: true }
   )!;
   assert.equal(merged.usage5h, undefined);
   assert.equal(merged.limit5h, undefined);
@@ -217,7 +217,7 @@ test("older full usage cannot prune a newer sibling", () => {
         observedAt: newest,
       },
       { usage7d: 3, limit7d: 100, observedAt: older },
-      ["7d"]
+      { complete: true }
     ),
     null
   );

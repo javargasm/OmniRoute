@@ -366,9 +366,9 @@ for (const [label, rateLimit, expectedWindows] of [
     ["5h", "7d"],
   ],
   [
-    "unknown sibling",
+    "explicit other-duration sibling",
     { primary_window: wireQuotaWindow(604800), secondary_window: wireQuotaWindow(3600) },
-    undefined,
+    ["7d"],
   ],
   [
     "malformed sibling",
@@ -406,10 +406,19 @@ for (const [label, rateLimit, expectedWindows] of [
       Response.json({
         plan_type: "self_serve_business_prolite",
         rate_limit: rateLimit,
+        additional_rate_limits: [
+          {
+            limit_name: "gpt-5.3-codex-spark",
+            rate_limit: { primary_window: wireQuotaWindow(18000, 44), secondary_window: null },
+          },
+        ],
       })
     );
     const live = await getCodexUsage("synthetic-token");
-    assert.deepEqual((live as Record<string, unknown>).codexQuotaWindows, expectedWindows);
+    assert.equal(
+      (live as Record<string, unknown>).quotasComplete,
+      expectedWindows ? true : undefined
+    );
     await syncCodexQuotaObservation(connection.id, live, before!.providerSpecificData);
     const saved = await providers.getProviderConnectionById(connection.id);
     const state = saved!.providerSpecificData.codexQuotaStateByScope.codex;
@@ -444,6 +453,7 @@ test("full weekly usage cannot prune a concurrent newer session observation", as
   t.mock.method(globalThis, "fetch", async () =>
     Response.json({
       rate_limit: { primary_window: wireQuotaWindow(604800), secondary_window: null },
+      additional_rate_limits: null,
     })
   );
   const live = await getCodexUsage("synthetic-token");
@@ -460,6 +470,7 @@ test("full weekly usage reconciles the matching legacy mirror", async (t) => {
   t.mock.method(globalThis, "fetch", async () =>
     Response.json({
       rate_limit: { primary_window: wireQuotaWindow(604800), secondary_window: null },
+      additional_rate_limits: null,
     })
   );
   const live = await getCodexUsage("synthetic-token");
