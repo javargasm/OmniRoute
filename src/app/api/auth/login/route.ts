@@ -20,9 +20,13 @@ import {
   recordLoginFailure,
 } from "@/server/auth/loginGuard";
 import {
+  MFA_PENDING_COOKIE,
   getDashboardJwtSecret,
   mintDashboardSessionToken,
+  mintMfaPendingToken,
 } from "@/shared/utils/dashboardSessionToken";
+import { isMfaRequiredForRequest } from "@/server/auth/dashboardMfa";
+import { mfaPendingCookieOptions } from "@/server/auth/mfaRouteSupport";
 import {
   getLoginLockoutKey,
   getLoginAuditIp,
@@ -231,6 +235,31 @@ export async function POST(request: NextRequest) {
       const forwardedProto = forwardedProtoHeader.split(",")[0].trim().toLowerCase();
       const isHttpsRequest = forwardedProto === "https" || request.nextUrl?.protocol === "https:";
       const useSecureCookie = forceSecureCookie || isHttpsRequest;
+
+      // Opt-in TOTP: the password is only the first factor. Hand back a short-lived pending
+      // token (no session claim) that /api/auth/mfa/verify trades for the session. The
+      // failure counter is deliberately NOT cleared here — the login is not complete, and
+      // resetting it would hand a fresh lockout budget to whoever brute-forces the code.
+      if (isMfaRequiredForRequest(request)) {
+        const pendingToken = await mintMfaPendingToken(getDashboardJwtSecret()!);
+        const pendingCookieStore = await authRouteInternals.getCookieStore();
+        pendingCookieStore.set(
+          MFA_PENDING_COOKIE,
+          pendingToken,
+          mfaPendingCookieOptions(useSecureCookie)
+        );
+        logAuditEvent({
+          action: "auth.login.mfa_required",
+          actor: "anonymous",
+          target: "dashboard-auth",
+          resourceType: "auth_session",
+          status: "pending",
+          ipAddress: clientIp || undefined,
+          requestId: auditContext.requestId,
+          metadata: { sourceScope },
+        });
+        return NextResponse.json({ success: false, mfaRequired: true });
+      }
 
       const token = await mintDashboardSessionToken(getDashboardJwtSecret()!);
 

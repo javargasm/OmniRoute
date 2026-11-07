@@ -30,7 +30,8 @@ const PROVIDER = "nvidia";
 const CONNECTION_ID = "nvidia-stale-catalog-12849";
 // Live upstream + present in the current static registry (asserted below), but
 // deliberately absent from the small "historical sync" catalog seeded here.
-const LIVE_MODEL = "moonshotai/kimi-k3";
+// (#18418 retired moonshotai/kimi-k3 on NVIDIA, so this now uses Gemma 4 31B.)
+const LIVE_MODEL = "google/gemma-4-31b-it";
 const STALE_SYNC_ONLY_MODEL = "some-retired-model-that-no-longer-exists";
 
 function connectionRow(): { syncedModelsAt: string | null } {

@@ -6,7 +6,7 @@ import test from "node:test";
 import { fileURLToPath } from "node:url";
 import Database from "better-sqlite3";
 
-const migrationsDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-migration-218-"));
+const migrationsDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-0153-migration-226-"));
 const repoMigrations = path.join(
   path.dirname(fileURLToPath(import.meta.url)),
   "../../src/lib/db/migrations"
@@ -15,7 +15,8 @@ for (const file of [
   "177_provider_connection_synced_models_at.sql",
   "194_proxy_logs_attempt_timing.sql",
   "214_call_logs_client_session_id.sql",
-  "218_call_logs_effective_reasoning_effort.sql",
+  "218_proxy_subscription_mirror_urls.sql",
+  "226_call_logs_effective_reasoning_effort.sql",
 ]) {
   fs.copyFileSync(path.join(repoMigrations, file), path.join(migrationsDir, file));
 }
@@ -39,6 +40,7 @@ function openDb(): Database.Database {
     CREATE TABLE provider_connections (id TEXT PRIMARY KEY);
     CREATE TABLE call_logs (id TEXT PRIMARY KEY);
     CREATE TABLE proxy_logs (id TEXT PRIMARY KEY);
+    CREATE TABLE proxy_subscriptions (id TEXT PRIMARY KEY);
   `);
   return db;
 }
@@ -56,7 +58,8 @@ const expected = [
   { version: "194", name: "proxy_logs_attempt_timing" },
   { version: "197", name: "upstream_fixture" },
   { version: "214", name: "call_logs_client_session_id" },
-  { version: "218", name: "call_logs_effective_reasoning_effort" },
+  { version: "218", name: "proxy_subscription_mirror_urls" },
+  { version: "226", name: "call_logs_effective_reasoning_effort" },
 ];
 
 function hasColumn(db: Database.Database, table: string, column: string): boolean {
@@ -66,11 +69,12 @@ function hasColumn(db: Database.Database, table: string, column: string): boolea
     .some((info: { name: string }) => info.name === column);
 }
 
-test("fresh databases apply upstream 177/194/214 and the local 218 migration", () => {
+test("fresh databases apply upstream 177/194/214/218 and the local 226 migration", () => {
   const db = openDb();
   try {
-    assert.equal(runMigrations(db, { isNewDb: true }), 7);
+    assert.equal(runMigrations(db, { isNewDb: true }), 8);
     assert.deepEqual(applied(db), expected);
+    assert.equal(hasColumn(db, "proxy_subscriptions", "mirror_urls"), true);
     assert.ok(
       db
         .prepare("PRAGMA table_info(provider_connections)")
@@ -106,8 +110,9 @@ test("a database with the local 177 migration rehomes its marker and applies ups
       "existing",
       "high"
     );
-    assert.equal(runMigrations(db, { isNewDb: true }), 6);
+    assert.equal(runMigrations(db, { isNewDb: true }), 7);
     assert.deepEqual(applied(db), expected);
+    assert.equal(hasColumn(db, "proxy_subscriptions", "mirror_urls"), true);
     assert.equal(
       (
         db
@@ -122,7 +127,7 @@ test("a database with the local 177 migration rehomes its marker and applies ups
   }
 });
 
-test("a database with the local 194 migration rehomes it to 218 and applies upstream 194/214", () => {
+test("a database with the local 194 migration rehomes it to 226 and applies upstream 194/214", () => {
   const db = openDb();
   try {
     db.exec(`
@@ -141,8 +146,9 @@ test("a database with the local 194 migration rehomes it to 218 and applies upst
       "existing",
       "max"
     );
-    assert.equal(runMigrations(db, { isNewDb: true }), 5);
+    assert.equal(runMigrations(db, { isNewDb: true }), 6);
     assert.deepEqual(applied(db), expected);
+    assert.equal(hasColumn(db, "proxy_subscriptions", "mirror_urls"), true);
     assert.equal(hasColumn(db, "proxy_logs", "headers_ms"), true);
     assert.equal(hasColumn(db, "proxy_logs", "first_chunk_ms"), true);
     assert.equal(hasColumn(db, "call_logs", "client_session_id"), true);
@@ -160,7 +166,7 @@ test("a database with the local 194 migration rehomes it to 218 and applies upst
   }
 });
 
-for (const version of ["186", "190", "197", "214"]) {
+for (const version of ["186", "190", "197", "214", "218"]) {
   test(`legacy effort migration ${version} is rehomed without losing data`, () => {
     const db = openDb();
     try {
@@ -175,6 +181,7 @@ for (const version of ["186", "190", "197", "214"]) {
       db.prepare("INSERT INTO call_logs VALUES (?, ?)").run("kept", "high");
       runMigrations(db, { isNewDb: true });
       assert.deepEqual(applied(db), expected);
+      assert.equal(hasColumn(db, "proxy_subscriptions", "mirror_urls"), true);
       assert.equal(
         db.prepare("SELECT effective_reasoning_effort FROM call_logs").pluck().get(),
         "high"
@@ -185,3 +192,47 @@ for (const version of ["186", "190", "197", "214"]) {
     }
   });
 }
+
+test("upstream 218 is never rehomed by the fork compatibility mapping", () => {
+  const db = openDb();
+  try {
+    db.exec(`
+      CREATE TABLE _omniroute_migrations (
+        version TEXT PRIMARY KEY, name TEXT NOT NULL,
+        applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO _omniroute_migrations (version, name)
+        VALUES ('218', 'proxy_subscription_mirror_urls');
+      ALTER TABLE proxy_subscriptions ADD COLUMN mirror_urls TEXT;
+    `);
+    assert.equal(runMigrations(db, { isNewDb: true }), 7);
+    assert.deepEqual(applied(db), expected);
+    assert.equal(hasColumn(db, "call_logs", "effective_reasoning_effort"), true);
+    assert.equal(runMigrations(db, { isNewDb: true }), 0);
+  } finally {
+    db.close();
+  }
+});
+
+test("legacy reasoning rows cannot overwrite an unrelated canonical target", () => {
+  const db = openDb();
+  try {
+    db.exec(`
+      ALTER TABLE call_logs ADD COLUMN effective_reasoning_effort TEXT;
+      CREATE TABLE _omniroute_migrations (
+        version TEXT PRIMARY KEY, name TEXT NOT NULL,
+        applied_at TEXT NOT NULL DEFAULT (datetime('now'))
+      );
+      INSERT INTO _omniroute_migrations (version, name) VALUES
+        ('218', 'call_logs_effective_reasoning_effort'),
+        ('226', 'unrelated_migration');
+    `);
+    assert.throws(() => runMigrations(db, { isNewDb: true }), /target version 226 is occupied/);
+    assert.deepEqual(applied(db), [
+      { version: "218", name: "call_logs_effective_reasoning_effort" },
+      { version: "226", name: "unrelated_migration" },
+    ]);
+  } finally {
+    db.close();
+  }
+});

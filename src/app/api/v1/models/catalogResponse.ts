@@ -45,7 +45,7 @@ import {
   isCatalogMirrorRefinementsEnabled,
 } from "@/shared/utils/featureFlags";
 import { extractApiKey } from "@/sse/services/auth";
-import { maybeOmitCatalogModelName } from "./catalogHelpers";
+import { maybeOmitCatalogModelName, withCatalogDisplayName } from "./catalogHelpers";
 import { applyCatalogPage, catalogJsonResponse, parseCatalogPage } from "./catalogPagination";
 import { isCodexModelCatalogClient } from "./catalogRequest";
 import {
@@ -132,7 +132,8 @@ async function buildGatewayLiveCatalogCheck(
  */
 function appendCcMirrorsWhenEnabled(
   models: Array<Record<string, any>>,
-  mirrorRefinements: boolean
+  mirrorRefinements: boolean,
+  providerNodeIdsByPrefix?: Record<string, string>
 ): Array<Record<string, any>> {
   const ccAliasGlobal = isCcAliasGlobalEnabled();
   const ccAliasSettings = getCcAliasSettingsBulk();
@@ -145,6 +146,7 @@ function appendCcMirrorsWhenEnabled(
       global: ccAliasGlobal,
       providers: ccAliasSettings.providers,
       models: ccAliasSettings.models,
+      providerNodeIdsByPrefix,
     }),
     { refined: mirrorRefinements, isResolvableAutoId: isResolvableBuiltinAutoId }
   );
@@ -249,7 +251,11 @@ export async function applyCatalogPostFilters(
   // mirrors that cannot resolve, and checks gateways against what they will receive.
   const mirrorRefinements = isCatalogMirrorRefinementsEnabled();
   if (ctx.allowCcDiscoveryAliases !== false) {
-    finalModels = appendCcMirrorsWhenEnabled(finalModels, mirrorRefinements);
+    finalModels = appendCcMirrorsWhenEnabled(
+      finalModels,
+      mirrorRefinements,
+      ctx.pricing?.providerNodeIdsByPrefix
+    );
   }
 
   // Advertise `<gateway-alias>/<id>` functional-gateway mirrors so discovery
@@ -403,6 +409,7 @@ export async function finalizeCatalogResponse(
         ? { ...entry, context_length: fallbackContextLength }
         : entry;
       listedModel = normalizeCatalogEntryPricing(listedModel, enrichmentSnapshot);
+      listedModel = withCatalogDisplayName(listedModel);
       listedModel = maybeOmitCatalogModelName(listedModel, includeModelNames);
     }
     const modelId = typeof listedModel.id === "string" ? listedModel.id : "";

@@ -265,38 +265,43 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
   {
     fromVersion: "177",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "218",
+    toVersion: "226",
     toName: "call_logs_effective_reasoning_effort",
   },
   {
     fromVersion: "186",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "218",
+    toVersion: "226",
     toName: "call_logs_effective_reasoning_effort",
   },
   {
     fromVersion: "190",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "218",
+    toVersion: "226",
     toName: "call_logs_effective_reasoning_effort",
   },
   {
-    // Upstream claimed 194 (proxy_logs_attempt_timing) and 214 (call_logs_client_session_id); the fork migration moved to 218.
     fromVersion: "194",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "218",
+    toVersion: "226",
     toName: "call_logs_effective_reasoning_effort",
   },
   {
     fromVersion: "197",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "218",
+    toVersion: "226",
     toName: "call_logs_effective_reasoning_effort",
   },
   {
     fromVersion: "214",
     fromName: "call_logs_effective_reasoning_effort",
-    toVersion: "218",
+    toVersion: "226",
+    toName: "call_logs_effective_reasoning_effort",
+  },
+  {
+    fromVersion: "218",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "226",
     toName: "call_logs_effective_reasoning_effort",
   },
 ] as const;
