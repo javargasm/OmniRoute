@@ -1167,15 +1167,20 @@ async function fetchLiveProviderLimitsWithOptions(
     result = await fetchUsageWithContext(null);
   }
 
+  let quotaObservationConflict = false;
   if (connection.provider === "codex") {
     const data = await syncCodexQuotaObservation(
       connection.id,
       result.usage,
-      connection.providerSpecificData
+      connection.providerSpecificData,
+      () => {
+        quotaObservationConflict = true;
+      }
     );
     if (data) connection = { ...connection, providerSpecificData: data };
   }
-  if (isRecord(result.usage.quotas)) {
+  // A response rejected by the scoped state guard cannot retire newer routing evidence.
+  if (isRecord(result.usage.quotas) && !quotaObservationConflict) {
     setQuotaCache(
       connectionId,
       connection.provider,

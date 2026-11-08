@@ -13,6 +13,8 @@ const providers = await import("../../src/lib/db/providers.ts");
 const limits = await import("../../src/lib/db/providerLimits.ts");
 const usage = await import("../../src/lib/usage/providerLimits.ts");
 const codexUsage = await import("../../open-sse/services/usage/codex.ts");
+const quotaCache = await import("../../src/domain/quotaCache.ts");
+const auth = await import("../../src/sse/services/auth.ts");
 
 const start = Date.parse("2026-01-01T00:00:00.000Z");
 test.beforeEach(() => {
@@ -70,4 +72,56 @@ for (const scheduled of [false, true]) {
     );
     assert.equal(entry.fetchedAt, new Date(start + 60000).toISOString());
   });
+}
+
+for (const scope of ["codex", "spark"] as const) {
+  for (const scheduled of [false, true]) {
+    test(`a complete ${scheduled ? "scheduled" : "manual"} usage fetch cannot retire concurrent exhausted ${scope} evidence`, async (t) => {
+      const connection = await providers.createProviderConnection({
+        provider: "codex",
+        authType: "oauth",
+        accessToken: "synthetic-complete-race-access",
+        isActive: true,
+      });
+      t.mock.timers.enable({ apis: ["Date"], now: start });
+      t.mock.method(globalThis, "fetch", () => {
+        throw new Error("Unexpected external request");
+      });
+      codexUsage.setCodexUsageFetchForTests(async () => {
+        t.mock.timers.setTime(start + 60000);
+        await providers.updateCodexScopedQuotaState(connection.id, scope, {
+          quotaState: {
+            usage5h: 100,
+            limit5h: 100,
+            resetAt5h: new Date(start + 4 * 3600000).toISOString(),
+            observedAt: new Date(start + 60000).toISOString(),
+          },
+        });
+        t.mock.timers.setTime(start + 120000);
+        return Response.json({
+          plan_type: "self_serve_business_prolite",
+          rate_limit: {
+            allowed: true,
+            primary_window: {
+              used_percent: 0,
+              limit_window_seconds: 604800,
+              reset_at: (start + 7 * 86400000) / 1000,
+            },
+            secondary_window: null,
+          },
+          additional_rate_limits: null,
+        });
+      });
+      if (scheduled) {
+        await usage.syncAllProviderLimits({ source: "scheduled" });
+      } else {
+        await usage.fetchAndPersistProviderLimits(connection.id, "manual");
+      }
+      const saved = await providers.getProviderConnectionById(connection.id);
+      assert.equal(saved!.providerSpecificData.codexQuotaStateByScope[scope].usage5h, 100);
+      const model = scope === "spark" ? "gpt-5.3-codex-spark" : "gpt-5.6-sol";
+      quotaCache.hydrateCodexQuotaCacheForRequest(saved!, model);
+      assert.equal(auth.evaluateQuotaLimitPolicy("codex", saved!, model).blocked, true);
+    });
+  }
 }

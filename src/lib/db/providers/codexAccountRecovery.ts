@@ -69,7 +69,12 @@ function scopeRecovered(
 /** A live usage response hydrates display and releases only fully recovered quota scopes.
  * Compare the pre-fetch state inside the transaction so newer failures win.
  */
-export async function syncCodexQuotaObservation(id: string, usage: RecordValue, expected: unknown) {
+export async function syncCodexQuotaObservation(
+  id: string,
+  usage: RecordValue,
+  expected: unknown,
+  onConflict?: () => void
+) {
   if (usage.message) return null;
   const quotas = toRecord(usage.quotas);
   if (!Object.keys(quotas).length) return null;
@@ -87,7 +92,8 @@ export async function syncCodexQuotaObservation(id: string, usage: RecordValue, 
         typeof window.total === "number" &&
         Number.isFinite(window.total) &&
         window.total > 0;
-      if (!valid(session) && !valid(weekly)) continue;
+      const hasWindows = valid(session) || valid(weekly);
+      if (!hasWindows && !complete) continue;
       const keys = [
         "codexScopeRateLimitedUntil",
         "codexScopeRateLimitSource",
@@ -100,8 +106,11 @@ export async function syncCodexQuotaObservation(id: string, usage: RecordValue, 
             JSON.stringify(toRecord(data[key])[scope]) !==
             JSON.stringify(toRecord(before[key])[scope])
         )
-      )
+      ) {
+        onConflict?.();
         continue;
+      }
+      if (!hasWindows) continue;
       const byScope = { ...toRecord(data.codexQuotaStateByScope) };
       const snapshot: RecordValue = { observedAt: new Date().toISOString() };
       for (const [window, suffix] of [
@@ -116,7 +125,10 @@ export async function syncCodexQuotaObservation(id: string, usage: RecordValue, 
         });
       }
       const merged = mergeCodexQuotaObservation(toRecord(byScope[scope]), snapshot, { complete });
-      if (!merged) continue;
+      if (!merged) {
+        onConflict?.();
+        continue;
+      }
       byScope[scope] = merged;
       data.codexQuotaStateByScope = byScope;
       if (toRecord(data.codexQuotaState).scope === scope) {
