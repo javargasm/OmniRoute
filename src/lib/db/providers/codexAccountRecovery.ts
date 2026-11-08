@@ -96,10 +96,27 @@ export async function syncCodexQuotaObservation(id: string, usage: RecordValue, 
           [`resetAt${suffix}`]: window.resetAt ?? null,
         });
       }
-      const merged = mergeCodexQuotaObservation(toRecord(byScope[scope]), snapshot);
+      const layout = usage.codexQuotaWindows;
+      const completeWindows =
+        scope === "codex" &&
+        Array.isArray(layout) &&
+        layout.length > 0 &&
+        layout.every((key) => key === "5h" || key === "7d") &&
+        layout.includes("5h") === valid(session) &&
+        layout.includes("7d") === valid(weekly)
+          ? (layout as Array<"5h" | "7d">)
+          : undefined;
+      const merged = mergeCodexQuotaObservation(
+        toRecord(byScope[scope]),
+        snapshot,
+        completeWindows
+      );
       if (!merged) continue;
       byScope[scope] = merged;
       data.codexQuotaStateByScope = byScope;
+      if (toRecord(data.codexQuotaState).scope === scope) {
+        data.codexQuotaState = { ...merged, scope, updatedAt: snapshot.observedAt };
+      }
       if (
         valid(session) &&
         valid(weekly) &&

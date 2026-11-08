@@ -37,6 +37,24 @@ function toRecord(value: unknown): JsonRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as JsonRecord) : {};
 }
 
+/** Only an explicit, fully understood usage layout can retire an old window. */
+export function getCodexQuotaWindowLayout(value: unknown): Array<"5h" | "7d"> | undefined {
+  const rateLimit = toRecord(value);
+  const windows = new Set<"5h" | "7d">();
+  for (const id of ["primary", "secondary"] as const) {
+    const snake = `${id}_window`;
+    const camel = `${id}Window`;
+    const raw = Object.hasOwn(rateLimit, snake) ? rateLimit[snake] : rateLimit[camel];
+    if (raw === null) continue;
+    const window = parseCodexQuotaWindow(raw, id);
+    const key =
+      window?.windowSeconds === 18000 ? "5h" : window?.windowSeconds === 604800 ? "7d" : null;
+    if (!key || windows.has(key)) return undefined;
+    windows.add(key);
+  }
+  return windows.size ? [...windows] : undefined;
+}
+
 function toNumber(value: unknown, fallback = 0): number {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   if (typeof value === "string" && value.trim().length > 0) {

@@ -12,6 +12,9 @@ const core = await import("../../src/lib/db/core.ts");
 const providers = await import("../../src/lib/db/providers.ts");
 const limits = await import("../../src/lib/db/providerLimits.ts");
 const usage = await import("../../src/lib/usage/providerLimits.ts");
+const { getCodexUsage } = await import("../../open-sse/services/usage/codex.ts");
+const { syncCodexQuotaObservation } =
+  await import("../../src/lib/db/providers/codexAccountRecovery.ts");
 
 const oldTime = "2026-01-01T00:00:00.000Z";
 const newTime = "2026-01-01T00:01:00.000Z";
@@ -337,4 +340,132 @@ test("newer usage snapshots and non-Codex entries retain their values", async ()
     limits.getAllProviderLimitsCache()[other.id],
     limits.getProviderLimitsCache(other.id)
   );
+});
+
+const wireQuotaWindow = (seconds: number, used = 3) => ({
+  used_percent: used,
+  limit_window_seconds: seconds,
+  reset_at: 1893456000,
+});
+
+for (const [label, rateLimit, expectedWindows] of [
+  [
+    "weekly-only Business",
+    { primary_window: wireQuotaWindow(604800), secondary_window: null },
+    ["7d"],
+  ],
+  [
+    "weekly-only reversed",
+    { primary_window: null, secondary_window: wireQuotaWindow(604800) },
+    ["7d"],
+  ],
+  ["session-only", { primary_window: wireQuotaWindow(18000), secondary_window: null }, ["5h"]],
+  [
+    "dual-window",
+    { primary_window: wireQuotaWindow(18000), secondary_window: wireQuotaWindow(604800) },
+    ["5h", "7d"],
+  ],
+  [
+    "unknown sibling",
+    { primary_window: wireQuotaWindow(604800), secondary_window: wireQuotaWindow(3600) },
+    undefined,
+  ],
+  [
+    "malformed sibling",
+    { primary_window: wireQuotaWindow(604800), secondary_window: {} },
+    undefined,
+  ],
+  ["omitted sibling", { primary_window: wireQuotaWindow(604800) }, undefined],
+  [
+    "invalid percentage",
+    {
+      primary_window: wireQuotaWindow(604800),
+      secondary_window: { ...wireQuotaWindow(18000), used_percent: "bad" },
+    },
+    undefined,
+  ],
+] as const) {
+  test(`full usage reconciles ${label} without inventing missing window evidence`, async (t) => {
+    const connection = await account();
+    await observe(connection.id, "codex", {
+      usage5h: 89,
+      limit5h: 100,
+      resetAt5h: resetAt,
+      usage7d: 70,
+      limit7d: 100,
+      resetAt7d: resetAt,
+      observedAt: oldTime,
+    });
+    await observe(connection.id, "spark", {
+      usage5h: 44,
+      limit5h: 100,
+      observedAt: oldTime,
+    });
+    const before = await providers.getProviderConnectionById(connection.id);
+    t.mock.method(globalThis, "fetch", async () =>
+      Response.json({
+        plan_type: "self_serve_business_prolite",
+        rate_limit: rateLimit,
+      })
+    );
+    const live = await getCodexUsage("synthetic-token");
+    assert.deepEqual((live as Record<string, unknown>).codexQuotaWindows, expectedWindows);
+    await syncCodexQuotaObservation(connection.id, live, before!.providerSpecificData);
+    const saved = await providers.getProviderConnectionById(connection.id);
+    const state = saved!.providerSpecificData.codexQuotaStateByScope.codex;
+    const projected = windows(limits.getProviderLimitsCache(connection.id)!);
+    if (expectedWindows) {
+      for (const [key, name] of [
+        ["5h", "session"],
+        ["7d", "weekly"],
+      ] as const) {
+        const expected = (expectedWindows as readonly string[]).includes(key);
+        assert.equal(state[`limit${key}`] !== undefined, expected, `${key} persisted state`);
+        assert.equal(projected[name] !== undefined, expected, `${name} display`);
+        assert.equal(
+          state.observedAtByWindow[key] !== undefined,
+          expected,
+          `${key} observation time`
+        );
+      }
+      assert.equal(saved!.providerSpecificData.codexQuotaState.scope, "spark");
+      assert.equal(saved!.providerSpecificData.codexQuotaState.usage5h, 44);
+    } else {
+      assert.equal(state.limit5h, 100, "partial/unknown data keeps known sibling");
+    }
+    assert.equal(saved!.providerSpecificData.codexQuotaStateByScope.spark.usage5h, 44);
+  });
+}
+
+test("full weekly usage cannot prune a concurrent newer session observation", async (t) => {
+  const connection = await account();
+  await observe(connection.id, "codex", { usage5h: 89, limit5h: 100, observedAt: oldTime });
+  const before = await providers.getProviderConnectionById(connection.id);
+  t.mock.method(globalThis, "fetch", async () =>
+    Response.json({
+      rate_limit: { primary_window: wireQuotaWindow(604800), secondary_window: null },
+    })
+  );
+  const live = await getCodexUsage("synthetic-token");
+  await observe(connection.id, "codex", { usage5h: 100, limit5h: 100, observedAt: newerTime });
+  await syncCodexQuotaObservation(connection.id, live, before!.providerSpecificData);
+  const saved = await providers.getProviderConnectionById(connection.id);
+  assert.equal(saved!.providerSpecificData.codexQuotaStateByScope.codex.usage5h, 100);
+});
+
+test("full weekly usage reconciles the matching legacy mirror", async (t) => {
+  const connection = await account();
+  await observe(connection.id, "codex", { usage5h: 89, limit5h: 100, observedAt: oldTime });
+  const before = await providers.getProviderConnectionById(connection.id);
+  t.mock.method(globalThis, "fetch", async () =>
+    Response.json({
+      rate_limit: { primary_window: wireQuotaWindow(604800), secondary_window: null },
+    })
+  );
+  const live = await getCodexUsage("synthetic-token");
+  await syncCodexQuotaObservation(connection.id, live, before!.providerSpecificData);
+  const saved = await providers.getProviderConnectionById(connection.id);
+  assert.equal(saved!.providerSpecificData.codexQuotaState.scope, "codex");
+  assert.equal(saved!.providerSpecificData.codexQuotaState.usage5h, undefined);
+  assert.equal(saved!.providerSpecificData.codexQuotaState.usage7d, 3);
 });

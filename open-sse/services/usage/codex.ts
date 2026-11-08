@@ -8,7 +8,11 @@
  * imports getCodexUsage (dispatcher). Behavior-preserving move.
  */
 
-import { buildCodexUsageQuotas, findCodexSparkRateLimit } from "../codexUsageQuotas.ts";
+import {
+  buildCodexUsageQuotas,
+  findCodexSparkRateLimit,
+  getCodexQuotaWindowLayout,
+} from "../codexUsageQuotas.ts";
 import { isCodexLimitReached } from "../codexQuotaSignals.ts";
 import { fetchWithConnectionProxy } from "../connectionProxyFetch.ts";
 import { getCodexBackendIdentityHeaders } from "../../config/codexClient.ts";
@@ -94,7 +98,9 @@ export async function getCodexUsage(
       "limitReached"
     );
 
+    const codexQuotaWindows = getCodexQuotaWindowLayout(rateLimit);
     return {
+      ...(codexQuotaWindows ? { codexQuotaWindows } : {}),
       ...(typeof sparkLimitReached === "boolean" ? { sparkLimitReached } : {}),
       plan: String(getFieldValue(data, "plan_type", "planType") || "unknown"),
       limitReached: isCodexLimitReached(rateLimit),

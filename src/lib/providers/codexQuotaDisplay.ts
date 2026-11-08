@@ -113,7 +113,8 @@ function mergeSignalWindows(before: JsonRecord, after: JsonRecord, patch: JsonRe
 /** Keep sparse observations, but do not let a delayed snapshot clear newer scoped state. */
 export function mergeCodexQuotaObservation(
   previous: JsonRecord,
-  next: JsonRecord
+  next: JsonRecord,
+  completeWindows?: readonly WindowKey[]
 ): JsonRecord | null {
   if (time(next.observedAt) < time(previous.observedAt)) return null;
   const safeNext = validNumericPatch(next);
@@ -126,6 +127,24 @@ export function mergeCodexQuotaObservation(
   const after = record(next.quotaSignal);
   if (Array.isArray(before.windows) || Array.isArray(after.windows)) {
     merged.quotaSignal = mergeSignalWindows(before, after, safeNext);
+  }
+  if (completeWindows) {
+    const times = record(merged.observedAtByWindow);
+    for (const key of ["5h", "7d"] as const) {
+      if (completeWindows.includes(key)) continue;
+      for (const prefix of ["usage", "limit", "resetAt"]) delete merged[`${prefix}${key}`];
+      delete times[key];
+    }
+    const signal = record(merged.quotaSignal);
+    if (Array.isArray(signal.windows)) {
+      merged.quotaSignal = {
+        ...signal,
+        windows: signal.windows.filter((raw) => {
+          const key = signalWindowKey(record(raw));
+          return key !== null && completeWindows.includes(key);
+        }),
+      };
+    }
   }
   return merged;
 }
