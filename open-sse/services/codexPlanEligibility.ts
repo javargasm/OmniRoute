@@ -18,6 +18,14 @@ const CODEX_SOL_PAID_PLANS = new Set([
   "education",
 ]);
 
+// ChatGPT reports self-serve Business seats as "self_serve_business_<tier>"
+// (Business Premium = "self_serve_business_prolite"); every Business tier is paid.
+const CODEX_SELF_SERVE_BUSINESS_PREFIX = "selfservebusiness";
+
+function isPaidPlanType(plan: string): boolean {
+  return CODEX_SOL_PAID_PLANS.has(plan) || plan.startsWith(CODEX_SELF_SERVE_BUSINESS_PREFIX);
+}
+
 function normalizePlan(value: unknown): string | null {
   if (typeof value !== "string") return null;
   const normalized = value
@@ -58,7 +66,7 @@ export function isCodexPaidOnlyModel(model: string | null | undefined): boolean 
 
 export function isCodexPaidPlan(providerSpecificData: unknown): boolean {
   const plan = getCodexPlanType(providerSpecificData);
-  return plan !== null && CODEX_SOL_PAID_PLANS.has(plan);
+  return plan !== null && isPaidPlanType(plan);
 }
 
 /**
@@ -76,7 +84,7 @@ export function isCodexPlanEligibleForModel(
   if (!isCodexPaidOnlyModel(requestedModel)) return true;
   const plan = getCodexPlanType(providerSpecificData);
   if (plan === null || plan === "unknown") return true;
-  return CODEX_SOL_PAID_PLANS.has(plan);
+  return isPaidPlanType(plan);
 }
 
 /** Plan gate for one connection of `provider`; only Codex connections are ever gated. */

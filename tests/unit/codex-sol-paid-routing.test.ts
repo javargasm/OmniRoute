@@ -271,3 +271,28 @@ test("isCodexPoolPlanIneligibleForModel reports pools made only of Free/Go accou
     "key that still reaches a paid account"
   );
 });
+
+test("Codex Business Premium (self_serve_business_prolite) keeps paid-only models", async () => {
+  // The OAuth login stores the id_token plan verbatim in workspacePlanType.
+  const data = { workspacePlanType: "self_serve_business_prolite" };
+  assert.equal(eligibility.isCodexPaidPlan(data), true);
+  for (const model of ["gpt-6.1-sol", "codex/gpt-6.1-sol-high", "gpt-6-astra"]) {
+    assert.equal(eligibility.isCodexPlanEligibleForModel(data, model), true, model);
+  }
+  const business = await providersDb.createProviderConnection({
+    provider: "codex",
+    authType: "oauth",
+    email: "business-premium@example.com",
+    accessToken: "business-premium-access",
+    refreshToken: "business-premium-refresh",
+    isActive: true,
+    testStatus: "active",
+    priority: 1,
+    providerSpecificData: data,
+  });
+  for (const model of ["gpt-6.1-sol", "gpt-6-astra"]) {
+    const selected = await auth.getProviderCredentials("codex", null, null, model);
+    assert.equal(selected?.connectionId, business.id, model);
+  }
+  assert.equal(await auth.isCodexPoolPlanIneligibleForModel("gpt-6.1-sol"), false);
+});
