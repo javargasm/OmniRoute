@@ -172,7 +172,13 @@ test("passes through immediately with no timer when timeoutMs is 0 or negative",
 
 test("resolveDirectHeadersTimeoutMs defaults to 30000 and respects OMNIROUTE_DIRECT_HEADERS_TIMEOUT_MS", () => {
   assert.equal(resolveDirectHeadersTimeoutMs({}), 30_000);
-  assert.equal(resolveDirectHeadersTimeoutMs({ OMNIROUTE_DIRECT_HEADERS_TIMEOUT_MS: "5000" }), 5_000);
+  assert.equal(
+    resolveDirectHeadersTimeoutMs({ OMNIROUTE_DIRECT_HEADERS_TIMEOUT_MS: "5000" }),
+    5_000
+  );
   assert.equal(resolveDirectHeadersTimeoutMs({ OMNIROUTE_DIRECT_HEADERS_TIMEOUT_MS: "" }), 30_000);
-  assert.equal(resolveDirectHeadersTimeoutMs({ OMNIROUTE_DIRECT_HEADERS_TIMEOUT_MS: "not-a-number" }), 0);
+  assert.equal(
+    resolveDirectHeadersTimeoutMs({ OMNIROUTE_DIRECT_HEADERS_TIMEOUT_MS: "not-a-number" }),
+    0
+  );
 });

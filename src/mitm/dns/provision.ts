@@ -6,10 +6,10 @@
 import { addDNSEntry, addDNSEntries, isSudoAvailable } from "./dnsConfig.ts";
 import { isRoot } from "../systemCommands.ts";
 import { ALL_TARGETS } from "../targets/index.ts";
-import { getAllAgentBridgeStates } from "@/lib/db/agentBridgeState.ts";
-import { listCustomHosts } from "@/lib/db/inspectorCustomHosts.ts";
-import { getGheCopilotHosts } from "@/lib/db/providers.ts";
-import { createLogger } from "@/shared/utils/logger.ts";
+import { getAllAgentBridgeStates } from "@/lib/db/agentBridgeState";
+import { listCustomHosts } from "@/lib/db/inspectorCustomHosts";
+import { getGheCopilotHosts } from "@/lib/db/providers";
+import { createLogger } from "@/shared/utils/logger";
 
 const defaultLog = createLogger("mitm-dns-provision");
 

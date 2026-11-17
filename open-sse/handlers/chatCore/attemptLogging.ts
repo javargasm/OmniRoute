@@ -27,6 +27,10 @@ import type { RequestCompletedPayload, RequestFailedPayload } from "@/lib/events
 import { saveCallLog, saveUpstreamHttpAttempt } from "@/lib/usageDb";
 import { captureReasoningSnapshotMeta } from "@/lib/usage/callLogs";
 import type { VideoBridgeLogRedactionEntry } from "@/lib/guardrails/videoBridge";
+import {
+  getKiroWireReasoningEffort,
+  getNormalizedReasoningEffort,
+} from "@/shared/utils/kiroReasoningEffort";
 import { redactVideoTranscriptFieldsForLog } from "@/lib/guardrails/videoBridgeSnapshotRedaction";
 import { FORMATS } from "../../translator/formats.ts";
 import { takeEarlyKeepaliveBytes } from "../../utils/earlyKeepaliveByteBuffer.ts";
@@ -645,6 +649,11 @@ export function persistAttemptLogs(args: PersistAttemptLogsArgs, ctx: PersistAtt
     }
   }
 
+  const effectiveReasoningEffort =
+    provider?.trim().toLowerCase() === "kiro" && !Boolean(noLogEnabled)
+      ? (getKiroWireReasoningEffort(providerRequest) ?? getNormalizedReasoningEffort(body))
+      : null;
+
   // Primary key is a fresh UUID from saveCallLog, not traceId. Attempts share
   // pendingRequestId and must not share the row key. correlationId still
   // pairs the row with request.started. pendingRequestId is NOT the row key: it only
@@ -672,6 +681,7 @@ export function persistAttemptLogs(args: PersistAttemptLogsArgs, ctx: PersistAtt
     duration: Date.now() - startTime,
     ttftMs: typeof ttft === "number" && Number.isFinite(ttft) && ttft >= 0 ? ttft : null,
     tokens: tokens || {},
+    effectiveReasoningEffort,
     // Estimated-token flag, computed here where tokens still carry the marker
     // (it does not survive spreads or JSON round-trips to the sink).
     usageEstimated: args.usageEstimated ?? (isEstimatedUsage(tokens) ? true : null),

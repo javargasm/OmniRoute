@@ -1,4 +1,5 @@
 import { inheritLocalProcessPressureResponse } from "@omniroute/open-sse/utils/localPressureResponse.ts";
+import { shouldTripProviderBreakerForLateStreamFailure } from "./chatPredicates";
 import { credentialCooldownResponse } from "./credentialCooldownResponse";
 import {
   getModelInfo,
@@ -436,6 +437,59 @@ export function checkResourcePressureBeforeProviderWork(): ResourcePressureGuard
 
 // Resolved failures are accounted by callers; acquired probes settle inside execute()'s fence.
 const chatPathOwnsBreakerAccounting = () => "ignore" as const;
+// Both providers use KiroExecutor and its EventStream transport, so a late terminal
+// failure must be accounted for by the breaker associated with either provider.
+const KIRO_EVENT_STREAM_PROVIDER_IDS = new Set(["kiro", "amazon-q"]);
+
+/**
+ * Record a classified Kiro/Amazon Q failure that arrives after its streaming
+ * response was returned. This deliberately does not exclude combo traffic:
+ * once bytes have reached the client, the combo loop cannot own a retry or
+ * observe the terminal failure without risking duplicated assistant output.
+ */
+export function recordLateKiroStreamProviderFailure({
+  provider,
+  failure,
+  breaker,
+  isShadowTraffic = false,
+  forceLiveComboTest = false,
+}: {
+  provider: string;
+  failure: unknown;
+  breaker:
+    | {
+        _onFailure?: () => void;
+        getStatus?: () => { state?: string };
+      }
+    | null
+    | undefined;
+  isShadowTraffic?: boolean;
+  forceLiveComboTest?: boolean;
+}): boolean {
+  if (
+    !KIRO_EVENT_STREAM_PROVIDER_IDS.has(provider.toLowerCase()) ||
+    isShadowTraffic ||
+    forceLiveComboTest ||
+    !shouldTripProviderBreakerForLateStreamFailure(failure) ||
+    typeof breaker?._onFailure !== "function"
+  ) {
+    return false;
+  }
+
+  try {
+    // A response that started before another request opened the breaker can fail
+    // later. Do not refresh an existing OPEN cooldown from that stale stream;
+    // a HALF_OPEN probe remains recordable because it is the current recovery
+    // signal rather than an already-blocked request.
+    if (breaker.getStatus?.().state === "OPEN") return false;
+    breaker._onFailure();
+    return true;
+  } catch {
+    // Stream finalization must remain best-effort even if breaker persistence fails.
+    return false;
+  }
+}
+
 export async function executeChatWithBreaker({
   bypassCircuitBreaker,
   breaker,
@@ -477,6 +531,7 @@ export async function executeChatWithBreaker({
   videoBridgeLog = undefined,
   fallbackAttempts = undefined,
   requestUpstreamStartTimeoutMs = undefined,
+  forceLiveComboTest = false,
   forcedConnectionId = null,
   allowedConnections = null,
   // optional resume flag from a rehydrated previous_response_id —
@@ -489,6 +544,7 @@ export async function executeChatWithBreaker({
       ? "shadow"
       : "production";
   const isShadowTraffic = normalizedTrafficType === "shadow";
+  let lateKiroStreamBreakerFailureRecorded = false;
 
   // #5217: capture the proxy actually applied during execution so the caller can
   // merge it into proxyInfo before the egress log (executors pinning a per-account
@@ -597,6 +653,18 @@ export async function executeChatWithBreaker({
               });
             },
             onStreamFailure: async (failure: any) => {
+              if (
+                !lateKiroStreamBreakerFailureRecorded &&
+                recordLateKiroStreamProviderFailure({
+                  provider,
+                  failure,
+                  breaker,
+                  isShadowTraffic,
+                  forceLiveComboTest,
+                })
+              ) {
+                lateKiroStreamBreakerFailureRecorded = true;
+              }
               if (isShadowTraffic) return;
               if (!credentials.connectionId) return;
               if (

@@ -16,7 +16,7 @@ import {
   verifyManagementPassword,
 } from "@/lib/auth/managementPassword";
 import { beginLoginAttempt, endLoginAttempt, recordLoginFailure } from "@/server/auth/loginGuard";
-import { getLoginLockoutKey } from "@/server/auth/loginPeer";
+import { getLoginAuditIp, getLoginLockoutKey } from "@/server/auth/loginPeer";
 import {
   MFA_PENDING_COOKIE_PATH,
   MFA_PENDING_MAX_AGE_SECONDS,
@@ -105,6 +105,7 @@ export async function beginMfaAttempt(
   { attempt: MfaAttempt; blocked?: undefined } | { attempt?: undefined; blocked: Response }
 > {
   const audit = getAuditRequestContext(request);
+  const clientIp = getLoginAuditIp(request, audit.ipAddress || null);
   const settings = await getCachedSettings();
   const bruteForceEnabled = settings.bruteForceProtection !== false;
   const lockoutKey = getLoginLockoutKey(request, audit.ipAddress || null);
@@ -117,7 +118,7 @@ export async function beginMfaAttempt(
       target: "dashboard-auth",
       resourceType: "auth_session",
       status: "failed",
-      ipAddress: audit.ipAddress || undefined,
+      ipAddress: clientIp || undefined,
       requestId: audit.requestId,
       metadata: { retryAfterSeconds: decision.retryAfterSeconds || 0 },
     });
@@ -129,7 +130,7 @@ export async function beginMfaAttempt(
     attempt: {
       lockoutKey,
       bruteForceEnabled,
-      ipAddress: audit.ipAddress || null,
+      ipAddress: clientIp,
       requestId: audit.requestId,
       release() {
         if (released) return;

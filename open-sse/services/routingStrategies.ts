@@ -251,10 +251,7 @@ export class DeterministicRoutingEngine {
   }
 
   /** Move the pinned provider (if present) to the front of the ordered list. */
-  private buildCandidateList(
-    ordered: ScoredCandidate[],
-    pinnedId?: string
-  ): RouteCandidate[] {
+  private buildCandidateList(ordered: ScoredCandidate[], pinnedId?: string): RouteCandidate[] {
     if (!pinnedId) return ordered.map((entry) => entry);
     const pinnedEntry = ordered.find((e) => e.provider.id === pinnedId);
     const candidates: RouteCandidate[] = [];
@@ -335,10 +332,7 @@ export class DeterministicRoutingEngine {
   }
 
   /** Explicit `fallbackChain` order; providers outside the chain are appended. */
-  private orderByFallbackChain(
-    allowed: ScoredCandidate[],
-    chain: string[]
-  ): ScoredCandidate[] {
+  private orderByFallbackChain(allowed: ScoredCandidate[], chain: string[]): ScoredCandidate[] {
     const byChain = new Map(allowed.map((e) => [e.provider.id, e]));
     const ordered: ScoredCandidate[] = [];
     const used = new Set<string>();

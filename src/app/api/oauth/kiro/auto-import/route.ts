@@ -13,6 +13,7 @@ import {
 import { syncToCloud } from "@/lib/cloudSync";
 import { getConsistentMachineId } from "@/shared/utils/machineId";
 import { KiroService } from "@/lib/oauth/services/kiro";
+import { AWS_REGION_PATTERN } from "@/lib/oauth/constants/oauth";
 import { findKiroConnectionByIdentity } from "@/lib/oauth/kiroConnectionIdentity";
 import { runWithProxyContext } from "@omniroute/open-sse/utils/proxyFetch.ts";
 import {
@@ -20,6 +21,9 @@ import {
   isExternalIdpAuthMethod,
   normalizeScope,
 } from "@omniroute/open-sse/services/kiroExternalIdp.ts";
+
+const KIRO_SSO_CACHE_FILE = "kiro-auth-token.json";
+const KIRO_CACHED_ACCESS_TOKEN_SKEW_MS = 5 * 60 * 1000;
 
 /**
  * GET /api/oauth/kiro/auto-import
@@ -42,13 +46,13 @@ export async function GET(request: Request) {
   // Try kiro-cli SQLite first
   const sqliteResult = await tryKiroCliSqlite();
   if (sqliteResult.found) {
-    return await saveAndRespond(sqliteResult, targetProvider, request);
+    return await saveAndRespond(sqliteResult, targetProvider);
   }
 
   // Fall back to ~/.aws/sso/cache (social auth / manual token)
   const cacheResult = await tryAwsSsoCache(targetProvider);
   if (cacheResult.found) {
-    return await saveAndRespond(cacheResult, targetProvider, request);
+    return await saveAndRespond(cacheResult, targetProvider);
   }
 
   return NextResponse.json({
@@ -63,6 +67,46 @@ export async function GET(request: Request) {
 
 // ── kiro-cli SQLite reader ────────────────────────────────────────────────────
 
+export function getKiroCliSqliteCandidatePaths(opts: {
+  home: string;
+  platform?: NodeJS.Platform;
+  appData?: string;
+  xdgDataHome?: string;
+}): string[] {
+  const platform = opts.platform ?? process.platform;
+  const appData = typeof opts.appData === "string" && opts.appData.trim() ? opts.appData.trim() : null;
+  const candidates: string[] = [];
+
+  if (platform === "darwin") {
+    // Kiro CLI's canonical macOS data directory. Retain the legacy Unix path below so an
+    // existing manually-installed/older CLI remains importable without migrating its data.
+    candidates.push(join(opts.home, "Library", "Application Support", "kiro-cli", "data.sqlite3"));
+    candidates.push(join(opts.home, ".local", "share", "kiro-cli", "data.sqlite3"));
+  } else if (platform === "win32") {
+    // Rust kiro-cli and the VS Code-derived Kiro IDE use distinct Windows layouts.
+    // Do not guess a Windows data root when APPDATA is absent; the prior import path treated
+    // that condition as unavailable, and an unrelated home-relative SQLite file is unsafe to try.
+    if (appData) {
+      candidates.push(join(appData, "kiro-cli", "data.sqlite3"));
+      candidates.push(join(appData, "kiro", "storage.db"));
+    }
+  } else {
+    const xdgDataRoot =
+      typeof opts.xdgDataHome === "string" && opts.xdgDataHome.trim()
+        ? opts.xdgDataHome.trim()
+        : join(opts.home, ".local", "share");
+    candidates.push(join(xdgDataRoot, "kiro-cli", "data.sqlite3"));
+  }
+
+  // Keep the existing APPDATA probe available when a Kiro IDE storage path is explicitly
+  // supplied by the environment (including cross-platform/electron test environments).
+  if (appData && platform !== "win32") {
+    candidates.push(join(appData, "kiro", "storage.db"));
+  }
+
+  return [...new Set(candidates)];
+}
+
 async function tryKiroCliSqlite(): Promise<{
   found: boolean;
   triedPaths?: string[];
@@ -76,11 +120,12 @@ async function tryKiroCliSqlite(): Promise<{
   authMethod?: "builder-id" | "idc";
   source?: string;
 }> {
-  // Build list of candidate DB paths to probe in order.
-  const candidatePaths: string[] = [join(homedir(), ".local/share/kiro-cli/data.sqlite3")];
-  if (process.env.APPDATA) {
-    candidatePaths.push(join(process.env.APPDATA, "kiro", "storage.db"));
-  }
+  // Build the platform-native candidate list without writing or otherwise mutating any CLI data.
+  const candidatePaths = getKiroCliSqliteCandidatePaths({
+    home: homedir(),
+    appData: process.env.APPDATA,
+    xdgDataHome: process.env.XDG_DATA_HOME,
+  });
 
   let Database: any;
   try {
@@ -267,6 +312,7 @@ async function tryAwsSsoCache(targetProvider: string): Promise<{
   triedPath?: string;
   refreshToken?: string;
   accessToken?: string | null;
+  expiresAt?: string | null;
   source?: string;
   clientId?: string | null;
   clientSecret?: string | null;
@@ -279,7 +325,7 @@ async function tryAwsSsoCache(targetProvider: string): Promise<{
   const { readFile, readdir } = await import("fs/promises");
   const cachePath = join(homedir(), ".aws/sso/cache");
   const preferredFile =
-    targetProvider === "amazon-q" ? "amazon-q-auth-token.json" : "kiro-auth-token.json";
+    targetProvider === "amazon-q" ? "amazon-q-auth-token.json" : KIRO_SSO_CACHE_FILE;
 
   let files: string[];
   try {
@@ -288,11 +334,13 @@ async function tryAwsSsoCache(targetProvider: string): Promise<{
     return { found: false, triedPath: cachePath };
   }
 
-  // Try preferred file first, then scan all
-  const ordered = [
-    preferredFile,
-    ...files.filter((f) => f !== preferredFile && f.endsWith(".json")),
-  ];
+  // Kiro IDE owns one canonical cache file. Do not accidentally import an unrelated AWS SSO
+  // token merely because it has a refreshToken-shaped field. Keep Amazon Q's legacy fallback
+  // scan unchanged because it is a separate import flow with its own canonical filename.
+  const ordered =
+    targetProvider === "kiro"
+      ? [preferredFile]
+      : [preferredFile, ...files.filter((f) => f !== preferredFile && f.endsWith(".json"))];
 
   for (const file of ordered) {
     try {
@@ -383,6 +431,8 @@ async function tryAwsSsoCache(targetProvider: string): Promise<{
         return {
           found: true,
           refreshToken: data.refreshToken,
+          accessToken: typeof data.accessToken === "string" ? data.accessToken : null,
+          expiresAt: typeof data.expiresAt === "string" ? data.expiresAt : null,
           source: file,
           clientId,
           clientSecret,
@@ -467,10 +517,44 @@ type SaveAndRespondResult = Awaited<ReturnType<typeof tryKiroCliSqlite>> & {
   scopes?: string | string[] | null;
 };
 
-async function saveAndRespond(
+type ReusableKiroSsoCacheAccessToken = {
+  accessToken: string;
+  expiresAt: string;
+  region: string;
+};
+
+function reusableKiroSsoCacheAccessToken(
   result: SaveAndRespondResult,
   targetProvider: string,
-  request: Request
+  now = Date.now()
+): ReusableKiroSsoCacheAccessToken | null {
+  if (targetProvider !== "kiro" || result.source !== KIRO_SSO_CACHE_FILE) return null;
+  if (typeof result.authMethod !== "string" || result.authMethod.trim().toLowerCase() !== "idc") {
+    return null;
+  }
+  if (typeof result.clientId !== "string" || !result.clientId) return null;
+  if (typeof result.clientSecret !== "string" || !result.clientSecret) return null;
+  if (typeof result.accessToken !== "string" || !result.accessToken.trim()) return null;
+  if (typeof result.expiresAt !== "string" || !result.expiresAt.trim()) return null;
+
+  const expiryMs = Date.parse(result.expiresAt);
+  if (!Number.isFinite(expiryMs) || expiryMs <= now + KIRO_CACHED_ACCESS_TOKEN_SKEW_MS) {
+    return null;
+  }
+
+  const region = result.region || "us-east-1";
+  if (typeof region !== "string" || !AWS_REGION_PATTERN.test(region)) return null;
+
+  return {
+    accessToken: result.accessToken.trim(),
+    expiresAt: new Date(expiryMs - KIRO_CACHED_ACCESS_TOKEN_SKEW_MS).toISOString(),
+    region,
+  };
+}
+
+async function saveAndRespond(
+  result: SaveAndRespondResult,
+  targetProvider: string
 ) {
   try {
     const kiroService = new KiroService();
@@ -579,39 +663,55 @@ async function saveAndRespond(
     if (result.region) providerSpecificData.region = result.region;
     if (profileArn) providerSpecificData.profileArn = profileArn;
 
-    // For the SSO-cache fallback path the token came from ~/.aws/sso/cache and has no
-    // per-connection OIDC client. Register one now so this connection gets an isolated
-    // refresh session (#2328). The SQLite path already sets result.clientId.
-    if (!result.clientId) {
-      try {
-        const reg = await runWithProxyContext(proxy, () => kiroService.registerClient());
-        providerSpecificData.clientId = reg.clientId;
-        providerSpecificData.clientSecret = reg.clientSecret;
-        providerSpecificData.region = "us-east-1";
-        if (reg.clientSecretExpiresAt) {
-          providerSpecificData.clientSecretExpiresAt = reg.clientSecretExpiresAt;
+    const reusableCacheToken = reusableKiroSsoCacheAccessToken(result, targetProvider);
+    if (reusableCacheToken) {
+      // The canonical Kiro IDE cache already provides a verified IdC client and a token with
+      // enough remaining lifetime. Reuse it without mutating the CLI-owned cache or contacting
+      // AWS; persist five minutes early so normal refresh keeps the safety margin.
+      accessToken = reusableCacheToken.accessToken;
+      expiresAt = reusableCacheToken.expiresAt;
+      providerSpecificData.authMethod = "idc";
+      providerSpecificData.region = reusableCacheToken.region;
+    } else {
+      // For the SSO-cache fallback path the token came from ~/.aws/sso/cache and has no
+      // per-connection OIDC client. Register one now so this connection gets an isolated
+      // refresh session (#2328). The SQLite path already sets result.clientId.
+      if (!result.clientId) {
+        try {
+          // registerClient validates this cache-derived region before it can affect the OIDC host.
+          // Keep the same validated region for the isolated client and its future refreshes.
+          const registrationRegion = result.region || "us-east-1";
+          const reg = await runWithProxyContext(proxy, () =>
+            kiroService.registerClient(registrationRegion)
+          );
+          providerSpecificData.clientId = reg.clientId;
+          providerSpecificData.clientSecret = reg.clientSecret;
+          providerSpecificData.region = registrationRegion;
+          if (reg.clientSecretExpiresAt) {
+            providerSpecificData.clientSecretExpiresAt = reg.clientSecretExpiresAt;
+          }
+        } catch (err) {
+          console.warn(
+            "[kiro auto-import] registerClient failed, continuing without isolated client:",
+            err
+          );
         }
-      } catch (err) {
-        console.warn(
-          "[kiro auto-import] registerClient failed, continuing without isolated client:",
-          err
-        );
       }
-    }
 
-    // Refresh token to get a fresh access token and confirm it works
-    const refreshed = await runWithProxyContext(proxy, () =>
-      kiroService.refreshToken(refreshToken, providerSpecificData)
-    );
+      // Refresh token to get a fresh access token and confirm it works.
+      const refreshed = await runWithProxyContext(proxy, () =>
+        kiroService.refreshToken(refreshToken, providerSpecificData)
+      );
 
-    accessToken = refreshed.accessToken;
-    refreshToken = refreshed.refreshToken || refreshToken;
-    expiresAt = new Date(Date.now() + (refreshed.expiresIn || 3600) * 1000).toISOString();
+      accessToken = refreshed.accessToken;
+      refreshToken = refreshed.refreshToken || refreshToken;
+      expiresAt = new Date(Date.now() + (refreshed.expiresIn || 3600) * 1000).toISOString();
 
-    // profileArn may come back from social auth refresh
-    if (refreshed.profileArn && !profileArn) {
-      profileArn = refreshed.profileArn;
-      providerSpecificData.profileArn = profileArn;
+      // profileArn may come back from social auth refresh
+      if (refreshed.profileArn && !profileArn) {
+        profileArn = refreshed.profileArn;
+        providerSpecificData.profileArn = profileArn;
+      }
     }
 
     const email = kiroService.extractEmailFromJWT(accessToken);

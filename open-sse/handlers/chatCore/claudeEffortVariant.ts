@@ -50,6 +50,8 @@ export function resolveClaudeEffortVariantBase(
   provider: string | null | undefined,
   model: string
 ): { baseModel: string; effort: string } | null {
+  // Custom endpoints own their model ids; synthetic tiers resolve via synced metadata.
+  if (provider?.startsWith("openai-compatible-")) return null;
   // Cursor advertises native effort-suffixed ids. Its executor resolves exact
   // live-catalog ids before applying its own suffix fallback; stripping here
   // destroys that information before the executor can see it.

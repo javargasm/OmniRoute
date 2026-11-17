@@ -1,6 +1,12 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-type PluginContext = { options?: unknown; provider?: unknown; model?: unknown; integration?: unknown; aisdk?: unknown };
+type PluginContext = {
+  options?: unknown;
+  provider?: unknown;
+  model?: unknown;
+  integration?: unknown;
+  aisdk?: unknown;
+};
 import type { Logger } from "../src/shared/index.js";
 import { resolveApiKey, warnIfMissing } from "../src/credentials.js";
 

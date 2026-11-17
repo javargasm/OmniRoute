@@ -11,22 +11,14 @@ import { detectTestKind } from "../../src/lib/api/modelTestRunner.ts";
 const serial = { concurrency: false };
 
 test("#13376 — detectTestKind flags image-generation-only models", serial, () => {
-  const result = detectTestKind(
-    "openai/dall-e-3",
-    { supportedEndpoints: ["images"] },
-    undefined
-  );
+  const result = detectTestKind("openai/dall-e-3", { supportedEndpoints: ["images"] }, undefined);
   assert.equal(result.isNonChatGeneration, true, "image-only model should be flagged");
   assert.equal(result.isEmbedding, false);
   assert.equal(result.isRerank, false);
 });
 
 test("#13376 — detectTestKind flags music-generation-only models", serial, () => {
-  const result = detectTestKind(
-    "suno/suno-v3",
-    { supportedEndpoints: ["music"] },
-    undefined
-  );
+  const result = detectTestKind("suno/suno-v3", { supportedEndpoints: ["music"] }, undefined);
   assert.equal(result.isNonChatGeneration, true, "music-only model should be flagged");
 });
 
@@ -49,11 +41,7 @@ test("#13376 — detectTestKind does NOT flag chat+image models", serial, () => 
 });
 
 test("#13376 — detectTestKind does NOT flag models with no supportedEndpoints", serial, () => {
-  const result = detectTestKind(
-    "openai/gpt-4o",
-    { supportedEndpoints: [] },
-    undefined
-  );
+  const result = detectTestKind("openai/gpt-4o", { supportedEndpoints: [] }, undefined);
   assert.equal(
     result.isNonChatGeneration,
     false,
@@ -82,9 +70,5 @@ test("#13376 — detectTestKind does NOT flag embedding models", serial, () => {
 
 test("#13376 — detectTestKind does NOT flag models with no customModel metadata", serial, () => {
   const result = detectTestKind("openai/gpt-4o", undefined, undefined);
-  assert.equal(
-    result.isNonChatGeneration,
-    false,
-    "model without metadata should NOT be flagged"
-  );
+  assert.equal(result.isNonChatGeneration, false, "model without metadata should NOT be flagged");
 });

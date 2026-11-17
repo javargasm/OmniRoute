@@ -2,6 +2,11 @@
 // translators. Extracted verbatim from openai-responses.ts (no host imports).
 import { getProviderModels, supportsClaudeMaxEffort } from "../../../config/providerModels.ts";
 
+import {
+  getCodexReasoningLevels,
+  splitCodexReasoningSuffix,
+} from "../../../executors/codex/reasoningSuffix.ts";
+
 export type JsonRecord = Record<string, unknown>;
 export const RESPONSES_STORE_MARKER = "_omnirouteResponsesStore";
 export const COPILOT_REASONING_SUMMARY_MARKER = "_omnirouteCopilotReasoningSummary";
@@ -72,10 +77,15 @@ function supportsNativeMaxReasoningEffort(model: unknown, targetFormat?: unknown
     .trim()
     .toLowerCase()
     .replace(/^(?:codex|cx)\//, "");
+  // Other Codex models declare Max through discovery (`supported_reasoning_levels`).
+  const discoveredLevels = getCodexReasoningLevels(
+    splitCodexReasoningSuffix(normalizedModel).baseModel
+  );
   return (
     CODEX_MAX_EFFORT_MODEL_PATTERN.test(normalizedModel) ||
     KIRO_GPT_5_6_MODEL_PATTERN.test(kiroModel) ||
-    KIRO_OPUS_5_5_MODEL_PATTERN.test(kiroModel)
+    KIRO_OPUS_5_5_MODEL_PATTERN.test(kiroModel) ||
+    discoveredLevels?.includes("max") === true
   );
 }
 

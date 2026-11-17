@@ -43,7 +43,10 @@ function disableWindowsRegistryStrategy(): () => void {
   };
 
   const origExecSync = childProcess.execSync;
-  childProcess.execSync = ((cmd: Parameters<typeof childProcess.execSync>[0], opts: Parameters<typeof childProcess.execSync>[1]) => {
+  childProcess.execSync = ((
+    cmd: Parameters<typeof childProcess.execSync>[0],
+    opts: Parameters<typeof childProcess.execSync>[1]
+  ) => {
     if (String(cmd ?? "").includes("ioreg")) {
       throw new Error("ENOENT: mocked ioreg not available");
     }

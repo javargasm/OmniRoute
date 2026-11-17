@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { InterceptedRequest } from "./types";
+import type { InterceptedRequest } from "./types.ts";
 
 /**
  * Extract the system prompt string from an intercepted LLM request body.

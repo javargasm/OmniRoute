@@ -30,6 +30,7 @@ import { resolveProxyForConnection } from "@/lib/db/settings";
 import {
   SAFE_OUTBOUND_FETCH_PRESETS,
   SafeOutboundFetchError,
+  type SafeOutboundFetchOptions,
   getSafeOutboundFetchErrorStatus,
   safeOutboundFetch,
 } from "@/shared/network/safeOutboundFetch";
@@ -124,6 +125,7 @@ import { fetchCursorAvailableModels } from "@/lib/providerModels/cursorAvailable
 import { ensureCursorAutoCatalogEntry } from "@/lib/providerModels/cursorAutoCatalog";
 import { resolveCursorBearerToken } from "@omniroute/open-sse/services/cursorApiKeyAuth.ts";
 import { resolveCopilotDiscoveryToken } from "@/lib/providerModels/copilotDiscoveryToken";
+import { refreshCodexClientVersion } from "@/shared/services/codexClientVersionTracker";
 import { toDiscoveryCatalogModel } from "./discovery/catalogModels";
 import {
   type JsonRecord,
@@ -2279,6 +2281,18 @@ export async function GET(
         });
       }
 
+      const codexFetch = (options: SafeOutboundFetchOptions) => (url: string, init: RequestInit) =>
+        safeOutboundFetch(url, {
+          ...SAFE_OUTBOUND_FETCH_PRESETS.modelsDiscovery,
+          proxyConfig: proxy,
+          ...options,
+          ...init,
+        });
+      // New Codex models are gated on `minimal_client_version`: learn the latest published
+      // Codex CLI version (bounded: 5s, no retry) before discovery advertises `client_version`.
+      await refreshCodexClientVersion({
+        fetchImpl: codexFetch({ guard: "public-only", timeoutMs: 5000, retry: false }),
+      });
       const liveDiscovery = await fetchCodexDiscoveryModels({
         accessToken: accessToken || null,
         providerSpecificData: connection.providerSpecificData,

@@ -172,3 +172,53 @@ test("equal-age reads cannot repeatedly claim to be newer observations", () => {
 test("a late snapshot is rejected before it can erase a scoped quota state", () => {
   assert.equal(mergeCodexQuotaObservation({ observedAt: newer }, { observedAt: older }), null);
 });
+
+test("complete weekly evidence removes legacy numeric and signal session state", () => {
+  const previous = {
+    observedAt: older,
+    usage5h: 89,
+    limit5h: 100,
+    resetAt5h: "2026-01-04T00:00:00.000Z",
+    observedAtByWindow: { "5h": older },
+    quotaSignal: signal("codex", [percentageWindow(0.89, 18000)]),
+  };
+  const copy = structuredClone(previous);
+  const merged = mergeCodexQuotaObservation(
+    previous,
+    {
+      usage7d: 3,
+      limit7d: 100,
+      observedAt: newer,
+    },
+    { complete: true }
+  )!;
+  assert.equal(merged.usage5h, undefined);
+  assert.equal(merged.limit5h, undefined);
+  assert.equal(merged.resetAt5h, undefined);
+  assert.equal((merged.observedAtByWindow as Record<string, unknown>)["5h"], undefined);
+  assert.deepEqual((merged.quotaSignal as { windows: unknown[] }).windows, []);
+  assert.deepEqual(
+    Object.keys(
+      projectCodexQuotaDisplay(null, {
+        codexQuotaStateByScope: { codex: merged },
+      })!.quotas!
+    ),
+    ["weekly"]
+  );
+  assert.deepEqual(previous, copy);
+});
+
+test("older full usage cannot prune a newer sibling", () => {
+  assert.equal(
+    mergeCodexQuotaObservation(
+      {
+        usage5h: 100,
+        limit5h: 100,
+        observedAt: newest,
+      },
+      { usage7d: 3, limit7d: 100, observedAt: older },
+      { complete: true }
+    ),
+    null
+  );
+});

@@ -726,6 +726,54 @@ export const RENAMED_MIGRATION_COMPATIBILITY = [
     toVersion: "235",
     toName: "usage_history_agent_session_id",
   },
+  {
+    fromVersion: "177",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "20261117162313",
+    toName: "call_logs_effective_reasoning_effort",
+  },
+  {
+    fromVersion: "186",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "20261117162313",
+    toName: "call_logs_effective_reasoning_effort",
+  },
+  {
+    fromVersion: "190",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "20261117162313",
+    toName: "call_logs_effective_reasoning_effort",
+  },
+  {
+    fromVersion: "194",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "20261117162313",
+    toName: "call_logs_effective_reasoning_effort",
+  },
+  {
+    fromVersion: "197",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "20261117162313",
+    toName: "call_logs_effective_reasoning_effort",
+  },
+  {
+    fromVersion: "214",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "20261117162313",
+    toName: "call_logs_effective_reasoning_effort",
+  },
+  {
+    fromVersion: "218",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "20261117162313",
+    toName: "call_logs_effective_reasoning_effort",
+  },
+  {
+    fromVersion: "226",
+    fromName: "call_logs_effective_reasoning_effort",
+    toVersion: "20261117162313",
+    toName: "call_logs_effective_reasoning_effort",
+  },
 ] as const;
 
 export const LEGACY_VERSION_SLOT_MIGRATIONS = [

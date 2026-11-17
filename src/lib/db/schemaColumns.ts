@@ -270,6 +270,10 @@ export function ensureCallLogsColumns(db: SqliteDatabase) {
     ]) {
       if (!columnNames.has(column)) db.exec(`ALTER TABLE call_logs ADD COLUMN ${column} ${type}`);
     }
+    if (!columnNames.has("effective_reasoning_effort")) {
+      db.exec("ALTER TABLE call_logs ADD COLUMN effective_reasoning_effort TEXT DEFAULT NULL");
+      console.log("[DB] Added call_logs.effective_reasoning_effort column");
+    }
     if (!columnNames.has("cache_source")) {
       db.exec("ALTER TABLE call_logs ADD COLUMN cache_source TEXT DEFAULT 'upstream'");
       console.log("[DB] Added call_logs.cache_source column");

@@ -77,8 +77,8 @@ describe("migrationRunner/constants — exact small-table snapshots", () => {
 // ── large tables — count + shape + spot-checks (corruption guard) ─────────────
 
 describe("migrationRunner/constants — large-table integrity", () => {
-  it("RENAMED_MIGRATION_COMPATIBILITY has 107 well-formed entries", () => {
-    assert.equal(RENAMED_MIGRATION_COMPATIBILITY.length, 111);
+  it("RENAMED_MIGRATION_COMPATIBILITY has 119 well-formed entries", () => {
+    assert.equal(RENAMED_MIGRATION_COMPATIBILITY.length, 119);
     assert.deepEqual(
       RENAMED_MIGRATION_COMPATIBILITY.filter(
         (entry) => entry.fromName === "usage_history_calculated_cost"
@@ -205,98 +205,174 @@ describe("migrationRunner/constants — large-table integrity", () => {
         toName: "inspector_custom_hosts",
       }
     );
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-29), {
-      fromVersion: "134",
-      fromName: "ccr_blocks",
-      toVersion: "139",
-      toName: "ccr_blocks",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-28), {
-      fromVersion: "139",
-      fromName: "job_registry",
-      toVersion: "146",
-      toName: "job_registry",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-27), {
-      fromVersion: "143",
-      fromName: "radar_local_model_state",
-      toVersion: "153",
-      toName: "radar_local_model_state",
-    });
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "134" && entry.fromName === "ccr_blocks"
+      ),
+      {
+        fromVersion: "134",
+        fromName: "ccr_blocks",
+        toVersion: "139",
+        toName: "ccr_blocks",
+      }
+    );
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "139" && entry.fromName === "job_registry"
+      ),
+      {
+        fromVersion: "139",
+        fromName: "job_registry",
+        toVersion: "146",
+        toName: "job_registry",
+      }
+    );
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "143" && entry.fromName === "radar_local_model_state"
+      ),
+      {
+        fromVersion: "143",
+        fromName: "radar_local_model_state",
+        toVersion: "153",
+        toName: "radar_local_model_state",
+      }
+    );
     // npm 3.8.50 shipped model_capabilities as 163; it now lives at 169
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-26), {
-      fromVersion: "163",
-      fromName: "model_capabilities",
-      toVersion: "169",
-      toName: "model_capabilities",
-    });
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "163" && entry.fromName === "model_capabilities"
+      ),
+      {
+        fromVersion: "163",
+        fromName: "model_capabilities",
+        toVersion: "169",
+        toName: "model_capabilities",
+      }
+    );
     // #12036: renamed migrations 056/073/077/101 appended as compatibility renames
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-25), {
-      fromVersion: "056",
-      fromName: "provider_default",
-      toVersion: "056",
-      toName: "mcp_accessibility_compression",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-24), {
-      fromVersion: "073",
-      fromName: "discovery_results",
-      toVersion: "073",
-      toName: "per_model_token_limits",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-23), {
-      fromVersion: "077",
-      fromName: "plugin_metrics",
-      toVersion: "077",
-      toName: "api_key_stream_default_mode",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-22), {
-      fromVersion: "101",
-      fromName: "proxy_pool_rotation",
-      toVersion: "101",
-      toName: "api_key_usage_limits",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-21), {
-      fromVersion: "194",
-      fromName: "api_key_self_service_settings",
-      toVersion: "233",
-      toName: "api_key_self_service_settings",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-20), {
-      fromVersion: "197",
-      fromName: "api_key_self_service_settings",
-      toVersion: "233",
-      toName: "api_key_self_service_settings",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-19), {
-      fromVersion: "207",
-      fromName: "api_key_self_service_settings",
-      toVersion: "233",
-      toName: "api_key_self_service_settings",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-18), {
-      fromVersion: "206",
-      fromName: "recreate_turn_nodes_content_hash_index",
-      toVersion: "211",
-      toName: "recreate_turn_nodes_content_hash_index",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-17), {
-      fromVersion: "213",
-      fromName: "api_key_self_service_settings",
-      toVersion: "233",
-      toName: "api_key_self_service_settings",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-16), {
-      fromVersion: "228",
-      fromName: "api_key_self_service_settings",
-      toVersion: "233",
-      toName: "api_key_self_service_settings",
-    });
-    assert.deepEqual(RENAMED_MIGRATION_COMPATIBILITY.at(-15), {
-      fromVersion: "229",
-      fromName: "api_key_self_service_settings",
-      toVersion: "233",
-      toName: "api_key_self_service_settings",
-    });
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "056" && entry.fromName === "provider_default"
+      ),
+      {
+        fromVersion: "056",
+        fromName: "provider_default",
+        toVersion: "056",
+        toName: "mcp_accessibility_compression",
+      }
+    );
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "073" && entry.fromName === "discovery_results"
+      ),
+      {
+        fromVersion: "073",
+        fromName: "discovery_results",
+        toVersion: "073",
+        toName: "per_model_token_limits",
+      }
+    );
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "077" && entry.fromName === "plugin_metrics"
+      ),
+      {
+        fromVersion: "077",
+        fromName: "plugin_metrics",
+        toVersion: "077",
+        toName: "api_key_stream_default_mode",
+      }
+    );
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "101" && entry.fromName === "proxy_pool_rotation"
+      ),
+      {
+        fromVersion: "101",
+        fromName: "proxy_pool_rotation",
+        toVersion: "101",
+        toName: "api_key_usage_limits",
+      }
+    );
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "194" && entry.fromName === "api_key_self_service_settings"
+      ),
+      {
+        fromVersion: "194",
+        fromName: "api_key_self_service_settings",
+        toVersion: "233",
+        toName: "api_key_self_service_settings",
+      }
+    );
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "197" && entry.fromName === "api_key_self_service_settings"
+      ),
+      {
+        fromVersion: "197",
+        fromName: "api_key_self_service_settings",
+        toVersion: "233",
+        toName: "api_key_self_service_settings",
+      }
+    );
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "207" && entry.fromName === "api_key_self_service_settings"
+      ),
+      {
+        fromVersion: "207",
+        fromName: "api_key_self_service_settings",
+        toVersion: "233",
+        toName: "api_key_self_service_settings",
+      }
+    );
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) =>
+          entry.fromVersion === "206" && entry.fromName === "recreate_turn_nodes_content_hash_index"
+      ),
+      {
+        fromVersion: "206",
+        fromName: "recreate_turn_nodes_content_hash_index",
+        toVersion: "211",
+        toName: "recreate_turn_nodes_content_hash_index",
+      }
+    );
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "213" && entry.fromName === "api_key_self_service_settings"
+      ),
+      {
+        fromVersion: "213",
+        fromName: "api_key_self_service_settings",
+        toVersion: "233",
+        toName: "api_key_self_service_settings",
+      }
+    );
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "228" && entry.fromName === "api_key_self_service_settings"
+      ),
+      {
+        fromVersion: "228",
+        fromName: "api_key_self_service_settings",
+        toVersion: "233",
+        toName: "api_key_self_service_settings",
+      }
+    );
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.find(
+        (entry) => entry.fromVersion === "229" && entry.fromName === "api_key_self_service_settings"
+      ),
+      {
+        fromVersion: "229",
+        fromName: "api_key_self_service_settings",
+        toVersion: "233",
+        toName: "api_key_self_service_settings",
+      }
+    );
   });
 
   it("name-locks every published Team draft slot to canonical migration 215", () => {
@@ -338,5 +414,24 @@ describe("migrationRunner/constants — large-table integrity", () => {
     assert.equal(byVersion["064"], "session_model_history");
     assert.equal(byVersion["002"], "mcp_tool_audit");
     assert.equal(byVersion["028"], "batches");
+  });
+  it("maps every historical reasoning identity without moving upstream 226", () => {
+    assert.deepEqual(
+      RENAMED_MIGRATION_COMPATIBILITY.filter(
+        (entry) => entry.fromName === "call_logs_effective_reasoning_effort"
+      ).map((entry) => [entry.fromVersion, entry.toVersion, entry.toName]),
+      ["177", "186", "190", "194", "197", "214", "218", "226"].map((version) => [
+        version,
+        "20261117162313",
+        "call_logs_effective_reasoning_effort",
+      ])
+    );
+    assert.equal(
+      RENAMED_MIGRATION_COMPATIBILITY.some(
+        (entry) =>
+          entry.fromVersion === "226" && entry.fromName === "request_cost_ledger_read_indexes"
+      ),
+      false
+    );
   });
 });

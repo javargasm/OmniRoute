@@ -79,7 +79,10 @@ test("abort finish reasons still pass through raw, not collapsed to stop", () =>
     normalizeOpenAICompatibleFinishReason("malformed_function_call"),
     "malformed_function_call"
   );
-  assert.equal(normalizeOpenAICompatibleFinishReason("unexpected_tool_call"), "unexpected_tool_call");
+  assert.equal(
+    normalizeOpenAICompatibleFinishReason("unexpected_tool_call"),
+    "unexpected_tool_call"
+  );
 });
 
 test("non-string input returns as-is", () => {

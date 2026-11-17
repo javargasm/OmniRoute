@@ -117,7 +117,7 @@ export type WsEvent =
 export type ListFilters = {
   profile?: "llm" | "custom" | "all";
   host?: string;
-  agent?: import("../types").AgentId;
+  agent?: import("../types.ts").AgentId;
   status?: "2xx" | "3xx" | "4xx" | "5xx" | "error";
   source?: CaptureSource;
   sessionId?: string;

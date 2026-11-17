@@ -1,9 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { DEAD_COMBO_CONFIG_KEYS, stripDeadComboConfigKeys } = await import(
-  "../../../src/lib/combos/deadConfigKeys.ts"
-);
+const { DEAD_COMBO_CONFIG_KEYS, stripDeadComboConfigKeys } =
+  await import("../../../src/lib/combos/deadConfigKeys.ts");
 
 test("dead keys removed, live keys kept", () => {
   const out = stripDeadComboConfigKeys({
@@ -30,11 +29,10 @@ test("null, array, non-object pass through", () => {
 });
 
 test("exactly 3 dead keys", () => {
-  assert.deepEqual([...DEAD_COMBO_CONFIG_KEYS], [
-    "pipelineConcurrency",
-    "resetAwareEnabled",
-    "resetAwareWindow",
-  ]);
+  assert.deepEqual(
+    [...DEAD_COMBO_CONFIG_KEYS],
+    ["pipelineConcurrency", "resetAwareEnabled", "resetAwareWindow"]
+  );
 });
 
 test("dashboard keeps its UI-only keys out of the shared dead list", () => {

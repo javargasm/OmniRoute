@@ -14,9 +14,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { EventEmitter } from "node:events";
 
-const { normalizeDest, handleTproxyConnection, startTproxyCapture } = await import(
-  "../../src/mitm/tproxy/captureMode.ts"
-);
+const { normalizeDest, handleTproxyConnection, startTproxyCapture } =
+  await import("../../src/mitm/tproxy/captureMode.ts");
 
 const CFG = { dport: 443, mark: 0x2333, onPort: 8443, routeTable: 233, bypassMark: 0x539 };
 
@@ -194,8 +193,8 @@ test("startTproxyCapture decrypt mode installs the CA, wires the engine, stop() 
   };
   let installedPem: string | undefined;
   const certStore = {
-    createSNICallback:
-      () => (_name: string, cb: (e: Error | null, ctx?: unknown) => void) => cb(null, {}),
+    createSNICallback: () => (_name: string, cb: (e: Error | null, ctx?: unknown) => void) =>
+      cb(null, {}),
     getCaCertPem: async () => "CA-CERT-PEM",
   };
   const handle = await startTproxyCapture(CFG, {
@@ -211,7 +210,11 @@ test("startTproxyCapture decrypt mode installs the CA, wires the engine, stop() 
       },
     },
   });
-  assert.equal(installedPem, "CA-CERT-PEM", "the dynamic CA cert PEM is installed in the trust store");
+  assert.equal(
+    installedPem,
+    "CA-CERT-PEM",
+    "the dynamic CA cert PEM is installed in the trust store"
+  );
   assert.deepEqual(order, ["apply", "installCa", "createFd", "listen"]);
   await handle.stop();
   assert.deepEqual(order, [
@@ -223,6 +226,44 @@ test("startTproxyCapture decrypt mode installs the CA, wires the engine, stop() 
     "uninstallCa",
     "revert",
   ]);
+});
+
+test("startTproxyCapture decrypt mode uninstalls a partially installed CA when installation fails", async () => {
+  const order: string[] = [];
+  const deps = {
+    applyTproxy: async () => {
+      order.push("apply");
+    },
+    revertTproxy: async () => {
+      order.push("revert");
+    },
+    createListenerFd: () => 20,
+    connectMarked: () => 1,
+    createServer: () => new EventEmitter(),
+    createUpstreamSocket: () => fakeSocket("", 0),
+  };
+  const certStore = {
+    createSNICallback: () => () => {},
+    getCaCertPem: async () => "CA-CERT-PEM",
+  };
+  await assert.rejects(
+    () =>
+      startTproxyCapture(CFG, {
+        deps: deps as never,
+        decrypt: {
+          certStore: certStore as never,
+          installCa: async () => {
+            order.push("installCa");
+            throw new Error("refresh failed");
+          },
+          uninstallCa: async () => {
+            order.push("uninstallCa");
+          },
+        },
+      }),
+    /refresh failed/
+  );
+  assert.deepEqual(order, ["apply", "installCa", "uninstallCa", "revert"]);
 });
 
 test("startTproxyCapture decrypt mode reverts + uninstalls the CA when the listener fails", async () => {

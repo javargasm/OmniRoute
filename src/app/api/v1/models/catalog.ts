@@ -94,6 +94,7 @@ import {
   finalizeCatalogResponse,
   syntheticVariantListingIds,
 } from "./catalogResponse";
+import { applyCatalogModelNames } from "./catalogNames";
 import {
   isNoAuthProviderBlocked,
   isNoAuthProviderKey,
@@ -1462,6 +1463,7 @@ async function buildUnifiedModelsResponseCore(
           // so the effort_tiers exclusion (codex/glm/kimi) and the entries agree.
           const syncedOwnedBy = resolvePublicOwnerId(providerId, canonicalProviderId);
           const syncedFields = {
+            name: sm.name,
             ...(sm.visibility ? { visibility: sm.visibility } : {}),
             ...(typeof sm.supportedInApi === "boolean"
               ? { supported_in_api: sm.supportedInApi }
@@ -2043,6 +2045,7 @@ async function buildUnifiedModelsResponseCore(
               root: bareModelId,
               parent: null,
               custom: true,
+              name: model.name,
               ...(modelType ? { type: modelType } : {}),
               ...(classification.subtype ? { subtype: classification.subtype } : {}),
               ...(apiFormat !== "chat-completions" ? { api_format: apiFormat } : {}),
@@ -2074,6 +2077,7 @@ async function buildUnifiedModelsResponseCore(
               root: bareModelId,
               parent: includeAlias ? aliasId : null,
               custom: true,
+              name: model.name,
               ...(modelType ? { type: modelType } : {}),
               ...(typeof model.inputTokenLimit === "number"
                 ? { context_length: model.inputTokenLimit }
@@ -2090,15 +2094,10 @@ async function buildUnifiedModelsResponseCore(
       console.log("Could not fetch custom models");
     }
 
-    // Port of decolua/9router#730 — surface models registered ONLY through a model
-    // alias (`key_value` namespace `modelAliases`, value `"<providerKey>/<modelId>"`).
-    // Without this walk, a compatible-provider entry like `setModelAlias("kimi-k2.6",
-    // "custom/kimi-k2.6")` resolves at request time but never shows up in `/v1/models`.
-    // We respect the same gating as the static/custom listing path: provider must be
-    // active (or noAuth+unblocked), model must not be hidden, and the canonical alias
-    // entry must not already exist (so we don't shadow combo / synced / custom rows).
+    // Alias-only models follow the same activity, visibility and deduplication gates.
+    let modelAliases: Record<string, unknown> = {};
     try {
-      const modelAliases = await getModelAliases();
+      modelAliases = await getModelAliases();
       const aliasBacked = extractAliasBackedModels(modelAliases);
       for (const { providerKey, modelId } of aliasBacked) {
         await maybeYieldCatalogBuild();
@@ -2112,13 +2111,7 @@ async function buildUnifiedModelsResponseCore(
           continue;
         }
 
-        // #8958/#9034: honor the compatible-provider node prefix (as the synced/custom
-        // loops do) so an alias-backed entry publishes `prefix/model` instead of the
-        // raw provider-node UUID. Without the providerIdToPrefix lookup, `alias` fell
-        // through to `providerKey` (the UUID) and the dedupe below — which only checks
-        // `alias/model` and `providerKey/model`, both UUID-prefixed — never matched the
-        // correct `prefix/model` row already emitted, leaking a duplicate UUID entry
-        // even under MODELS_CATALOG_PREFIX_MODE=alias.
+        // Compatible-node prefixes keep alias-only rows aligned with synced/custom IDs.
         const nodePrefix =
           providerIdToPrefix[providerKey] || providerIdToPrefix[canonicalProviderId];
         const alias = nodePrefix || providerIdToAlias[canonicalProviderId] || providerKey;
@@ -2309,6 +2302,12 @@ async function buildUnifiedModelsResponseCore(
         );
       }
     }
+    finalModels = await applyCatalogModelNames(
+      finalModels,
+      aliasToProviderId,
+      providerNodeIdByPrefix,
+      modelAliases
+    );
     // ?configuredOnly — hide models that have no eligible DB connection.
     finalModels = await applyCatalogPostFilters(request, finalModels, postFilterContext);
 

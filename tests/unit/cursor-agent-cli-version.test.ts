@@ -18,6 +18,13 @@ const {
   resetCursorAgentCliVersionTestHooks,
 } = await import("../../open-sse/utils/cursorAgentCliVersion.ts");
 
+test("runtime reuses browser-safe version helpers without duplicate declarations", async () => {
+  const constants = await import("../../open-sse/utils/cursorAgentCliVersionConstants.ts");
+  assert.equal(extractVersionIdFromResolvedPath, constants.extractVersionIdFromResolvedPath);
+  assert.equal(extractVersionIdFromInstallerScript, constants.extractVersionIdFromInstallerScript);
+  assert.equal(formatCursorAgentClientVersion, constants.formatCursorAgentClientVersion);
+});
+
 function withEnv(vars: Record<string, string | undefined>, fn: () => void | Promise<void>) {
   const saved: Record<string, string | undefined> = {};
   for (const key of Object.keys(vars)) {
@@ -172,10 +179,7 @@ test("getCursorAgentCliVersion reads CURSOR_DATA_DIR via isolated HOME", async (
       async () => {
         resetCursorAgentCliVersionCache();
         assert.equal(await getCursorAgentCliVersion(), id);
-        assert.equal(
-          formatCursorAgentClientVersion(await getCursorAgentCliVersion()),
-          `cli-${id}`
-        );
+        assert.equal(formatCursorAgentClientVersion(await getCursorAgentCliVersion()), `cli-${id}`);
       }
     );
   } finally {
@@ -264,7 +268,8 @@ test("invalid installer HTML falls through to pin", async () => {
   try {
     configureCursorAgentCliVersionForTests({
       cacheDir,
-      fetchImpl: (async () => new Response("<html>no lab url</html>", { status: 200 })) as typeof fetch,
+      fetchImpl: (async () =>
+        new Response("<html>no lab url</html>", { status: 200 })) as typeof fetch,
     });
     await withEnv(
       {
@@ -298,7 +303,8 @@ test("fetched install version newer than the pin is returned", async () => {
   try {
     configureCursorAgentCliVersionForTests({
       cacheDir,
-      fetchImpl: (async () => new Response(installerHtml(fetchedId), { status: 200 })) as typeof fetch,
+      fetchImpl: (async () =>
+        new Response(installerHtml(fetchedId), { status: 200 })) as typeof fetch,
     });
     await withEnv(
       {

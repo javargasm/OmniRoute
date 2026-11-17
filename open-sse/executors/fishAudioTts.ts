@@ -10,8 +10,7 @@ const FISH_AUDIO_OPUS_BITRATES = new Set([-1000, 24000, 32000, 48000, 64000]);
 type JsonRecord = Record<string, unknown>;
 
 type FishAudioPayloadResult =
-  | { payload: JsonRecord; error?: never }
-  | { payload?: never; error: string };
+  { payload: JsonRecord; error?: never } | { payload?: never; error: string };
 
 function isJsonObject(value: unknown): value is JsonRecord {
   return value !== null && typeof value === "object" && !Array.isArray(value);
@@ -107,7 +106,11 @@ function applyGenerationOptions(payload: JsonRecord, options: JsonRecord): void 
     ],
     [
       "min_chunk_length",
-      numberOption(options.min_chunk_length, "min_chunk_length", { min: 0, max: 100, integer: true }),
+      numberOption(options.min_chunk_length, "min_chunk_length", {
+        min: 0,
+        max: 100,
+        integer: true,
+      }),
     ],
     [
       "condition_on_previous_chunks",
@@ -142,10 +145,7 @@ function applyProsody(payload: JsonRecord, body: JsonRecord, options: JsonRecord
   const prosody = isJsonObject(rawProsody) ? rawProsody : {};
   const speed = numberOption(body.speed ?? prosody.speed, "prosody.speed", { min: 0.5, max: 2 });
   const volume = numberOption(prosody.volume, "prosody.volume", { min: -20, max: 20 });
-  const normalizeLoudness = booleanOption(
-    prosody.normalize_loudness,
-    "prosody.normalize_loudness"
-  );
+  const normalizeLoudness = booleanOption(prosody.normalize_loudness, "prosody.normalize_loudness");
 
   if (speed !== undefined || volume !== undefined || normalizeLoudness !== undefined) {
     payload.prosody = {
@@ -186,7 +186,9 @@ export function buildFishAudioSpeechPayload(body: JsonRecord): FishAudioPayloadR
     applyProsody(payload, body, options);
     return { payload };
   } catch (error) {
-    return { error: error instanceof Error ? error.message : "Invalid Fish Audio provider options" };
+    return {
+      error: error instanceof Error ? error.message : "Invalid Fish Audio provider options",
+    };
   }
 }
 

@@ -62,13 +62,10 @@ test("parseStreamIntoSegments: a data: line with concatenated JSON objects becom
 test("parseStreamIntoSegments: real production artifact shape (10 concatenated Gemini chunks) recovers with zero text fallback", () => {
   // Reproduces the exact shape stored in a real call-log artifact
   // (streamChunks.provider joined) that triggered this bug live.
-  const events = [
-    { text: "A" },
-    { text: "hello " },
-    { text: "world", finishReason: "STOP" },
-  ];
+  const events = [{ text: "A" }, { text: "hello " }, { text: "world", finishReason: "STOP" }];
   const raw =
-    "data: " + events.map((e) => JSON.stringify({ candidates: [{ content: { parts: [e] } }] })).join("") +
+    "data: " +
+    events.map((e) => JSON.stringify({ candidates: [{ content: { parts: [e] } }] })).join("") +
     "\n\n";
   const segments = parseStreamIntoSegments(raw);
   assert.equal(segments.length, 3, "each concatenated object must recover as its own segment");
@@ -81,5 +78,8 @@ test("parseStreamIntoSegments: real production artifact shape (10 concatenated G
 test("parseStreamIntoSegments: unrelated non-JSON text (comments, keep-alives) still falls back to text as before", () => {
   const raw = ": OPENROUTER PROCESSING\n\ndata: [DONE]\n\n";
   const segments = parseStreamIntoSegments(raw);
-  assert.ok(segments.every((s) => s.type === "text"), "no regression for genuine non-JSON content");
+  assert.ok(
+    segments.every((s) => s.type === "text"),
+    "no regression for genuine non-JSON content"
+  );
 });

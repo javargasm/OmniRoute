@@ -19,7 +19,6 @@ import {
   endLoginAttempt,
   recordLoginFailure,
 } from "@/server/auth/loginGuard";
-import { AUTHZ_HEADER_TRUSTED_PEER_IP } from "@/server/authz/headers";
 import {
   MFA_PENDING_COOKIE,
   getDashboardJwtSecret,
@@ -30,6 +29,8 @@ import { isMfaRequiredForRequest } from "@/server/auth/dashboardMfa";
 import { mfaPendingCookieOptions } from "@/server/auth/mfaRouteSupport";
 import {
   getLoginLockoutKey,
+  getLoginAuditIp,
+  hasInvalidLoginClient,
   getLoginSourceScope,
   isHostOperatorRequest,
 } from "@/server/auth/loginPeer";
@@ -60,11 +61,15 @@ export const authRouteInternals = {
 
 export async function POST(request: NextRequest) {
   const auditContext = getAuditRequestContext(request);
+  const clientIp = getLoginAuditIp(request, auditContext.ipAddress);
   // Slot reserved by the guard while the password is verified; released on every exit.
   let heldSlotKey: string | null | undefined;
   let holdsSlot = false;
 
   try {
+    if (hasInvalidLoginClient(request)) {
+      return NextResponse.json({ error: "Invalid proxy client identity" }, { status: 400 });
+    }
     // Fail-fast if JWT_SECRET is not configured
     if (!process.env.JWT_SECRET) {
       logAuditEvent({
@@ -73,7 +78,7 @@ export async function POST(request: NextRequest) {
         target: "dashboard-auth",
         resourceType: "auth_session",
         status: "failed",
-        ipAddress: auditContext.ipAddress || undefined,
+        ipAddress: clientIp || undefined,
         requestId: auditContext.requestId,
         metadata: { reason: "missing_jwt_secret" },
       });
@@ -108,10 +113,6 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Invalid password payload" }, { status: 400 });
     }
     const settings = await getCachedSettings();
-    const trustedPeerIp = process.env.OMNIROUTE_PEER_STAMP_TOKEN
-      ? request.headers.get(AUTHZ_HEADER_TRUSTED_PEER_IP)
-      : null;
-    const clientIp = trustedPeerIp || auditContext.ipAddress || null;
     const lockoutKey = getLoginLockoutKey(request, auditContext.ipAddress);
     const oidcDisabledPassword =
       settings.oidcEnabled === true &&
@@ -176,7 +177,7 @@ export async function POST(request: NextRequest) {
         target: "dashboard-auth",
         resourceType: "auth_session",
         status: "failed",
-        ipAddress: auditContext.ipAddress || undefined,
+        ipAddress: clientIp || undefined,
         requestId: auditContext.requestId,
         metadata: { reason: "missing_persisted_password" },
       });
@@ -210,7 +211,7 @@ export async function POST(request: NextRequest) {
         target: "dashboard-auth",
         resourceType: "auth_session",
         status: "failed",
-        ipAddress: auditContext.ipAddress || undefined,
+        ipAddress: clientIp || undefined,
         requestId: auditContext.requestId,
         metadata: {
           reason: "well_known_default_password_non_loopback",
@@ -253,7 +254,7 @@ export async function POST(request: NextRequest) {
           target: "dashboard-auth",
           resourceType: "auth_session",
           status: "pending",
-          ipAddress: auditContext.ipAddress || undefined,
+          ipAddress: clientIp || undefined,
           requestId: auditContext.requestId,
           metadata: { sourceScope },
         });
@@ -279,7 +280,7 @@ export async function POST(request: NextRequest) {
         target: "dashboard-auth",
         resourceType: "auth_session",
         status: "success",
-        ipAddress: auditContext.ipAddress || undefined,
+        ipAddress: clientIp || undefined,
         requestId: auditContext.requestId,
         metadata: {
           hasStoredPassword: Boolean(storedHash),
@@ -300,7 +301,7 @@ export async function POST(request: NextRequest) {
       target: "dashboard-auth",
       resourceType: "auth_session",
       status: "failed",
-      ipAddress: auditContext.ipAddress || undefined,
+      ipAddress: clientIp || undefined,
       requestId: auditContext.requestId,
       metadata: {
         reason: "invalid_password",
@@ -329,7 +330,7 @@ export async function POST(request: NextRequest) {
       target: "dashboard-auth",
       resourceType: "auth_session",
       status: "failed",
-      ipAddress: auditContext.ipAddress || undefined,
+      ipAddress: clientIp || undefined,
       requestId: auditContext.requestId,
       metadata: {
         message: error instanceof Error ? error.message : "unknown_error",

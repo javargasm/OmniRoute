@@ -9,7 +9,7 @@ import {
 import { PROVIDERS } from "../config/constants.ts";
 import { getRegistryEntry } from "../config/providerRegistry.ts";
 import { v4 as uuidv4 } from "uuid";
-import { refreshKiroToken } from "../services/tokenRefresh.ts";
+import { getAccessToken } from "../services/tokenRefresh.ts";
 import {
   isExternalIdpAuthMethod,
   KIRO_EXTERNAL_IDP_TOKEN_TYPE_HEADER,
@@ -20,13 +20,33 @@ import {
   flushPendingThinking,
   type KiroThinkingState,
 } from "./kiroThinking.ts";
-import { ByteQueue, TEXT_ENCODER, parseEventFrame } from "./kiro/eventstream.ts";
-import { readKiroReasoningText } from "./kiro/reasoning.ts";
 import {
-  kiroApiKeyRuntimeHost,
+  ByteQueue,
+  KIRO_MAX_EVENTSTREAM_BUFFER_BYTES,
+  KIRO_MAX_EVENTSTREAM_FRAME_BYTES,
+  KIRO_MAX_EVENTSTREAM_RESPONSE_BYTES,
+  KiroEventStreamProtocolError,
+  TEXT_ENCODER,
+  parseEventFrame,
+  extractEventStreamException,
+} from "./kiro/eventstream.ts";
+import {
+  KIRO_MAX_CONTEXT_TRIM_ATTEMPTS,
+  isKiroContextTooLong,
+  kiroRetryDelayMs,
+  sleepWithSignal,
+  trimKiroConversationForRetry,
+} from "./kiro/requestRecovery.ts";
+import {
   kiroRuntimeHost,
+  kiroRuntimeEndpoint,
   resolveKiroRuntimeRegion,
+  DEFAULT_PROFILE_ARN,
 } from "../services/kiroRegion.ts";
+import { getKiroServiceHeaders } from "../config/providerHeaderProfiles.ts";
+import { buildErrorBody } from "../utils/error.ts";
+import { readKiroReasoningText } from "./kiro/reasoning.ts";
+import { kiroApiKeyRuntimeHost } from "../services/kiroRegion.ts";
 import {
   KIRO_TOOL_CALL_WRAPPER,
   appendBufferedKiroToolInput,
@@ -63,6 +83,9 @@ type KiroStreamState = {
   finishEmitted: boolean;
   startEmitted: boolean;
   stopSeen: boolean;
+  /** Authoritative termination marker carried by Kiro's metadataEvent. */
+  stopReason?: string;
+  refusalCategory?: "REASONING_EXTRACTION";
   hasToolCalls: boolean;
   toolCallIndex: number;
   seenToolIds: Map<string, number>;
@@ -75,12 +98,34 @@ type KiroStreamState = {
   contextUsagePercentage?: number;
   hasContextUsage?: boolean;
   hasMeteringEvent?: boolean;
+  /** Credits Kiro billed for this turn (`meteringEvent` with unit "credit"). */
+  meteringCredits?: number;
   usage?: Partial<UsageSummary>;
   hasReasoningContent?: boolean;
   reasoningChunkCount?: number;
   // Inline-thinking splitter state (populated only when thinkingExpected=true).
   thinking?: KiroThinkingState;
 };
+
+type KiroEventStreamTransformOptions = {
+  onInvalidToolCall?: (message: string) => boolean;
+  responseId?: string;
+  thinkingExpected?: boolean;
+  /** Treat a client-declared `tool_call` as an ordinary tool, not the Kiro MCP wrapper. */
+  clientDeclaresWrapperName?: boolean;
+  /**
+   * Narrow-only test/debug seams. Callers can make a limit stricter, never
+   * relax the production safety ceilings declared in eventstream.ts.
+   */
+  maxEventStreamFrameBytes?: number;
+  maxEventStreamBufferBytes?: number;
+  maxEventStreamResponseBytes?: number;
+};
+
+function resolveKiroEventStreamLimit(value: unknown, maximum: number): number {
+  const parsed = Number(value);
+  return Number.isSafeInteger(parsed) && parsed > 0 ? Math.min(parsed, maximum) : maximum;
+}
 
 /**
  * Flush buffered tool arguments at finish boundaries.
@@ -190,16 +235,80 @@ function buildKiroFinishChunk(
       {
         index: 0,
         delta: {},
-        finish_reason: state.hasToolCalls ? "tool_calls" : "stop",
+        finish_reason: resolveKiroFinishReason(state),
       },
     ],
   };
 
   if (includeUsage && state.usage) {
-    finishChunk.usage = state.usage;
+    finishChunk.usage =
+      state.meteringCredits !== undefined
+        ? { ...state.usage, kiro_credits: state.meteringCredits }
+        : state.usage;
   }
 
   return finishChunk;
+}
+
+/**
+ * Kiro emits the authoritative completion reason in `metadataEvent.stopReason`.
+ * Prefer it over local output heuristics: a generation can reach MAX_TOKENS
+ * after emitting tool-use-like content, and reporting `tool_calls` in that case
+ * would invite an invalid continuation instead of accurately marking truncation.
+ */
+function resolveKiroFinishReason(
+  state: Pick<KiroStreamState, "hasToolCalls" | "stopReason">
+): "stop" | "length" | "tool_calls" | "content_filter" {
+  switch (state.stopReason?.trim().toUpperCase()) {
+    case "CONTENT_FILTERED":
+      return "content_filter";
+    case "TOOL_USE":
+    case "TOOL_CALLS":
+      return "tool_calls";
+    case "MAX_TOKENS":
+    case "MAX_OUTPUT_TOKENS":
+      return "length";
+    case "END_TURN":
+    case "STOP_SEQUENCE":
+    case "STOP":
+    case "COMPLETE":
+    case "FINISHED":
+      return "stop";
+    default:
+      return state.hasToolCalls ? "tool_calls" : "stop";
+  }
+}
+
+/** Credit figure from a `meteringEvent` (flat or nested under `metering`). */
+export function readKiroMeteringCredits(payload: JsonRecord | null): number | undefined {
+  if (!payload) return undefined;
+  const nested = payload.metering;
+  const source =
+    nested && typeof nested === "object" && !Array.isArray(nested)
+      ? (nested as JsonRecord)
+      : payload;
+  const unit = typeof source.unit === "string" ? source.unit.toLowerCase() : "credit";
+  if (unit !== "credit" && unit !== "credits") return undefined;
+  const usage = source.usage;
+  return typeof usage === "number" && Number.isFinite(usage) && usage >= 0 ? usage : undefined;
+}
+
+function readKiroMetadataStopReason(payload: JsonRecord | null): string | undefined {
+  if (!payload) return undefined;
+
+  if (typeof payload.stopReason === "string" && payload.stopReason.trim()) {
+    return payload.stopReason;
+  }
+
+  const nestedMetadata = payload.metadataEvent;
+  if (!nestedMetadata || typeof nestedMetadata !== "object" || Array.isArray(nestedMetadata)) {
+    return undefined;
+  }
+
+  const nestedStopReason = (nestedMetadata as JsonRecord).stopReason;
+  return typeof nestedStopReason === "string" && nestedStopReason.trim()
+    ? nestedStopReason
+    : undefined;
 }
 
 /**
@@ -241,6 +350,13 @@ function resolveKiroMaxInputTokens(model: string): number {
  * adding a separately-estimated completion on top would double-count it and
  * inflate `total_tokens`.
  */
+/**
+ * At or above this `contextUsagePercentage`, report prompt tokens just past the
+ * model's window so clients (Claude Code, OpenCode, ...) compact before Kiro
+ * starts rejecting the conversation with 413 / CONTENT_LENGTH_EXCEEDS_THRESHOLD.
+ */
+export const KIRO_CONTEXT_PRESSURE_PERCENT = 95;
+
 function ensureKiroUsage(state: KiroStreamState, model: string) {
   if (state.usage?.total_tokens !== undefined) return;
   const estimatedOutputTokens =
@@ -273,7 +389,11 @@ function ensureKiroUsage(state: KiroStreamState, model: string) {
     return;
   }
 
-  const promptTokens = Math.max(0, estimatedTotalTokens - estimatedOutputTokens);
+  let promptTokens = Math.max(0, estimatedTotalTokens - estimatedOutputTokens);
+  if ((state.contextUsagePercentage ?? 0) >= KIRO_CONTEXT_PRESSURE_PERCENT) {
+    const window = resolveKiroMaxInputTokens(model);
+    promptTokens = Math.max(promptTokens, window + 1 - estimatedOutputTokens);
+  }
 
   state.usage = {
     ...state.usage,
@@ -301,6 +421,35 @@ export function resolveKiroRegion(
   return resolveKiroRuntimeRegion(
     (credentials?.providerSpecificData || {}) as { region?: unknown; profileArn?: unknown }
   );
+}
+
+function isKiroRecord(value: unknown): value is JsonRecord {
+  return value !== null && typeof value === "object" && !Array.isArray(value);
+}
+
+/**
+ * Kiro only accepts image attachments on the current user message. The normal
+ * OpenAI translator already removes them from history, but direct native Kiro
+ * payloads bypass that translator. Clone only changed branches so callers keep
+ * their original request body intact.
+ */
+function stripHistoricalKiroImages(conversationState: unknown): unknown {
+  if (!isKiroRecord(conversationState) || !Array.isArray(conversationState.history)) {
+    return conversationState;
+  }
+
+  let sanitizedHistory: unknown[] | undefined;
+  for (const [index, entry] of conversationState.history.entries()) {
+    if (!isKiroRecord(entry) || !isKiroRecord(entry.userInputMessage)) continue;
+    if (!Object.hasOwn(entry.userInputMessage, "images")) continue;
+
+    if (!sanitizedHistory) sanitizedHistory = [...conversationState.history];
+    const userInputMessage = { ...entry.userInputMessage };
+    delete userInputMessage.images;
+    sanitizedHistory[index] = { ...entry, userInputMessage };
+  }
+
+  return sanitizedHistory ? { ...conversationState, history: sanitizedHistory } : conversationState;
 }
 
 // Re-exported from the shared region module so existing importers (and tests) that pull
@@ -374,7 +523,8 @@ export class KiroExecutor extends BaseExecutor {
 
   buildHeaders(credentials: ProviderCredentials, stream = true) {
     void stream;
-    const headers = {
+    const headers: Record<string, string> = {
+      ...getKiroServiceHeaders(),
       ...this.config.headers,
       "Amz-Sdk-Request": "attempt=1; max=3",
       "Amz-Sdk-Invocation-Id": uuidv4(),
@@ -418,8 +568,22 @@ export class KiroExecutor extends BaseExecutor {
     // Kiro API is strict and rejects any unknown top-level fields (like 'tools', 'stream', 'model', etc.)
     // We only preserve the fields specifically built by the openai-to-kiro translator.
     const kiroPayload: Record<string, unknown> = {};
-    if (b.conversationState !== undefined) kiroPayload.conversationState = b.conversationState;
-    if (b.profileArn !== undefined) kiroPayload.profileArn = b.profileArn;
+    if (b.conversationState !== undefined) {
+      kiroPayload.conversationState = stripHistoricalKiroImages(b.conversationState);
+    }
+    const creds = credentials as Record<string, unknown> | undefined;
+    const authMethod = (creds?.providerSpecificData as Record<string, unknown> | undefined)
+      ?.authMethod;
+    if (b.profileArn !== undefined) {
+      kiroPayload.profileArn = b.profileArn;
+    } else if ((creds?.providerSpecificData as Record<string, unknown> | undefined)?.profileArn) {
+      kiroPayload.profileArn = (creds?.providerSpecificData as Record<string, unknown>).profileArn;
+    } else if (authMethod === "builder-id") {
+      // Builder ID is the only profile-less Kiro auth method. Resolve its fallback
+      // transiently here so stored OAuth/token metadata remains clean and quota
+      // tracking can continue to distinguish genuinely profile-less accounts.
+      kiroPayload.profileArn = DEFAULT_PROFILE_ARN;
+    }
     if (b.inferenceConfig !== undefined) kiroPayload.inferenceConfig = b.inferenceConfig;
     // Thinking control: `additionalModelRequestFields` ({output_config.effort,
     // thinking:{type:"adaptive"}, max_tokens}) is a recognized top-level field on
@@ -449,6 +613,7 @@ export class KiroExecutor extends BaseExecutor {
     signal,
     log,
     upstreamExtraHeaders,
+    skipUpstreamRetry,
   }: ExecuteInput) {
     // Route to the region-specific CodeWhisperer/Amazon Q endpoint. Enterprise IAM Identity
     // Center accounts (e.g. eu-central-1) are rejected by the default us-east-1 host; only the
@@ -474,15 +639,14 @@ export class KiroExecutor extends BaseExecutor {
     // back to the raw AWS host on an auth/profile-shaped failure.
     const isCodeWhispererOnly =
       authMethod === "api_key" || authMethod === "idc" || isExternalIdpAuthMethod(authMethod);
+    const kiroGatewayUrl = kiroRuntimeEndpoint(region);
     const candidateUrls =
       region === "us-east-1" && !isCodeWhispererOnly
-        ? ["https://runtime.us-east-1.kiro.dev/generateAssistantResponse", regionalUrl]
+        ? [kiroGatewayUrl, regionalUrl]
         : [regionalUrl];
 
     const headers = this.buildHeaders(credentials, stream);
     mergeUpstreamExtraHeaders(headers, upstreamExtraHeaders);
-    const transformedBody = await this.transformRequest(model, body, stream, credentials);
-
     // Branded gateway first, raw CodeWhisperer host on an auth/profile-shaped failure.
     // Shared with the one-shot tool_call repair retry so it takes the same path.
     const send = async (payload: unknown, sendSignal: AbortSignal | null | undefined) => {
@@ -505,7 +669,66 @@ export class KiroExecutor extends BaseExecutor {
       }
       return { res, target };
     };
-    const { res: response, target: url } = await send(transformedBody, signal);
+    let transformedBody = await this.transformRequest(model, body, stream, credentials);
+
+    let response!: Response;
+    let url = candidateUrls[0];
+    let trimAttempts = 0;
+    let retryAttempts = 0;
+    for (;;) {
+      const sent = await send(transformedBody, signal);
+      response = sent.res;
+      url = sent.target;
+      if (response.ok || signal?.aborted) break;
+
+      // Read the error once; hand callers an equivalent response afterwards.
+      const errorText = await response.text().catch(() => "");
+      const rebuilt = () =>
+        new Response(errorText, {
+          status: response.status,
+          statusText: response.statusText,
+          headers: response.headers,
+        });
+
+      if (
+        isKiroContextTooLong(response.status, errorText) &&
+        trimAttempts < KIRO_MAX_CONTEXT_TRIM_ATTEMPTS
+      ) {
+        const trimmed = trimKiroConversationForRetry(transformedBody);
+        if (trimmed) {
+          trimAttempts++;
+          log?.warn?.(
+            "KIRO",
+            `context too long (${response.status}); trimmed history, retry ${trimAttempts}/${KIRO_MAX_CONTEXT_TRIM_ATTEMPTS}`
+          );
+          transformedBody = trimmed;
+          continue;
+        }
+      }
+
+      const delayMs = skipUpstreamRetry
+        ? null
+        : kiroRetryDelayMs(
+            response.status,
+            errorText,
+            retryAttempts,
+            response.headers.get("retry-after")
+          );
+      if (delayMs !== null) {
+        retryAttempts++;
+        log?.warn?.("KIRO", `transient ${response.status}; retry ${retryAttempts} in ${delayMs}ms`);
+        try {
+          await sleepWithSignal(delayMs, signal);
+        } catch {
+          response = rebuilt();
+          break;
+        }
+        continue;
+      }
+
+      response = rebuilt();
+      break;
+    }
 
     if (!response.ok) {
       return { response, url, headers, transformedBody };
@@ -530,7 +753,10 @@ export class KiroExecutor extends BaseExecutor {
           >
         )?.userInputMessage as Record<string, unknown>
       )?.content as string) || "";
-    const thinkingExpected = userContent.includes("<thinking_mode>enabled</thinking_mode>");
+    const thinkingExpected =
+      userContent.includes("<thinking_mode>enabled</thinking_mode>") ||
+      Boolean(tb?.additionalModelRequestFields) ||
+      model.includes("-thinking");
     // A client tool named `tool_call` is not the Kiro MCP wrapper (#18675). Read the
     // pre-allowlist body: it carries the names openai-to-kiro synthesized from history.
     const sseOpts = {
@@ -561,29 +787,34 @@ export class KiroExecutor extends BaseExecutor {
    * @param model           Logical model id (kept in OpenAI chunks for clients).
    * @param opts
    * @param opts.thinkingExpected  When true, scan inbound
-   *   `assistantResponseEvent.content` for inline `<thinking>…</thinking>`
+   *   `assistantResponseEvent.content` for inline `<thinking>…</thinking>` (and variants)
    *   blocks and split them into the OpenAI `delta.reasoning_content` channel.
    *   Required for Claude on Kiro when `<thinking_mode>enabled</thinking_mode>`
-   *   is in the system prompt, because Kiro streams reasoning inline rather
-   *   than as separate `reasoningContentEvent` frames.
+   *   is in the system prompt, or when models return inline thinking tags.
    */
   transformEventStreamToSSE(
     response: Response,
     model: string,
-    opts: {
-      thinkingExpected?: boolean;
-      /**
-       * The request declared its own tool named `tool_call`: treat those events as
-       * ordinary client tool calls instead of the Kiro MCP wrapper (#18675).
-       */
-      clientDeclaresWrapperName?: boolean;
-      /** Return true to suppress the error frame (the one-shot repair will retry). */
-      onInvalidToolCall?: (message: string) => boolean;
-      responseId?: string;
-    } = {}
+    opts: KiroEventStreamTransformOptions = {}
   ) {
-    const thinkingExpected = !!opts.thinkingExpected;
-    const buffer = new ByteQueue();
+    const thinkingExpected = opts.thinkingExpected !== undefined ? opts.thinkingExpected : true;
+    const maxEventStreamFrameBytes = resolveKiroEventStreamLimit(
+      opts.maxEventStreamFrameBytes,
+      KIRO_MAX_EVENTSTREAM_FRAME_BYTES
+    );
+    const maxEventStreamBufferBytes = resolveKiroEventStreamLimit(
+      opts.maxEventStreamBufferBytes,
+      KIRO_MAX_EVENTSTREAM_BUFFER_BYTES
+    );
+    const maxEventStreamResponseBytes = resolveKiroEventStreamLimit(
+      opts.maxEventStreamResponseBytes,
+      KIRO_MAX_EVENTSTREAM_RESPONSE_BYTES
+    );
+    // A transport read can legally aggregate many complete EventStream frames.
+    // Bound the queue by the total response ceiling, then enforce the smaller
+    // incomplete-frame ceiling only when parsing stops on a partial frame.
+    const buffer = new ByteQueue(maxEventStreamResponseBytes);
+    let totalEventStreamBytes = 0;
     let chunkIndex = 0;
     const responseId = opts.responseId || `chatcmpl-${Date.now()}`;
     const created = Math.floor(Date.now() / 1000);
@@ -686,6 +917,22 @@ export class KiroExecutor extends BaseExecutor {
       controller.terminate();
     };
 
+    const failKiroEventStreamProtocol = (
+      controller: TransformStreamDefaultController,
+      error: KiroEventStreamProtocolError
+    ) => {
+      const errorPayload = {
+        error: {
+          message: error.message,
+          type: error.type,
+          code: error.code,
+          param: null,
+        },
+      };
+      controller.enqueue(TEXT_ENCODER.encode(`data: ${JSON.stringify(errorPayload)}\n\n`));
+      controller.error(error);
+    };
+
     const flushPendingWrapperToolCalls = (
       controller: TransformStreamDefaultController
     ): boolean => {
@@ -715,22 +962,108 @@ export class KiroExecutor extends BaseExecutor {
     const transformStream = new TransformStream(
       {
         async transform(chunk, controller) {
-          buffer.push(chunk);
+          if (chunk.length > maxEventStreamResponseBytes - totalEventStreamBytes) {
+            failKiroEventStreamProtocol(
+              controller,
+              new KiroEventStreamProtocolError(
+                "kiro_eventstream_response_too_large",
+                `Kiro EventStream response exceeded ${maxEventStreamResponseBytes} bytes`
+              )
+            );
+            return;
+          }
+          totalEventStreamBytes += chunk.length;
 
-          // Parse events from buffer
+          try {
+            buffer.push(chunk);
+          } catch (error) {
+            if (error instanceof KiroEventStreamProtocolError) {
+              failKiroEventStreamProtocol(controller, error);
+              return;
+            }
+            throw error;
+          }
+
+          // A valid upstream read can contain many EventStream frames. Keep
+          // draining complete frames rather than retaining them behind an
+          // arbitrary iteration ceiling; yield periodically so a large burst
+          // cannot monopolize the event loop.
           let iterations = 0;
-          const maxIterations = 1000;
-          while (buffer.length >= 16 && iterations < maxIterations) {
+          const yieldInterval = 1000;
+          while (buffer.length >= 4) {
             iterations++;
+            if (iterations % yieldInterval === 0) await Promise.resolve();
             const totalLength = buffer.peekUint32BE(0);
 
-            if (!totalLength || totalLength < 16 || totalLength > buffer.length) break;
+            if (totalLength === null) break;
+            if (totalLength < 16) {
+              failKiroEventStreamProtocol(
+                controller,
+                new KiroEventStreamProtocolError(
+                  "kiro_eventstream_invalid_frame_length",
+                  `Kiro EventStream declared invalid frame length: ${totalLength}`
+                )
+              );
+              return;
+            }
+            if (totalLength > maxEventStreamFrameBytes) {
+              failKiroEventStreamProtocol(
+                controller,
+                new KiroEventStreamProtocolError(
+                  "kiro_eventstream_frame_too_large",
+                  `Kiro EventStream frame exceeded ${maxEventStreamFrameBytes} bytes`
+                )
+              );
+              return;
+            }
+            if (totalLength > buffer.length) {
+              if (buffer.length > maxEventStreamBufferBytes) {
+                failKiroEventStreamProtocol(
+                  controller,
+                  new KiroEventStreamProtocolError(
+                    "kiro_eventstream_buffer_too_large",
+                    `Kiro EventStream incomplete frame exceeded ${maxEventStreamBufferBytes} bytes`
+                  )
+                );
+                return;
+              }
+              break;
+            }
 
             const eventData = buffer.read(totalLength);
             if (!eventData) break;
 
             const event = parseEventFrame(eventData);
             if (!event) continue;
+
+            const streamException = extractEventStreamException(event);
+            if (streamException) {
+              const errorObj = Object.assign(
+                new Error(
+                  `[Kiro] EventStream exception: ${streamException.exceptionType} - ${streamException.message}`
+                ),
+                {
+                  status: streamException.statusCode,
+                  statusCode: streamException.statusCode,
+                  code: streamException.errorCode,
+                  type: streamException.errorType,
+                  exceptionType: streamException.exceptionType,
+                  isKiroEventStreamException: true,
+                }
+              );
+
+              const errorPayload = {
+                error: {
+                  message: `[Kiro] ${streamException.exceptionType}: ${streamException.message}`,
+                  type: streamException.errorType,
+                  code: streamException.errorCode,
+                  param: null,
+                },
+              };
+              controller.enqueue(TEXT_ENCODER.encode(`data: ${JSON.stringify(errorPayload)}\n\n`));
+              controller.error(errorObj);
+              return;
+            }
 
             // Emit a role-only start chunk on the FIRST successfully-parsed AWS
             // EventStream frame. CodeWhisperer sends framing/metadata events before
@@ -783,7 +1116,18 @@ export class KiroExecutor extends BaseExecutor {
             {
               const rp = event.payload as Record<string, unknown> | undefined;
               const rt = rp?.reasoningText;
-              if (eventType === "reasoningContentEvent" || rt !== undefined) {
+              const rc = rp?.reasoningContent;
+              const red = rp?.redactedContent;
+              const hasVisibleAssistantContent =
+                eventType === "assistantResponseEvent" &&
+                typeof rp?.content === "string" &&
+                rp.content.length > 0;
+              const isReasoningEvent =
+                eventType === "reasoningContentEvent" ||
+                rt !== undefined ||
+                rc !== undefined ||
+                red !== undefined;
+              if (isReasoningEvent) {
                 const nativeReasoning = readKiroReasoningText(eventType, rp);
                 if (nativeReasoning !== undefined) {
                   if (nativeReasoning) state.hasReasoningContent = true;
@@ -802,9 +1146,9 @@ export class KiroExecutor extends BaseExecutor {
                   state.reasoningChunkCount = (state.reasoningChunkCount ?? 0) + 1;
                   controller.enqueue(TEXT_ENCODER.encode(`data: ${JSON.stringify(chunk)}\n\n`));
                 }
-                // Consume the reasoning frame (incl. signature-only) so it never
-                // falls through to the content handlers below.
-                continue;
+                // Consume standalone reasoning frames (including signature-only or redacted
+                // ones), but preserve visible text when Kiro combines both in one assistant frame.
+                if (!hasVisibleAssistantContent) continue;
               }
             }
 
@@ -1058,6 +1402,25 @@ export class KiroExecutor extends BaseExecutor {
               ) {
                 state.usage = addKiroCredits(state.usage, event.payload);
               }
+              const credits = readKiroMeteringCredits(event.payload);
+              if (credits !== undefined) {
+                state.meteringCredits = (state.meteringCredits ?? 0) + credits;
+              }
+            }
+
+            // Kiro's metadataEvent is the source of truth for completion. The
+            // wire format uses values such as TOOL_USE, END_TURN, and
+            // MAX_TOKENS; preserve it until the terminal OpenAI SSE chunk is
+            // emitted rather than guessing solely from whether a tool frame was
+            // observed. Some Kiro payload variants wrap this under metadataEvent.
+            if (eventType === "metadataEvent") {
+              const stopReason = readKiroMetadataStopReason(event.payload);
+              if (stopReason) state.stopReason = stopReason;
+              const metadata = (event.payload?.metadataEvent ?? event.payload) as
+                { stopDetails?: { refusal?: { category?: unknown } } } | undefined;
+              if (metadata?.stopDetails?.refusal?.category === "REASONING_EXTRACTION") {
+                state.refusalCategory = "REASONING_EXTRACTION";
+              }
             }
 
             // Handle token usage. Kiro reports it under more than one frame: the
@@ -1082,16 +1445,14 @@ export class KiroExecutor extends BaseExecutor {
 
                 // Bedrock-style (`inputTokens`) and OpenAI-style
                 // (`prompt_tokens`) spellings both appear across Kiro frames.
-                const inputTokens =
-                  readNumber(
-                    (metrics as JsonRecord).inputTokens,
-                    (metrics as JsonRecord).prompt_tokens
-                  ) || 0;
-                const outputTokens =
-                  readNumber(
-                    (metrics as JsonRecord).outputTokens,
-                    (metrics as JsonRecord).completion_tokens
-                  ) || 0;
+                const inputTokens = readNumber(
+                  (metrics as JsonRecord).inputTokens,
+                  (metrics as JsonRecord).prompt_tokens
+                );
+                const outputTokens = readNumber(
+                  (metrics as JsonRecord).outputTokens,
+                  (metrics as JsonRecord).completion_tokens
+                );
 
                 const cacheReadTokens = readNumber(
                   (metrics as JsonRecord).cacheReadInputTokens,
@@ -1105,46 +1466,50 @@ export class KiroExecutor extends BaseExecutor {
                   (metrics as JsonRecord).cache_creation_input_tokens
                 );
 
-                if (inputTokens > 0 || outputTokens > 0) {
-                  state.usage = {
-                    ...state.usage,
-                    prompt_tokens: inputTokens,
-                    completion_tokens: outputTokens,
-                    total_tokens: inputTokens + outputTokens,
-                    ...((cacheReadTokens || 0) > 0 && {
-                      cache_read_input_tokens: cacheReadTokens,
-                    }),
-                    ...((cacheCreationTokens || 0) > 0 && {
-                      cache_creation_input_tokens: cacheCreationTokens,
-                    }),
-                  };
-                } else if ((cacheReadTokens || 0) > 0 || (cacheCreationTokens || 0) > 0) {
-                  // Cache counts can arrive on a frame that carries no
-                  // input/output totals. Preserve them instead of dropping the
-                  // whole frame, and let ensureKiroUsage() fill the totals from
-                  // contextUsagePercentage.
-                  state.usage = {
-                    ...(state.usage || {}),
-                    ...((cacheReadTokens || 0) > 0 && {
-                      cache_read_input_tokens: cacheReadTokens,
-                    }),
-                    ...((cacheCreationTokens || 0) > 0 && {
-                      cache_creation_input_tokens: cacheCreationTokens,
-                    }),
-                  };
+                const hasNewTotals = inputTokens !== undefined || outputTokens !== undefined;
+                const previousUsage = state.usage || {};
+                const mergedInputTokens = inputTokens ?? previousUsage.prompt_tokens;
+                const mergedOutputTokens = outputTokens ?? previousUsage.completion_tokens;
+                const usage: Partial<UsageSummary> = {
+                  ...previousUsage,
+                  ...(hasNewTotals && {
+                    prompt_tokens: mergedInputTokens ?? 0,
+                    completion_tokens: mergedOutputTokens ?? 0,
+                    total_tokens: (mergedInputTokens ?? 0) + (mergedOutputTokens ?? 0),
+                  }),
+                  ...(cacheReadTokens !== undefined && {
+                    cache_read_input_tokens: cacheReadTokens,
+                  }),
+                  ...(cacheCreationTokens !== undefined && {
+                    cache_creation_input_tokens: cacheCreationTokens,
+                  }),
+                };
+
+                if (
+                  hasNewTotals ||
+                  cacheReadTokens !== undefined ||
+                  cacheCreationTokens !== undefined
+                ) {
+                  state.usage = usage;
                 }
               }
             }
-          }
-
-          if (iterations >= maxIterations) {
-            console.warn("[Kiro] Max iterations reached in event parsing");
           }
         },
 
         flush(controller) {
           if (!flushPendingWrapperToolCalls(controller)) return;
           if (state.invalidToolCall) return;
+          if (buffer.length > 0) {
+            failKiroEventStreamProtocol(
+              controller,
+              new KiroEventStreamProtocolError(
+                "kiro_eventstream_incomplete_frame",
+                "Kiro EventStream ended with an incomplete frame"
+              )
+            );
+            return;
+          }
           // Flush any buffered tool arguments (partial-object payloads) before finishing —
           // idempotent against toolArgsEmitted if messageStopEvent already flushed them.
           flushBufferedToolArgs(state, controller, { responseId, created, model });
@@ -1197,6 +1562,16 @@ export class KiroExecutor extends BaseExecutor {
           if (!state.finishEmitted) {
             state.finishEmitted = true;
             ensureKiroUsage(state, model);
+            if (resolveKiroFinishReason(state) === "content_filter") {
+              const category = state.refusalCategory ? ` (${state.refusalCategory})` : "";
+              const errorBody = buildErrorBody(
+                400,
+                `Kiro's safety filter rejected this turn${category}. Start a new conversation or revise the request.`,
+                undefined,
+                { code: "content_filter", type: "invalid_request_error" }
+              );
+              controller.enqueue(TEXT_ENCODER.encode(`data: ${JSON.stringify(errorBody)}\n\n`));
+            }
             const finishChunk = buildKiroFinishChunk(state, responseId, created, model, true);
             controller.enqueue(TEXT_ENCODER.encode(`data: ${JSON.stringify(finishChunk)}\n\n`));
           }
@@ -1228,12 +1603,10 @@ export class KiroExecutor extends BaseExecutor {
     if (!credentials.refreshToken) return null;
 
     try {
-      // Use centralized refreshKiroToken function (handles both AWS SSO OIDC and Social Auth)
-      const result = await refreshKiroToken(
-        credentials.refreshToken,
-        credentials.providerSpecificData,
-        log
-      );
+      // Delegate to the central refresh service so reactive 401/403 recovery shares
+      // the same per-connection mutex, rotation handling, CAS guard, and atomic
+      // onCredentialsRefreshed persistence as proactive refreshes.
+      const result = await getAccessToken("kiro", credentials, log);
 
       if (!result || result.error) return result;
 

@@ -1,6 +1,7 @@
 import test, { beforeEach } from "node:test";
 import assert from "node:assert/strict";
 
+import { kiroProvider } from "../../open-sse/config/providers/registry/kiro/index.ts";
 import {
   parseKiroModels,
   resolveKiroRegion,
@@ -9,6 +10,7 @@ import {
   clearKiroModelCache,
   isObsoleteKiroModelAlias,
 } from "../../open-sse/services/kiroModels.ts";
+import { getThinkingCapabilityFields } from "../../src/app/api/v1/models/catalogHelpers.ts";
 
 const FALLBACK = [{ id: "claude-sonnet-4.5" }, { id: "deepseek-3.2" }];
 
@@ -23,6 +25,34 @@ function jsonResponse(body: unknown, status = 200): Response {
   });
 }
 
+test("static Kiro GPT-5.6 models publish native thinking capabilities", () => {
+  const modelIds = ["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"];
+  const effortTiers = ["none", "low", "medium", "high", "xhigh", "max"];
+  const models = kiroProvider.models.filter((model) => modelIds.includes(model.id));
+
+  assert.deepEqual(
+    models.map((model) => model.id),
+    modelIds
+  );
+
+  for (const model of models) {
+    assert.deepEqual(
+      getThinkingCapabilityFields(
+        "kiro",
+        model.id,
+        model.supportsReasoning,
+        model.supportedThinkingEfforts,
+        false
+      ),
+      {
+        thinking: true,
+        supportsThinking: true,
+        effort_tiers: effortTiers,
+      }
+    );
+  }
+});
+
 test("parseKiroModels reads CodeWhisperer ListAvailableModels shape", () => {
   const models = parseKiroModels({
     models: [
@@ -35,9 +65,9 @@ test("parseKiroModels reads CodeWhisperer ListAvailableModels shape", () => {
 
   assert.deepEqual(
     models.map((m) => m.id),
-    ["auto", "claude-sonnet-4.6"]
+    ["claude-sonnet-4.6"]
   );
-  assert.equal(models[1].name, "Claude Sonnet 4.6");
+  assert.equal(models[0].name, "Claude Sonnet 4.6");
   assert.equal(models[0].owned_by, "kiro");
 });
 
@@ -205,15 +235,15 @@ test("resolveKiroRegion prefers stored region, then profileArn, else us-east-1",
 
 test("buildKiroModelsEndpoints is region-matched with a us-east-1 fallback", () => {
   assert.deepEqual(buildKiroModelsEndpoints("us-east-1"), [
-    "https://q.us-east-1.amazonaws.com/ListAvailableModels",
+    "https://management.us-east-1.kiro.dev",
   ]);
   assert.deepEqual(buildKiroModelsEndpoints("eu-central-1"), [
-    "https://q.eu-central-1.amazonaws.com/ListAvailableModels",
-    "https://q.us-east-1.amazonaws.com/ListAvailableModels",
+    "https://management.eu-central-1.kiro.dev",
+    "https://management.us-east-1.kiro.dev",
   ]);
 });
 
-test("fetchKiroAvailableModels: simple (Builder ID) account, us-east-1, origin-only", async () => {
+test("fetchKiroAvailableModels: simple (Builder ID) account, us-east-1, origin KIRO_CLI", async () => {
   const calls: string[] = [];
   const fetchImpl = (async (url: string) => {
     calls.push(url);
@@ -222,16 +252,18 @@ test("fetchKiroAvailableModels: simple (Builder ID) account, us-east-1, origin-o
 
   const result = await fetchKiroAvailableModels({
     accessToken: "tok",
-    providerSpecificData: {}, // no region, no profileArn → us-east-1, origin-only
+    providerSpecificData: {}, // no region, no profileArn → us-east-1, origin KIRO_CLI
     fetchImpl,
     fallbackModels: FALLBACK,
   });
 
   assert.equal(result.source, "api");
-  assert.deepEqual(result.models.map((m) => m.id).sort(), ["auto", "claude-sonnet-4.6"]);
-  assert.deepEqual(calls, [
-    "https://q.us-east-1.amazonaws.com/ListAvailableModels?origin=AI_EDITOR",
-  ]);
+  assert.deepEqual(result.models.map((m) => m.id).sort(), ["claude-sonnet-4.6"]);
+  assert.ok(
+    calls.some((c) =>
+      c.startsWith("https://management.us-east-1.kiro.dev/?origin=KIRO_CLI&profileArn=")
+    )
+  );
 });
 
 test("fetchKiroAvailableModels: IAM Identity Center account, region-matched endpoint", async () => {
@@ -254,27 +286,28 @@ test("fetchKiroAvailableModels: IAM Identity Center account, region-matched endp
     result.models.map((m) => m.id),
     ["claude-opus-4.8"]
   );
-  assert.equal(
-    calls[0],
-    "https://q.eu-central-1.amazonaws.com/ListAvailableModels?origin=AI_EDITOR"
+  assert.ok(
+    calls.some((c) =>
+      c.startsWith("https://management.eu-central-1.kiro.dev/?origin=KIRO_CLI&profileArn=")
+    )
   );
 });
 
-test("fetchKiroAvailableModels: retries with profileArn when origin-only fails", async () => {
+test("fetchKiroAvailableModels: retries with fallback endpoint when primary fails", async () => {
   const calls: string[] = [];
   const fetchImpl = (async (url: string) => {
     calls.push(url);
-    if (url.includes("profileArn=")) {
+    if (url.includes("management.us-east-1.kiro.dev")) {
       return jsonResponse({ models: [{ modelId: "claude-sonnet-4.6" }] });
     }
-    return jsonResponse({ message: "forbidden" }, 403);
+    return jsonResponse({ message: "failed" }, 500);
   }) as unknown as typeof fetch;
 
   const result = await fetchKiroAvailableModels({
     accessToken: "tok",
     providerSpecificData: {
-      region: "us-east-1",
-      profileArn: "arn:aws:codewhisperer:us-east-1:123:profile/ABC",
+      region: "eu-central-1",
+      profileArn: "arn:aws:codewhisperer:eu-central-1:123:profile/ABC",
     },
     fetchImpl,
     fallbackModels: FALLBACK,
@@ -285,19 +318,20 @@ test("fetchKiroAvailableModels: retries with profileArn when origin-only fails",
     result.models.map((m) => m.id),
     ["claude-sonnet-4.6"]
   );
-  // origin-only attempted first, then profileArn retry.
   assert.equal(calls.length, 2);
-  assert.ok(calls[0].endsWith("?origin=AI_EDITOR"));
-  assert.ok(calls[1].includes("profileArn=arn%3Aaws%3Acodewhisperer"));
+  assert.ok(calls[0].includes("management.eu-central-1.kiro.dev"));
+  assert.ok(calls[1].includes("management.us-east-1.kiro.dev"));
 });
 
-test("fetchKiroAvailableModels only exposes a functional Thinking alias", async () => {
+test("fetchKiroAvailableModels filters fable and unusable models", async () => {
   const fetchImpl = (async () =>
     jsonResponse({
       models: [
         { modelId: "claude-sonnet-5" },
         { modelId: "claude-sonnet-4.5" },
         { modelId: "deepseek-3.2" },
+        { modelId: "gpt-5.6-sol" },
+        { modelId: "claude-fable-5" },
       ],
     })) as unknown as typeof fetch;
 
@@ -309,15 +343,19 @@ test("fetchKiroAvailableModels only exposes a functional Thinking alias", async 
 
   assert.deepEqual(
     result.models.map((model) => model.id),
-    ["claude-sonnet-5", "claude-sonnet-5-thinking", "claude-sonnet-4.5", "deepseek-3.2"]
+    ["claude-sonnet-5", "claude-sonnet-4.5", "deepseek-3.2", "gpt-5.6-sol"]
   );
 });
 
-test("isObsoleteKiroModelAlias filters stale cached aliases", () => {
+test("isObsoleteKiroModelAlias filters stale cached aliases and fable", () => {
+  assert.equal(isObsoleteKiroModelAlias("auto"), true);
   assert.equal(isObsoleteKiroModelAlias("auto-kiro"), true);
+  assert.equal(isObsoleteKiroModelAlias("claude-fable-5"), true);
+  assert.equal(isObsoleteKiroModelAlias("claude-fable-5-thinking"), true);
   assert.equal(isObsoleteKiroModelAlias("claude-sonnet-5-agentic"), true);
   assert.equal(isObsoleteKiroModelAlias("claude-sonnet-4.5-thinking"), true);
-  assert.equal(isObsoleteKiroModelAlias("claude-sonnet-5-thinking"), false);
+  assert.equal(isObsoleteKiroModelAlias("claude-sonnet-5-thinking"), true);
+  assert.equal(isObsoleteKiroModelAlias("gpt-5.6-sol-thinking"), true);
   assert.equal(isObsoleteKiroModelAlias("claude-sonnet-4.5"), false);
 });
 
@@ -330,17 +368,27 @@ test("fetchKiroAvailableModels sends auth-method headers for API key and Externa
 
   await fetchKiroAvailableModels({
     accessToken: "api-key",
-    providerSpecificData: { authMethod: "api_key", clientId: "api-client" },
+    providerSpecificData: {
+      authMethod: "api_key",
+      clientId: "api-client",
+      profileArn: "arn:test:profile",
+    },
     fetchImpl,
   });
   await fetchKiroAvailableModels({
     accessToken: "external-token",
-    providerSpecificData: { authMethod: "external_idp", clientId: "external-client" },
+    providerSpecificData: {
+      authMethod: "external_idp",
+      clientId: "external-client",
+      profileArn: "arn:test:profile",
+    },
     fetchImpl,
   });
 
   assert.equal(seen[0].get("tokentype"), "API_KEY");
+  assert.equal(seen[0].get("X-Amz-Target"), "AmazonCodeWhispererService.ListAvailableModels");
   assert.equal(seen[1].get("tokentype"), "EXTERNAL_IDP");
+  assert.equal(seen[1].get("X-Amz-Target"), "AmazonCodeWhispererService.ListAvailableModels");
 });
 
 test("fetchKiroAvailableModels: falls back to static catalog when no token", async () => {

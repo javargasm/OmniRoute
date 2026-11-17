@@ -52,7 +52,15 @@ export function computeLogsSignature(data: unknown): string {
   const arr = Array.isArray(data) ? data : [];
   return arr
     .map((l) =>
-      JSON.stringify([l.id, l.status, l.duration, l.tokens, l.usageEvidence, l.usageProvenance])
+      JSON.stringify([
+        l.id,
+        l.status,
+        l.duration,
+        l.tokens,
+        l.effectiveReasoningEffort,
+        l.usageEvidence,
+        l.usageProvenance,
+      ])
     )
     .join("|");
 }

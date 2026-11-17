@@ -133,7 +133,6 @@ import { echoModelInObject } from "../services/responseModelEcho.ts";
 import { getUnsupportedParams, REGISTRY } from "../config/providerRegistry.ts";
 
 import { checkToolCallingRequiredButUnsupported } from "./chatCore/toolCallingRequiredCheck.ts";
-import { buildExecutorClientHeaders } from "./chatCore/executorClientHeaders.ts";
 import { executeProviderRequest as executeProviderRequestLeaf } from "./chatCore/executeProviderRequest.ts";
 import { runNonStreamingResponse } from "./chatCore/nonStreamingResponse.ts";
 import {
@@ -179,7 +178,8 @@ import { recordKeyHealthStatus as recordKeyHealthStatusFor } from "./chatCore/ke
 import { getSkillsModelIdForFormat } from "./chatCore/skillsFormat.ts";
 import { isSemaphoreCapacityError, getSafeErrorMetadata } from "./chatCore/streamErrorResult.ts";
 import { buildCacheUsageLogMeta } from "./chatCore/cacheUsageMeta.ts";
-
+import { buildExecutorClientHeaders } from "./chatCore/executorClientHeaders.ts";
+import { resolveKiroSessionKey } from "../utils/kiroSessionKey.ts";
 import { resolveExecutionCredentials as resolveExecutionCredentialsFor } from "./chatCore/executionCredentials.ts";
 import { createExecutorResolver } from "./chatCore/executorProxy.ts";
 import { resolveChatExecutor } from "./chatCore/searchProviderRejection.ts";
@@ -1230,6 +1230,12 @@ async function handleChatCoreInner({
       ) as Record<string, unknown>),
       _omnirouteReasoningRule: reasoningRuleDirective,
     };
+  }
+
+  if (provider === "kiro" && resolvedThinkingEffort &&
+      body.reasoning_effort === undefined && body.reasoning === undefined &&
+      body.output_config === undefined && !reasoningRuleDirective) {
+    body = { ...body, reasoning_effort: resolvedThinkingEffort };
   }
 
   // Preserve original body for cache signature — the body variable is mutated
@@ -2462,6 +2468,9 @@ async function handleChatCoreInner({
             reasoningReplayHistory = messages;
           },
           ...(preCompressionBody ? { preCompressionBody } : {}),
+          ...(targetFormat === FORMATS.KIRO
+            ? { sessionKey: resolveKiroSessionKey(getExecutorClientHeaders(), body) ?? null }
+            : {}),
         }
       );
     }

@@ -19,11 +19,15 @@ import {
 } from "node:fs";
 import { homedir } from "node:os";
 import { join } from "node:path";
-import { CURSOR_AGENT_CLI_VERSION } from "./cursorAgentCliVersionPin.ts";
+import {
+  CURSOR_AGENT_CLI_VERSION,
+  extractVersionIdFromInstallerScript,
+  extractVersionIdFromResolvedPath,
+  isCursorAgentCliVersionId,
+} from "./cursorAgentCliVersionConstants.ts";
 
-export { CURSOR_AGENT_CLI_VERSION };
+export * from "./cursorAgentCliVersionConstants.ts";
 
-const VERSION_ID_RE = /^\d{4}\.\d{2}\.\d{2}-[0-9a-f]+$/;
 const CACHE_TTL_MS = 6 * 60 * 60 * 1000;
 const INSTALL_URL = "https://cursor.com/install";
 const REMOTE_TIMEOUT_MS = 20_000;
@@ -37,10 +41,6 @@ let remoteRefreshInFlight: Promise<string | null> | null = null;
 let fetchImpl: typeof fetch = fetch;
 /** Test seam: override disk cache directory. */
 let cacheDirOverride: string | null = null;
-
-export function isCursorAgentCliVersionId(value: string): boolean {
-  return VERSION_ID_RE.test(value);
-}
 
 /** Calendar date embedded in a `YYYY.MM.DD-<hash>` build id, or null. */
 export function cursorAgentCliVersionDate(id: string): string | null {
@@ -58,19 +58,6 @@ export function preferNewerCursorAgentCliVersion(floor: string, candidate: strin
   const candidateDate = cursorAgentCliVersionDate(candidate);
   if (!floorDate || !candidateDate || candidateDate <= floorDate) return floor;
   return candidate;
-}
-
-export function formatCursorAgentClientVersion(id: string): string {
-  return `cli-${id}`;
-}
-
-/** Extract `versions/<id>` from a resolved agent binary path. */
-export function extractVersionIdFromResolvedPath(resolvedPath: string): string | null {
-  const parts = resolvedPath.split(/[/\\]/);
-  const versionsIdx = parts.lastIndexOf("versions");
-  if (versionsIdx < 0 || versionsIdx + 1 >= parts.length) return null;
-  const id = parts[versionsIdx + 1];
-  return isCursorAgentCliVersionId(id) ? id : null;
 }
 
 export function newestVersionInDir(versionsDir: string): string | null {
@@ -146,13 +133,6 @@ function resolveCacheDir(): string {
 
 function versionCachePath(): string {
   return join(resolveCacheDir(), VERSION_CACHE_FILE);
-}
-
-export function extractVersionIdFromInstallerScript(script: string): string | null {
-  const match = script.match(/downloads\.cursor\.com\/lab\/([^/"'\s]+)\//);
-  if (!match) return null;
-  const id = match[1];
-  return isCursorAgentCliVersionId(id) ? id : null;
 }
 
 function readDiskVersionCache(): DiskVersionCache | null {

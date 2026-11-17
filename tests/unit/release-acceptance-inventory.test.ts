@@ -9,7 +9,10 @@ import {
 
 const RELEASE_SUITES = ["test:unit:ci", "test:vitest", "test:integration"];
 const baseline = JSON.parse(
-  readFileSync(new URL("../../config/quality/test-discovery-baseline.json", import.meta.url), "utf8")
+  readFileSync(
+    new URL("../../config/quality/test-discovery-baseline.json", import.meta.url),
+    "utf8"
+  )
 );
 
 test("tsx files under tests/unit are known_unexecuted for release scope, not inventory errors", () => {
@@ -33,8 +36,6 @@ test("combo-matrix glob is in release integration scope, not known_unexecuted", 
     ku.collectors.some((c) => c.glob === "tests/integration/combo-matrix/*.test.ts"),
     false
   );
-  const combo = COLLECTORS.find(
-    (c) => c.glob === "tests/integration/combo-matrix/*.test.ts"
-  );
+  const combo = COLLECTORS.find((c) => c.glob === "tests/integration/combo-matrix/*.test.ts");
   assert.ok(combo);
 });

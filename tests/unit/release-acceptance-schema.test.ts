@@ -30,10 +30,7 @@ test("version 1 requires cause when status is classified by a prerequisite", () 
 test("unknown top-level gate field is invalid in version 1", () => {
   const validate = compile();
   const extra = JSON.parse(
-    readFileSync(
-      new URL("../fixtures/release-acceptance/verified.json", import.meta.url),
-      "utf8"
-    )
+    readFileSync(new URL("../fixtures/release-acceptance/verified.json", import.meta.url), "utf8")
   );
   extra.gates[0].unexpected = true;
   assert.equal(validate(extra), false);
@@ -87,10 +84,7 @@ test("empty required_gates is valid when UNVERIFIED", () => {
 test("unknown extensions field is invalid in version 1", () => {
   const validate = compile();
   const extra = JSON.parse(
-    readFileSync(
-      new URL("../fixtures/release-acceptance/verified.json", import.meta.url),
-      "utf8"
-    )
+    readFileSync(new URL("../fixtures/release-acceptance/verified.json", import.meta.url), "utf8")
   );
   extra.gates[0].extensions = { unexpected: true };
   assert.equal(validate(extra), false);

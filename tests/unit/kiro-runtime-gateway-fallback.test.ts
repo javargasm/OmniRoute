@@ -38,10 +38,7 @@ test("KiroExecutor.execute tries runtime.us-east-1.kiro.dev before the regional 
     });
 
     assert.equal(calledUrls.length, 1);
-    assert.match(
-      calledUrls[0],
-      /^https:\/\/runtime\.us-east-1\.kiro\.dev\/generateAssistantResponse/
-    );
+    assert.equal(calledUrls[0], "https://runtime.us-east-1.kiro.dev");
   } finally {
     globalThis.fetch = originalFetch;
   }

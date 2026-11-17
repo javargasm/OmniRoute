@@ -123,10 +123,11 @@ function handleHttp(req: http.IncomingMessage, res: http.ServerResponse): void {
       intercepted.requestBody = body.length > 0 ? maskSecret(body.toString("utf8")) : null;
 
       const upstreamHeaders = buildFetchHeaders(req.headers);
+      const requestBody = body.length > 0 ? Uint8Array.from(body) : undefined;
       const upstream = await fetch(target.toString(), {
         method: req.method ?? "GET",
         headers: upstreamHeaders,
-        body: body.length > 0 ? body : undefined,
+        body: requestBody,
         redirect: "manual",
       });
 

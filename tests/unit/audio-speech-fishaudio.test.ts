@@ -118,7 +118,6 @@ test("handleAudioSpeech requires credentials for Fish Audio", async () => {
   assert.equal(payload.error.message, "No credentials for speech provider: fishaudio");
 });
 
-
 test("handleAudioSpeech rejects invalid Fish provider options before fetch", async () => {
   const originalFetch = globalThis.fetch;
   let called = false;

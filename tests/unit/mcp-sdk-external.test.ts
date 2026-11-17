@@ -20,6 +20,6 @@ test("next.config keeps @modelcontextprotocol/sdk out of the server bundle", () 
   assert.ok(externalBlock, "serverExternalPackages block must exist");
   assert.ok(
     /["']@modelcontextprotocol[/]sdk["']/.test(externalBlock[1]),
-    "serverExternalPackages must externalize @modelcontextprotocol/sdk",
+    "serverExternalPackages must externalize @modelcontextprotocol/sdk"
   );
 });

@@ -12,11 +12,21 @@
  * `reasoning.effort` shape, not this Claude adaptive envelope.
  */
 const KIRO_ADAPTIVE_THINKING_MODELS = new Set([
-  "claude-opus-5",
-  "claude-opus-5.5",
   "claude-sonnet-5",
+  "claude-opus-5",
+  "claude-opus-4.8",
+  "claude-opus-4.7",
+  "claude-opus-4.6",
+  "claude-sonnet-4.6",
+  "claude-opus-5.5",
 ]);
 const KIRO_NATIVE_REASONING_MODELS = new Set(["gpt-5.6-sol", "gpt-5.6-terra", "gpt-5.6-luna"]);
+const KIRO_PROMPT_THINKING_MODELS = new Set([
+  "claude-sonnet-4.5",
+  "claude-opus-4.5",
+  "claude-haiku-4.5",
+  "claude-sonnet-4",
+]);
 
 export function supportsKiroAdaptiveThinking(normalizedModel: string): boolean {
   return KIRO_ADAPTIVE_THINKING_MODELS.has(normalizedModel);
@@ -24,6 +34,10 @@ export function supportsKiroAdaptiveThinking(normalizedModel: string): boolean {
 
 export function supportsKiroNativeReasoning(normalizedModel: string): boolean {
   return KIRO_NATIVE_REASONING_MODELS.has(normalizedModel);
+}
+
+export function supportsKiroPromptThinking(normalizedModel: string): boolean {
+  return KIRO_PROMPT_THINKING_MODELS.has(normalizedModel);
 }
 
 const KIRO_UNSUPPORTED_AGENTIC_MESSAGE =
@@ -35,11 +49,41 @@ const KIRO_UNSUPPORTED_THINKING_MESSAGE =
 const KIRO_REMOVED_AUTO_ALIAS_MESSAGE =
   "'auto-kiro' is not a real Kiro upstream model. Select a model returned by the live catalog.";
 
-export function resolveKiroModelAlias(model: unknown): { upstream: string; thinking: boolean } {
+const KIRO_NATIVE_EFFORT_TIERS = ["none", "low", "medium", "high", "xhigh", "max"] as const;
+
+export function resolveKiroModelAlias(model: unknown): {
+  upstream: string;
+  thinking: boolean;
+  effort?: string;
+} {
   // Fold case: Kiro ids are lowercase, clients may send MiniMax-M2.5 or Claude-Sonnet-4-5.
-  let upstream = String(model || "").toLowerCase();
+  let upstream = String(model || "")
+    .toLowerCase()
+    .replace(/^(?:kr|kiro)\//, "");
   if (upstream.endsWith("-agentic")) throw new Error(KIRO_UNSUPPORTED_AGENTIC_MESSAGE);
   if (upstream === "auto-kiro") throw new Error(KIRO_REMOVED_AUTO_ALIAS_MESSAGE);
+
+  let effort: string | undefined;
+  for (const tier of KIRO_NATIVE_EFFORT_TIERS) {
+    const suffix = `-${tier}`;
+    if (upstream.length > suffix.length && upstream.endsWith(suffix)) {
+      const candidateBase = upstream.slice(0, -suffix.length);
+      const testBase = candidateBase.endsWith("-thinking")
+        ? candidateBase.slice(0, -"-thinking".length)
+        : candidateBase;
+      const normalizedTestBase = testBase
+        .replace(/^(claude-(?:opus|sonnet|haiku|3-\d+)-\d+)-(\d{1,2})$/, "$1.$2")
+        .replace(/^(gpt-\d+)-(\d+)/, "$1.$2");
+      if (
+        supportsKiroNativeReasoning(normalizedTestBase) ||
+        supportsKiroAdaptiveThinking(normalizedTestBase)
+      ) {
+        effort = tier;
+        upstream = candidateBase;
+        break;
+      }
+    }
+  }
 
   const thinking = upstream.endsWith("-thinking");
   if (thinking) upstream = upstream.slice(0, -"-thinking".length);
@@ -47,9 +91,14 @@ export function resolveKiroModelAlias(model: unknown): { upstream: string; think
   // Claude ids only: another model's id can end in eight digits that belong to its name.
   if (upstream.startsWith("claude-")) upstream = upstream.replace(/-\d{8}$/, "");
   upstream = upstream.replace(/^(claude-(?:opus|sonnet|haiku|3-\d+)-\d+)-(\d{1,2})$/, "$1.$2");
+  upstream = upstream.replace(/^(gpt-\d+)-(\d+)/, "$1.$2");
 
-  if (thinking && !supportsKiroAdaptiveThinking(upstream)) {
+  if (
+    thinking &&
+    !supportsKiroAdaptiveThinking(upstream) &&
+    !supportsKiroNativeReasoning(upstream)
+  ) {
     throw new Error(KIRO_UNSUPPORTED_THINKING_MESSAGE);
   }
-  return { upstream, thinking };
+  return { upstream, thinking, ...(effort ? { effort } : {}) };
 }

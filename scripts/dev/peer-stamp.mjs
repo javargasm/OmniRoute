@@ -313,6 +313,59 @@ export function resolveClientIp(headers, peerIp) {
   return normalizeIp(String(headers["x-real-ip"] || "").split(",")[0]) || peer;
 }
 
+const LOGIN_CLIENT_IP_HEADER = "x-omniroute-login-client-ip";
+/** Canonical plain addresses only; ports and zone IDs are not identities. */
+function canonicalLoginIp(value) {
+  if (typeof value !== "string") return null;
+  const ip = value.trim();
+  if (!isIP(ip) || ip.includes("%")) return null;
+  if (isIPv4(ip)) return ip;
+  const canonical = new URL(`http://[${ip}]/`).hostname.slice(1, -1);
+  if (/^::ffff:[0-9a-f]{1,4}:[0-9a-f]{1,4}$/.test(canonical)) {
+    const parts = canonical.slice(7).split(":");
+    const n = parseInt(parts[0], 16) * 65536 + parseInt(parts[1], 16);
+    return [n >>> 24, (n >>> 16) & 255, (n >>> 8) & 255, n & 255].join(".");
+  }
+  return canonical;
+}
+function isConfiguredLoginProxy(ip) {
+  return (process.env.OMNIROUTE_TRUSTED_PROXIES || "").split(",").some((part) => {
+    const fields = part.trim().split("/");
+    if (fields.length > 2) return false;
+    const address = canonicalLoginIp(fields[0]);
+    if (!address || isIP(address) !== isIP(ip)) return false;
+    const max = isIPv4(address) ? 32 : 128;
+    if (fields.length === 2 && !/^(0|[1-9][0-9]{0,2})$/.test(fields[1])) return false;
+    const bits = fields.length === 2 ? Number(fields[1]) : max;
+    if (bits > max) return false;
+    const cidr = `${address}/${bits}`;
+    return isIPv4(ip) ? matchesIPv4Cidr(ip, cidr) : matchesIPv6Cidr(ip, cidr);
+  });
+}
+
+/** Only explicitly configured proxies may supply a login identity. */
+function resolveLoginClientIp(headers, peerIp) {
+  const peer = canonicalLoginIp(peerIp);
+  if (!peer || !isConfiguredLoginProxy(peer)) return peer;
+  const forwarded = headers["x-forwarded-for"];
+  if (forwarded === undefined) return canonicalLoginIp(headers["x-real-ip"]) || peer;
+  if (typeof forwarded !== "string") return "invalid";
+  let current = peer;
+  let end = forwarded.length;
+  let inspected = 0;
+  // Stop before inspecting attacker-controlled prefixes.
+  while (end >= 0) {
+    if (!isConfiguredLoginProxy(current)) return current;
+    if (inspected++ >= 64) return "invalid";
+    const separator = forwarded.lastIndexOf(",", end - 1);
+    const hop = canonicalLoginIp(forwarded.slice(separator + 1, end));
+    if (!hop) return "invalid";
+    current = hop;
+    if (separator < 0) break;
+    end = separator;
+  }
+  return current;
+}
 /** Strip any client-supplied PEER_IP_HEADER, VIA_PROXY_HEADER and CLIENT_IP_HEADER and stamp
  *  the real TCP peer IP, a token-protected via-proxy marker and the client address to judge.
  *  Never throws — a stamping failure must not block a request (it degrades to "locality
@@ -324,9 +377,12 @@ export function stampPeerIp(req) {
     delete req.headers[PEER_IP_HEADER];
     delete req.headers[VIA_PROXY_HEADER];
     delete req.headers[CLIENT_IP_HEADER];
+    delete req.headers[LOGIN_CLIENT_IP_HEADER];
     const ip = req.socket && req.socket.remoteAddress;
     if (ip) {
       const token = ensurePeerStampToken();
+      const loginClient = resolveLoginClientIp(req.headers, ip);
+      if (loginClient) req.headers[LOGIN_CLIENT_IP_HEADER] = `${token}|${loginClient}`;
       req.headers[PEER_IP_HEADER] = `${token}|${ip}`;
       // Forwarding headers present = request arrived via a reverse proxy; the
       // loopback socket is the proxy hop, not the end-user, so it must not be

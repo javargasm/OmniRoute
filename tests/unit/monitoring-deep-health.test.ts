@@ -4,9 +4,7 @@ import { probeDeepHealth, DEEP_HEALTH_VERDICT_TTL_MS } from "@/lib/monitoring/ob
 
 function stubFetcher(status: number, delayMs = 0): () => Promise<Response> {
   return async () =>
-    new Promise((resolve) =>
-      setTimeout(() => resolve(new Response("{}", { status })), delayMs)
-    );
+    new Promise((resolve) => setTimeout(() => resolve(new Response("{}", { status })), delayMs));
 }
 
 describe("probeDeepHealth — fail-open verdict, failover only on 502/503", () => {
@@ -87,9 +85,8 @@ describe("probeDeepHealth — fail-open verdict, failover only on 502/503", () =
 
 describe("route gating — the probe never fires unless opted-in and authenticated", () => {
   it("anonymous callers never trigger a probe even with ?deep=1", async () => {
-    const { GET, __test_resetMonitoringHealthPayloadCache } = await import(
-      "@/app/api/monitoring/health/route.js"
-    );
+    const { GET, __test_resetMonitoringHealthPayloadCache } =
+      await import("@/app/api/monitoring/health/route.js");
     __test_resetMonitoringHealthPayloadCache();
     const res = (await GET(
       new Request("http://localhost/api/monitoring/health?deep=1")
@@ -101,13 +98,10 @@ describe("route gating — the probe never fires unless opted-in and authenticat
   it("opt-in off + ?deep=1 as management caller → no probe, no deepHealth", async () => {
     delete process.env.DEEP_HEALTH_CHECK_ENABLED;
     const { makeManagementSessionRequest } = await import("../helpers/managementSession.ts");
-    const { GET, __test_resetMonitoringHealthPayloadCache } = await import(
-      "@/app/api/monitoring/health/route.js"
-    );
+    const { GET, __test_resetMonitoringHealthPayloadCache } =
+      await import("@/app/api/monitoring/health/route.js");
     __test_resetMonitoringHealthPayloadCache();
-    const req = await makeManagementSessionRequest(
-      "http://localhost/api/monitoring/health?deep=1"
-    );
+    const req = await makeManagementSessionRequest("http://localhost/api/monitoring/health?deep=1");
     const res = (await GET(req as never)) as Response;
     const body = (await res.json()) as Record<string, unknown>;
     assert.ok(!("deepHealth" in body), "flag off must stay inert even when authenticated");
@@ -133,10 +127,10 @@ describe("route gating — the probe never fires unless opted-in and authenticat
       route.__test_seedDeepHealthVerdict(seed);
       const url = "http://localhost/api/monitoring/health?deep=1";
       const first = (await (
-        await route.GET(((await makeManagementSessionRequest(url)) as unknown) as never)
+        await route.GET((await makeManagementSessionRequest(url)) as unknown as never)
       ).json()) as Record<string, unknown>;
       const second = (await (
-        await route.GET(((await makeManagementSessionRequest(url)) as unknown) as never)
+        await route.GET((await makeManagementSessionRequest(url)) as unknown as never)
       ).json()) as Record<string, unknown>;
       assert.deepEqual(first["deepHealth"], seed, "1st call serves the cached verdict");
       assert.deepEqual(second["deepHealth"], seed, "2nd call serves the same cached verdict");

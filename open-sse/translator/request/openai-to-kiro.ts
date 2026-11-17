@@ -5,16 +5,22 @@
 import { register } from "../registry.ts";
 import { FORMATS } from "../formats.ts";
 import { v4 as uuidv4, v5 as uuidv5 } from "uuid";
+import { clampKiroEffort, getKiroModelCapabilities } from "../../services/kiroModelCapabilities.ts";
 import { capMaxOutputTokens, capThinkingBudget } from "@/lib/modelCapabilities";
 import {
   parseToolInput,
   normalizeKiroToolSchema,
   serializeToolResultContent,
+  toKiroToolUseId,
+  KIRO_PLACEHOLDER_TOOL,
+  historyHasToolBlocks,
+  resolveKiroAssistantMessageId,
 } from "./openai-to-kiro/messageHelpers.ts";
 import {
   resolveKiroModelAlias,
   supportsKiroAdaptiveThinking,
   supportsKiroNativeReasoning,
+  supportsKiroPromptThinking,
 } from "./openai-to-kiro/adaptiveThinking.ts";
 
 /**
@@ -49,6 +55,153 @@ function wrapSystemReminder(text: string): string {
 
 /** Kiro rejects a `toolSpecification.description` longer than ~10000 chars. */
 const KIRO_TOOL_DESC_MAX = 10000;
+
+/** Kiro accepts at most four image attachments on one emitted user message. */
+const KIRO_MAX_IMAGES = 4;
+
+/** Kiro's per-image decoded-size ceiling, in bytes. */
+const KIRO_MAX_IMAGE_BYTES = 3_750_000;
+
+const KIRO_IMAGE_FORMATS = new Set(["png", "jpeg", "gif", "webp"]);
+
+type KiroImageCandidate = { mimeType: string; data: string };
+type KiroImage = { format: string; source: { bytes: string } };
+type KiroReplayReasoning =
+  { reasoningText: { text: string; signature: string } } | { redactedContent: string };
+
+function asKiroRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === "object" && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function firstNonEmptyString(...values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === "string" && value.length > 0) return value;
+  }
+  return null;
+}
+
+function redactedKiroReasoning(value: Record<string, unknown>): string | null {
+  if (typeof value.redactedContent === "string") return value.redactedContent;
+  if (typeof value.redacted_content === "string") return value.redacted_content;
+  return null;
+}
+
+/**
+ * Preserve only authentic replayable Kiro reasoning. Bedrock rejects plain
+ * reasoning text without its original signature, so unsigned OpenAI-style
+ * `reasoning_content` deliberately remains omitted. Opaque redacted reasoning
+ * is replayed verbatim and takes precedence over any visible reasoning text.
+ */
+function extractKiroReplayReasoning(message: Record<string, unknown>): KiroReplayReasoning | null {
+  const directReasoning = asKiroRecord(message.reasoningContent);
+  const contentBlocks = Array.isArray(message.content) ? message.content : [];
+
+  const directRedaction =
+    redactedKiroReasoning(message) ??
+    (directReasoning ? redactedKiroReasoning(directReasoning) : null);
+  if (directRedaction !== null) return { redactedContent: directRedaction };
+
+  for (const rawBlock of contentBlocks) {
+    const block = asKiroRecord(rawBlock);
+    if (!block) continue;
+    const redaction = redactedKiroReasoning(block);
+    if (redaction !== null) return { redactedContent: redaction };
+    if (block.type === "redacted_thinking" && typeof block.data === "string") {
+      return { redactedContent: block.data };
+    }
+  }
+
+  const directReasoningText = directReasoning ? asKiroRecord(directReasoning.reasoningText) : null;
+  const topLevelReasoningText = asKiroRecord(message.reasoningText);
+  const directText = firstNonEmptyString(
+    directReasoningText?.text,
+    directReasoning?.text,
+    typeof directReasoning?.reasoningText === "string" ? directReasoning.reasoningText : null,
+    topLevelReasoningText?.text,
+    typeof message.reasoningText === "string" ? message.reasoningText : null,
+    typeof message.reasoningContent === "string" ? message.reasoningContent : null,
+    message.reasoning_content
+  );
+  const directSignature = firstNonEmptyString(
+    directReasoningText?.signature,
+    directReasoning?.signature,
+    topLevelReasoningText?.signature,
+    message.signature,
+    message.thinkingSignature
+  );
+  if (directText && directSignature) {
+    return { reasoningText: { text: directText, signature: directSignature } };
+  }
+
+  let thinkingText = "";
+  let thinkingSignature = "";
+  for (const rawBlock of contentBlocks) {
+    const block = asKiroRecord(rawBlock);
+    if (!block || (block.type !== "thinking" && block.type !== "reasoning")) continue;
+    const text = firstNonEmptyString(
+      block.thinking,
+      block.reasoningContent,
+      block.reasoning_content,
+      block.text
+    );
+    if (text) thinkingText += text;
+    const signature = firstNonEmptyString(block.thinkingSignature, block.signature);
+    if (signature) thinkingSignature = signature;
+  }
+
+  return thinkingText && thinkingSignature
+    ? { reasoningText: { text: thinkingText, signature: thinkingSignature } }
+    : null;
+}
+
+function normalizeKiroImageFormat(mimeType: string): string | null {
+  const [primaryType, subtypeAndParameters] = mimeType.trim().toLowerCase().split("/", 2);
+  if (primaryType !== "image") return null;
+
+  const subtype = (subtypeAndParameters || "").split(";")[0]!.trim();
+  const base = subtype.replace(/\+.*$/, "").replace(/^vnd\./, "");
+  const canonical = base === "jpg" ? "jpeg" : base;
+  return KIRO_IMAGE_FORMATS.has(canonical) ? canonical : null;
+}
+
+function extractKiroDataUrlImage(url: string): KiroImageCandidate | null {
+  if (!url.startsWith("data:")) return null;
+  const [header, data] = url.split(",", 2);
+  if (!header || !data) return null;
+  const [, ...parameters] = header.split(";");
+  if (!parameters.some((parameter) => parameter.trim().toLowerCase() === "base64")) {
+    return null;
+  }
+
+  return {
+    mimeType: header.split(";", 1)[0]!.replace("data:", "").trim(),
+    data,
+  };
+}
+
+/**
+ * Convert image candidates into Kiro's wire shape at the emitted-message
+ * boundary. This keeps the limit across all input blocks merged into one Kiro
+ * user turn; invalid, oversized, and fifth-plus images are silently omitted.
+ * The estimate intentionally mirrors Kiro's reference client rather than
+ * decoding/validating base64 here.
+ */
+function convertKiroImages(candidates: KiroImageCandidate[]): KiroImage[] {
+  const images: KiroImage[] = [];
+
+  for (const candidate of candidates) {
+    const estimatedBytes = Math.ceil((candidate.data.length * 3) / 4);
+    if (estimatedBytes > KIRO_MAX_IMAGE_BYTES || images.length >= KIRO_MAX_IMAGES) continue;
+
+    const format = normalizeKiroImageFormat(candidate.mimeType);
+    if (!format) continue;
+    images.push({ format, source: { bytes: candidate.data } });
+  }
+
+  return images;
+}
 
 /** OpenAI- and Anthropic-shaped tool declarations, as clients actually send them. */
 type KiroToolInput = {
@@ -178,8 +331,12 @@ function convertMessages(messages, tools, model) {
   // batch. They are held back so the batch stays contiguous, then emitted as
   // their own assistant turn right after the batch flushes — see
   // `interruptsOpenToolBatch` below (issue #8903).
+  const KIRO_ORIGIN = process.env.KIRO_ORIGIN || "KIRO_CLI";
+  let lastAssistantMsg: Record<string, unknown> | null = null;
   let deferredAssistantContent: string[] = [];
-  let pendingImages: Array<{ format: string; source: { bytes: string } }> = [];
+  let pendingImages: KiroImageCandidate[] = [];
+  let pendingAssistantReasoning: KiroReplayReasoning | null = null;
+  let pendingAssistantSource: Record<string, unknown> | null = null;
   let currentRole = null;
   let toolsAttached = false;
   let toolDocs = "";
@@ -206,7 +363,8 @@ function convertMessages(messages, tools, model) {
       // "(empty)" injected as if the user had typed it, which can confuse Kiro.
       // See decolua/9router#2183 for the same bug class.
       const text = pendingUserContent.join("\n\n").trim();
-      const hasContext = pendingToolResults.length > 0 || pendingImages.length > 0;
+      const images = convertKiroImages(pendingImages);
+      const hasContext = pendingToolResults.length > 0 || images.length > 0;
       const content = text || (hasContext ? "" : "(empty)");
       const userMsg: {
         userInputMessage: {
@@ -223,7 +381,7 @@ function convertMessages(messages, tools, model) {
         userInputMessage: {
           content: content,
           modelId: "",
-          origin: "AI_EDITOR",
+          origin: KIRO_ORIGIN,
         },
       };
 
@@ -234,8 +392,8 @@ function convertMessages(messages, tools, model) {
       }
 
       // Attach images to userInputMessage (NOT userInputMessageContext)
-      if (pendingImages.length > 0) {
-        userMsg.userInputMessage.images = pendingImages;
+      if (images.length > 0) {
+        userMsg.userInputMessage.images = images;
       }
 
       // Add tools to the first emitted user turn. We track a flag instead of
@@ -267,28 +425,53 @@ function convertMessages(messages, tools, model) {
       // Without this the deferred text would sit in a queue nothing drains and
       // be silently dropped from the transcript.
       if (deferredAssistantContent.length > 0) {
+        const deferredContent = deferredAssistantContent.join("\n\n").trim() || "(empty)";
         history.push({
           assistantResponseMessage: {
-            content: deferredAssistantContent.join("\n\n").trim() || "(empty)",
+            content: deferredContent,
+            messageId: resolveKiroAssistantMessageId(
+              lastAssistantMsg || { content: deferredContent },
+              history.length
+            ),
           },
         });
         deferredAssistantContent = [];
       }
     } else if (currentRole === "assistant") {
-      const content = pendingAssistantContent.join("\n\n").trim() || "(empty)";
-      const assistantMsg = {
+      const content =
+        pendingAssistantContent.join("\n\n").trim() || (pendingAssistantReasoning ? "" : "(empty)");
+      const assistantMsg: {
+        assistantResponseMessage: {
+          content: string;
+          messageId: string;
+          toolUses?: Array<Record<string, unknown>>;
+          reasoningContent?: KiroReplayReasoning;
+        };
+      } = {
         assistantResponseMessage: {
           content: content,
+          messageId: resolveKiroAssistantMessageId(
+            pendingAssistantSource || lastAssistantMsg || { content },
+            history.length
+          ),
+          ...(pendingAssistantReasoning ? { reasoningContent: pendingAssistantReasoning } : {}),
         },
       };
       history.push(assistantMsg);
       pendingAssistantContent = [];
+      pendingAssistantReasoning = null;
+      pendingAssistantSource = null;
     }
   };
 
   for (let i = 0; i < messages.length; i++) {
     const msg = messages[i];
     let role = msg.role;
+    const replayReasoning =
+      role === "assistant" ? extractKiroReplayReasoning(msg as Record<string, unknown>) : null;
+    if (role === "assistant") {
+      lastAssistantMsg = msg as Record<string, unknown>;
+    }
 
     // Normalize: system/tool -> user
     if (role === "system" || role === "tool") {
@@ -312,6 +495,7 @@ function convertMessages(messages, tools, model) {
     // deferred and its text lost. Only a genuine sandwich qualifies.
     const isTextOnlyAssistant =
       msg.role === "assistant" &&
+      !replayReasoning &&
       (!msg.tool_calls || msg.tool_calls.length === 0) &&
       !(Array.isArray(msg.content) && msg.content.some((c) => c.type === "tool_use"));
     const interruptsOpenToolBatch =
@@ -350,6 +534,14 @@ function convertMessages(messages, tools, model) {
       currentRole = null;
     }
 
+    // Reasoning replay is bound to one assistant messageId. Keep adjacent
+    // assistant turns separate whenever either carries it instead of merging
+    // their text/tool calls and severing that linkage.
+    if (currentRole === "assistant" && (pendingAssistantReasoning || replayReasoning)) {
+      flushPending();
+      currentRole = null;
+    }
+
     if (role !== currentRole && currentRole !== null) {
       flushPending();
     }
@@ -370,26 +562,17 @@ function convertMessages(messages, tools, model) {
         for (const block of msg.content) {
           if (supportsImages && block.type === "image_url") {
             const url: string = block.image_url?.url || "";
-            if (url.startsWith("data:")) {
-              // data:image/jpeg;base64,<data>
-              const [header, bytes] = url.split(",", 2);
-              const mediaType = header.split(";")[0].replace("data:", ""); // e.g. "image/jpeg"
-              const format = mediaType.split("/")[1] || "jpeg";
-              if (bytes) pendingImages.push({ format, source: { bytes } });
-            }
+            const image = extractKiroDataUrlImage(url);
+            if (image) pendingImages.push(image);
           } else if (supportsImages && block.type === "image" && block.source?.type === "base64") {
-            const format = (block.source.media_type || "image/jpeg").split("/")[1] || "jpeg";
-            if (block.source.data)
-              pendingImages.push({ format, source: { bytes: block.source.data } });
+            const data = typeof block.source.data === "string" ? block.source.data : "";
+            const mimeType =
+              typeof block.source.media_type === "string" ? block.source.media_type : "image/jpeg";
+            if (data) pendingImages.push({ mimeType, data });
           } else if (supportsImages && block.type === "image" && typeof block.image === "string") {
             // AI SDK-style image part: { type: "image", image: "data:...;base64,..." } (#1330)
-            const url = block.image;
-            if (url.startsWith("data:")) {
-              const [header, bytes] = url.split(",", 2);
-              const mediaType = header.split(";")[0].replace("data:", "");
-              const format = mediaType.split("/")[1] || "jpeg";
-              if (bytes) pendingImages.push({ format, source: { bytes } });
-            }
+            const image = extractKiroDataUrlImage(block.image);
+            if (image) pendingImages.push(image);
           }
         }
 
@@ -399,7 +582,7 @@ function convertMessages(messages, tools, model) {
           toolResultBlocks.forEach((block) => {
             const text = serializeToolResultContent(block.content);
             pendingToolResults.push({
-              toolUseId: block.tool_use_id,
+              toolUseId: toKiroToolUseId(block.tool_use_id),
               status: block.is_error ? "error" : "success",
               content: [{ text: text }],
             });
@@ -415,7 +598,7 @@ function convertMessages(messages, tools, model) {
         // — the same failure mode that hit the Anthropic tool_result path (issue #2446).
         const toolContent = serializeToolResultContent(msg.content);
         pendingToolResults.push({
-          toolUseId: msg.tool_call_id,
+          toolUseId: toKiroToolUseId(msg.tool_call_id),
           status: "success",
           content: [{ text: toolContent }],
         });
@@ -430,6 +613,14 @@ function convertMessages(messages, tools, model) {
       // Extract text content and tool uses
       let textContent = "";
       let toolUses = [];
+
+      // Consecutive ordinary assistant messages are merged, retaining the
+      // historic last-message ID behavior. A reasoning-bearing turn is flushed
+      // before this branch, so its source cannot be replaced by the next turn.
+      if (!pendingAssistantSource || !pendingAssistantReasoning) {
+        pendingAssistantSource = msg as Record<string, unknown>;
+      }
+      if (replayReasoning) pendingAssistantReasoning = replayReasoning;
 
       if (Array.isArray(msg.content)) {
         const textBlocks = msg.content.filter((c) => c.type === "text");
@@ -469,14 +660,14 @@ function convertMessages(messages, tools, model) {
               const stableId =
                 tc.id || uuidv5(`${tc.function.name}:${idx}`, NAMESPACE_KIRO_TOOLUSE);
               return {
-                toolUseId: stableId,
+                toolUseId: toKiroToolUseId(stableId),
                 name: tc.function.name,
                 input: parseToolInput(tc.function.arguments),
               };
             } else {
               const stableId = tc.id || uuidv5(`${tc.name}:${idx}`, NAMESPACE_KIRO_TOOLUSE);
               return {
-                toolUseId: stableId,
+                toolUseId: toKiroToolUseId(stableId),
                 name: tc.name,
                 input: parseToolInput(tc.input),
               };
@@ -547,6 +738,18 @@ function convertMessages(messages, tools, model) {
     toolsAttached = true;
   }
 
+  // If no tools were attached to currentMessage, but history contains tool calls/results,
+  // Bedrock will reject the request with TOOL_CONFIG_MISSING. Attach a placeholder tool.
+  if (!toolsAttached && historyHasToolBlocks(history) && currentMessage?.userInputMessage) {
+    if (!currentMessage.userInputMessage.userInputMessageContext) {
+      currentMessage.userInputMessage.userInputMessageContext = {};
+    }
+    if (!currentMessage.userInputMessage.userInputMessageContext.tools) {
+      currentMessage.userInputMessage.userInputMessageContext.tools = [KIRO_PLACEHOLDER_TOOL];
+      toolsAttached = true;
+    }
+  }
+
   // The relocated doc text is only safe to leave in `toolDocs` (which
   // `buildKiroPayload()` unconditionally prepends onto `currentMessage`) when
   // the turn that originally carried it IS `currentMessage` — true for a
@@ -566,6 +769,12 @@ function convertMessages(messages, tools, model) {
 
   // Clean up history for Kiro API compatibility
   history.forEach((item) => {
+    // Kiro accepts images only on currentMessage; replaying them in history
+    // returns IMAGE_FORMAT_UNSUPPORTED even when the bytes match the format.
+    if (item.userInputMessage?.images) {
+      delete item.userInputMessage.images;
+    }
+
     if (item.userInputMessage?.userInputMessageContext?.tools) {
       delete item.userInputMessage.userInputMessageContext.tools;
     }
@@ -583,7 +792,7 @@ function convertMessages(messages, tools, model) {
 
     // Kiro API requires `origin` on every userInputMessage
     if (item.userInputMessage && !item.userInputMessage.origin) {
-      item.userInputMessage.origin = "AI_EDITOR";
+      item.userInputMessage.origin = KIRO_ORIGIN;
     }
   });
 
@@ -625,7 +834,12 @@ function convertMessages(messages, tools, model) {
 
         previous.userInputMessage.userInputMessageContext = mergedContext;
       }
-    } else if (item.assistantResponseMessage && previous?.assistantResponseMessage) {
+    } else if (
+      item.assistantResponseMessage &&
+      previous?.assistantResponseMessage &&
+      !item.assistantResponseMessage.reasoningContent &&
+      !previous.assistantResponseMessage.reasoningContent
+    ) {
       // Kiro API also rejects consecutive assistant messages. Merge them.
       const previousContent = previous.assistantResponseMessage.content || "";
       const currentContent = item.assistantResponseMessage.content || "";
@@ -652,7 +866,7 @@ function convertMessages(messages, tools, model) {
       userInputMessage: {
         content: "(empty)",
         modelId: model,
-        origin: "AI_EDITOR",
+        origin: KIRO_ORIGIN,
       },
     };
     // Mark as synthetic (non-enumerable so it doesn't leak to upstream JSON)
@@ -747,16 +961,15 @@ function convertMessages(messages, tools, model) {
   const answeredToolUseIds = new Set<string>();
   for (const item of mergedHistory) {
     const toolResults = item.userInputMessage?.userInputMessageContext?.toolResults as
-      | Array<{ toolUseId?: string }>
-      | undefined;
+      Array<{ toolUseId?: string }> | undefined;
     if (Array.isArray(toolResults)) {
       for (const result of toolResults) {
         if (result?.toolUseId) answeredToolUseIds.add(result.toolUseId);
       }
     }
   }
-  const currentToolResultsForOrphanCheck = currentMessage?.userInputMessage
-    ?.userInputMessageContext?.toolResults as Array<{ toolUseId?: string }> | undefined;
+  const currentToolResultsForOrphanCheck = currentMessage?.userInputMessage?.userInputMessageContext
+    ?.toolResults as Array<{ toolUseId?: string }> | undefined;
   if (Array.isArray(currentToolResultsForOrphanCheck)) {
     for (const result of currentToolResultsForOrphanCheck) {
       if (result?.toolUseId) answeredToolUseIds.add(result.toolUseId);
@@ -764,8 +977,7 @@ function convertMessages(messages, tools, model) {
   }
   for (const item of mergedHistory) {
     const toolUses = item.assistantResponseMessage?.toolUses as
-      | Array<{ toolUseId?: string }>
-      | undefined;
+      Array<{ toolUseId?: string }> | undefined;
     if (!Array.isArray(toolUses)) continue;
     const filtered = toolUses.filter(
       (use) => use?.toolUseId && answeredToolUseIds.has(use.toolUseId)
@@ -802,7 +1014,7 @@ function convertMessages(messages, tools, model) {
 }
 
 /** Kiro's accepted reasoning-effort levels (`output_config.effort`). */
-const KIRO_EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"];
+const KIRO_EFFORT_LEVELS = ["none", "low", "medium", "high", "xhigh", "max"];
 
 /**
  * Resolve the Kiro effort level for a request, or "" when no reasoning was asked
@@ -816,7 +1028,18 @@ const KIRO_EFFORT_LEVELS = ["low", "medium", "high", "xhigh", "max"];
  * OpenAI's `minimal` collapses to `low` (Kiro has no `minimal`).
  */
 function resolveKiroEffort(body: Record<string, unknown>): string {
-  let effort = typeof body.reasoning_effort === "string" ? body.reasoning_effort.toLowerCase() : "";
+  const options =
+    body.options && typeof body.options === "object"
+      ? (body.options as Record<string, unknown>)
+      : undefined;
+
+  const rawEffort =
+    (typeof body.reasoning_effort === "string" ? body.reasoning_effort : "") ||
+    (typeof body.reasoningEffort === "string" ? body.reasoningEffort : "") ||
+    (typeof options?.reasoningEffort === "string" ? (options.reasoningEffort as string) : "") ||
+    (typeof options?.reasoning_effort === "string" ? (options.reasoning_effort as string) : "");
+
+  let effort = rawEffort ? rawEffort.toLowerCase().trim() : "";
 
   if (!effort) {
     const outputConfig = body.output_config as Record<string, unknown> | undefined;
@@ -825,7 +1048,7 @@ function resolveKiroEffort(body: Record<string, unknown>): string {
       typeof outputConfig === "object" &&
       typeof outputConfig.effort === "string"
     ) {
-      effort = outputConfig.effort.toLowerCase();
+      effort = outputConfig.effort.toLowerCase().trim();
     }
   }
 
@@ -840,7 +1063,12 @@ function resolveKiroEffort(body: Record<string, unknown>): string {
     }
   }
 
+  if (!effort && body.reasoning === true) {
+    effort = "high";
+  }
+
   if (effort === "minimal") effort = "low";
+  if (effort === "ultra") effort = "max";
   return KIRO_EFFORT_LEVELS.includes(effort) ? effort : "";
 }
 
@@ -892,8 +1120,17 @@ export function buildKiroPayload(model, body, stream, credentials) {
   // The supported `-thinking` selector is a local alias: strip it before the request leaves
   // OmniRoute so Kiro only receives a real upstream model ID. Non-functional agentic and
   // auto-kiro aliases are rejected above instead of silently degrading to another model.
-  const { upstream: normalizedModel, thinking: modelRequestsThinking } =
-    resolveKiroModelAlias(model);
+  const {
+    upstream: normalizedModel,
+    thinking: modelRequestsThinking,
+    effort: modelRequestedEffort,
+  } = resolveKiroModelAlias(model);
+  // chatCore passes the resolved base model to the translator but retains the original
+  // public model alias in `body.model`; preserve an effort encoded in that alias.
+  const bodyModelAlias =
+    typeof body?.model === "string" ? resolveKiroModelAlias(body.model) : undefined;
+  const bodyRequestedEffort =
+    bodyModelAlias?.upstream === normalizedModel ? bodyModelAlias.effort : undefined;
   const messages = body.messages || [];
   let tools = body.tools || [];
   const maxTokens = body.max_tokens ?? body.max_completion_tokens ?? 32000;
@@ -948,11 +1185,7 @@ export function buildKiroPayload(model, body, stream, credentials) {
     }
   }
 
-  const { history, currentMessage, toolsAttached, toolDocs } = convertMessages(
-    messages,
-    tools,
-    normalizedModel
-  );
+  const { history, currentMessage, toolDocs } = convertMessages(messages, tools, normalizedModel);
 
   const profileArn = credentials?.providerSpecificData?.profileArn || "";
 
@@ -972,6 +1205,7 @@ export function buildKiroPayload(model, body, stream, credentials) {
     conversationState: {
       chatTriggerType: string;
       conversationId: string;
+      agentTaskType?: string;
       currentMessage: {
         userInputMessage: {
           content: string;
@@ -992,7 +1226,6 @@ export function buildKiroPayload(model, body, stream, credentials) {
     };
     additionalModelRequestFields?: {
       reasoning?: { effort: string };
-      thinking?: { type: string; display?: string };
       output_config?: { effort: string };
       max_tokens?: number;
     };
@@ -1000,11 +1233,12 @@ export function buildKiroPayload(model, body, stream, credentials) {
     conversationState: {
       chatTriggerType: "MANUAL",
       conversationId: uuidv4(), // We must override this with deterministic ID
+      agentTaskType: "vibe",
       currentMessage: {
         userInputMessage: {
           content: finalContent,
           modelId: normalizedModel,
-          origin: "AI_EDITOR",
+          origin: process.env.KIRO_ORIGIN || "KIRO_CLI",
           ...(currentMessage?.userInputMessage?.images?.length && {
             images: currentMessage.userInputMessage.images,
           }),
@@ -1050,11 +1284,14 @@ export function buildKiroPayload(model, body, stream, credentials) {
   const firstContent =
     seedFromPreCompression || firstRealUserTurn?.userInputMessage?.content || finalContent;
 
-  // Use uuidv5 with the hash of the system prompt / first message to maintain AWS Builder ID context cache
-  payload.conversationState.conversationId = uuidv5(
-    (firstContent || "").substring(0, 4000),
-    NAMESPACE_KIRO
-  );
+  // A client-supplied session identity (x-session-id, x-kiro-session-id, anthropic-session-id,
+  // metadata.session_id, ...) is the most stable seed: it survives edits to the first message
+  // and never falls back to `finalContent`, which embeds the current timestamp.
+  const sessionKey =
+    typeof credentials?._sessionKey === "string" ? credentials._sessionKey.trim() : "";
+  payload.conversationState.conversationId = sessionKey
+    ? uuidv5(`session:${sessionKey.substring(0, 256)}`, NAMESPACE_KIRO)
+    : uuidv5((firstContent || "").substring(0, 4000), NAMESPACE_KIRO);
 
   if (profileArn) {
     payload.profileArn = profileArn;
@@ -1084,24 +1321,49 @@ export function buildKiroPayload(model, body, stream, credentials) {
   // GPT-5.6 models use the native `reasoning:{effort}` field instead. They must
   // not receive the Claude `output_config`/`thinking` envelope: Kiro rejects it
   // as an unknown field for the GPT-5.6 family.
-  const requestedEffort = resolveKiroEffort(body) || (modelRequestsThinking ? "high" : "");
-  const usesNativeReasoning = supportsKiroNativeReasoning(normalizedModel);
-  const usesAdaptiveThinking = supportsKiroAdaptiveThinking(normalizedModel);
-  const kiroEffort = usesNativeReasoning || usesAdaptiveThinking ? requestedEffort : "";
+  const requestedEffort =
+    resolveKiroEffort(body) ||
+    modelRequestedEffort ||
+    bodyRequestedEffort ||
+    (modelRequestsThinking ? "high" : "");
+  // The live catalog schema, when discovered, overrides the static allowlists:
+  // it names the effort field and the accepted enum for this account's model.
+  const catalogCaps = getKiroModelCapabilities(normalizedModel);
+  const usesNativeReasoning = catalogCaps?.effortField
+    ? catalogCaps.effortField === "reasoning"
+    : !catalogCaps && supportsKiroNativeReasoning(normalizedModel);
+  const usesAdaptiveThinking = catalogCaps?.effortField
+    ? catalogCaps.effortField === "output_config"
+    : !catalogCaps && supportsKiroAdaptiveThinking(normalizedModel);
+  const usesPromptThinking =
+    !usesNativeReasoning && !usesAdaptiveThinking && supportsKiroPromptThinking(normalizedModel);
+  const kiroEffort =
+    (usesNativeReasoning || usesAdaptiveThinking || usesPromptThinking) && requestedEffort
+      ? (usesPromptThinking
+          ? requestedEffort
+          : clampKiroEffort(normalizedModel, requestedEffort)) || ""
+      : "";
   if (kiroEffort) {
-    const fields: {
-      reasoning?: { effort: string };
-      output_config?: { effort: string };
-      thinking?: { type: string; display: string };
-      max_tokens?: number;
-    } = usesNativeReasoning
-      ? { reasoning: { effort: kiroEffort } }
-      : {
-          output_config: { effort: kiroEffort },
-          thinking: { type: "adaptive", display: "summarized" },
-        };
+    if (usesNativeReasoning) {
+      payload.additionalModelRequestFields = { reasoning: { effort: kiroEffort } };
+      if (kiroEffort !== "none") {
+        const thinkingLength = capThinkingBudget(
+          normalizedModel,
+          thinkingLengthForEffort(kiroEffort)
+        );
+        const directive =
+          `<thinking_mode>enabled</thinking_mode>` +
+          `<max_thinking_length>${thinkingLength}</max_thinking_length>`;
+        payload.conversationState.currentMessage.userInputMessage.content = `${directive}\n\n${payload.conversationState.currentMessage.userInputMessage.content}`;
+      }
+    } else if (usesAdaptiveThinking) {
+      const fields: {
+        output_config?: { effort: string };
+        max_tokens?: number;
+      } = {
+        output_config: { effort: kiroEffort },
+      };
 
-    if (usesAdaptiveThinking) {
       // `<thinking_mode>` / `<max_thinking_length>` are Kiro/CodeWhisperer prompt
       // conventions (NOT Anthropic API params); the length is a soft hint (the hard
       // enable signal is `<thinking_mode>`), clamped to the model's thinking cap.
@@ -1113,15 +1375,28 @@ export function buildKiroPayload(model, body, stream, credentials) {
         `<thinking_mode>enabled</thinking_mode>` +
         `<max_thinking_length>${thinkingLength}</max_thinking_length>`;
       payload.conversationState.currentMessage.userInputMessage.content = `${directive}\n\n${payload.conversationState.currentMessage.userInputMessage.content}`;
-    }
 
-    // Forward max_tokens only when the client set one, clamped to the model's
-    // output window (floor 1024) — matches pi-kiro and avoids an over-budget reject.
-    if (usesAdaptiveThinking && maxTokens > 0) {
-      const capped = capMaxOutputTokens(normalizedModel, maxTokens) ?? maxTokens;
-      fields.max_tokens = Math.max(Math.floor(capped), 1024);
+      // Forward max_tokens only when the client set one, clamped to the model's
+      // output window (floor 1024) — matches pi-kiro and avoids an over-budget reject.
+      if (maxTokens > 0 && catalogCaps?.supportsMaxTokens !== false) {
+        const capped = capMaxOutputTokens(normalizedModel, maxTokens) ?? maxTokens;
+        fields.max_tokens = Math.max(Math.floor(capped), 1024);
+      }
+      payload.additionalModelRequestFields = fields;
+    } else if (usesPromptThinking) {
+      // Prompt-only thinking for models like claude-sonnet-4.5 that reject
+      // additionalModelRequestFields with a 400 (issue #6576), but support
+      // reasoning via prompt directive + inline tag parsing (opencode-kiro parity).
+      const thinkingLength = capThinkingBudget(
+        normalizedModel,
+        thinkingLengthForEffort(kiroEffort)
+      );
+      const directive =
+        `<thinking_mode>enabled</thinking_mode>` +
+        `<max_thinking_length>${thinkingLength}</max_thinking_length>`;
+      payload.conversationState.currentMessage.userInputMessage.content = `${directive}\n\n${payload.conversationState.currentMessage.userInputMessage.content}`;
+      // Note: additionalModelRequestFields deliberately omitted for prompt-thinking models.
     }
-    payload.additionalModelRequestFields = fields;
 
     // Adaptive-only Claude models (Opus 4.7/4.8, Sonnet 5, Fable 5) reject a
     // non-default temperature / top_p with a 400 while thinking is active, so

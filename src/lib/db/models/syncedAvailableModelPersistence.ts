@@ -79,23 +79,6 @@ export function finishSyncedAvailableModelsWrite(): void {
   invalidateModelCatalogCache();
 }
 
-/**
- * Delete all synced models for every connection belonging to a provider.
- * Returns the number of connection-scoped synced model lists removed.
- */
-export async function deleteSyncedAvailableModelsForProvider(providerId: string): Promise<number> {
-  const db = getDbInstance();
-  const keyPrefix = `${providerId}:`;
-  const result = db
-    .prepare(
-      "DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND substr(key, 1, ?) = ?"
-    )
-    .run(keyPrefix.length, keyPrefix);
-  const changes = Number(result.changes || 0);
-  if (changes > 0) finishSyncedAvailableModelsWrite();
-  return changes;
-}
-
 export function persistCanonicalSyncedAvailableModels<T>(
   key: string,
   normalizedModels: T[],
@@ -137,4 +120,21 @@ export function persistCanonicalSyncedAvailableModels<T>(
     scheduleReconcileAfterSyncWrite(key.split(":")[0]);
   }
   return true;
+}
+
+/**
+ * Delete all synced models for every connection belonging to a provider.
+ * Returns the number of connection-scoped synced model lists removed.
+ */
+export async function deleteSyncedAvailableModelsForProvider(providerId: string): Promise<number> {
+  const db = getDbInstance();
+  const keyPrefix = `${providerId}:`;
+  const result = db
+    .prepare(
+      "DELETE FROM key_value WHERE namespace = 'syncedAvailableModels' AND substr(key, 1, ?) = ?"
+    )
+    .run(keyPrefix.length, keyPrefix);
+  const changes = Number(result.changes || 0);
+  if (changes > 0) finishSyncedAvailableModelsWrite();
+  return changes;
 }

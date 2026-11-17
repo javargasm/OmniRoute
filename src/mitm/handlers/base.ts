@@ -16,10 +16,10 @@
 import type { IncomingHttpHeaders, IncomingMessage, ServerResponse } from "node:http";
 import { randomUUID } from "node:crypto";
 import { performance } from "node:perf_hooks";
-import { maskSecret } from "../maskSecrets";
-import { sanitizeHeaders } from "../sanitizeHeaders";
-import type { AgentId } from "../types";
-import type { InterceptedRequest } from "../inspector/types";
+import { maskSecret } from "../maskSecrets.ts";
+import { sanitizeHeaders } from "../sanitizeHeaders.ts";
+import type { AgentId } from "../types.ts";
+import type { InterceptedRequest } from "../inspector/types.ts";
 
 /**
  * Best-effort error sanitizer.
@@ -69,7 +69,7 @@ async function loadAgentBridgeHook(): Promise<{
   recordRequestError?: (intercepted: InterceptedRequest, err: unknown) => void;
 } | null> {
   try {
-    const mod = await import("../inspector/agentBridgeHook");
+    const mod = await import("../inspector/agentBridgeHook.ts");
     return mod;
   } catch {
     return null;

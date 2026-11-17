@@ -64,7 +64,11 @@ export function isRetryablePreOutputTransportError(
   const numericStatus = Number(status);
   if (NON_RETRYABLE_TRANSPORT_STATUSES.has(numericStatus)) return false;
   if (/quota (threshold|exhausted)|credits exhausted/i.test(text)) return false;
-  if (/invalid_request|prompt is too long|context.?length|unsupported model/i.test(text)) {
+  if (
+    /invalid_request|prompt is too long|input is too long|content_length_exceeds_threshold|context.?length|unsupported model/i.test(
+      text
+    )
+  ) {
     return false;
   }
 

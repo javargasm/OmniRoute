@@ -16,10 +16,7 @@ const repoMigrations = path.join(
   "../../src/lib/db/migrations"
 );
 const migrationsDir = fs.mkdtempSync(path.join(os.tmpdir(), "omniroute-migration-181-"));
-for (const file of [
-  "179_proxy_logs_upstream_status.sql",
-  "181_proxy_logs_proxy_name.sql",
-]) {
+for (const file of ["179_proxy_logs_upstream_status.sql", "181_proxy_logs_proxy_name.sql"]) {
   fs.copyFileSync(path.join(repoMigrations, file), path.join(migrationsDir, file));
 }
 const originalMigrationsDir = process.env.OMNIROUTE_MIGRATIONS_DIR;
@@ -46,9 +43,7 @@ function ledger(db: Database.Database) {
 function legacyDb(withProxyName: boolean): Database.Database {
   const db = new Database(":memory:");
   db.exec(
-    `CREATE TABLE proxy_logs (id TEXT PRIMARY KEY${
-      withProxyName ? ", proxy_name TEXT" : ""
-    });`
+    `CREATE TABLE proxy_logs (id TEXT PRIMARY KEY${withProxyName ? ", proxy_name TEXT" : ""});`
   );
   return db;
 }

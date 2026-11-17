@@ -10,10 +10,7 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import {
-  pruneBackupDirectory,
-  MAX_DB_BACKUPS,
-} from "../../src/lib/db/backupRetention.ts";
+import { pruneBackupDirectory, MAX_DB_BACKUPS } from "../../src/lib/db/backupRetention.ts";
 
 const serial = { concurrency: false };
 
@@ -45,7 +42,11 @@ test("#13308 — pruneBackupDirectory removes overflow from health-check-repair 
     });
 
     const after = fs.readdirSync(dir).filter((f) => f.endsWith(".sqlite")).length;
-    assert.equal(after, MAX_DB_BACKUPS, `pruned to MAX_DB_BACKUPS (${MAX_DB_BACKUPS}), got ${after}`);
+    assert.equal(
+      after,
+      MAX_DB_BACKUPS,
+      `pruned to MAX_DB_BACKUPS (${MAX_DB_BACKUPS}), got ${after}`
+    );
     assert.equal(result.deletedBackupFamilies, extra, `deleted ${extra} overflow families`);
     assert.equal(result.keptBackupFamilies, MAX_DB_BACKUPS);
   } finally {

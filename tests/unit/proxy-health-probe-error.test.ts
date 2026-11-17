@@ -10,10 +10,7 @@ import assert from "node:assert/strict";
 const { classifyProbeError } = await import("../../src/lib/proxyHealth/decision.ts");
 
 test("local deadline + resolved + TLS never negotiated is a hang", () => {
-  assert.equal(
-    classifyProbeError({ aborted: true, resolved: true, tlsNegotiated: false }),
-    "hang"
-  );
+  assert.equal(classifyProbeError({ aborted: true, resolved: true, tlsNegotiated: false }), "hang");
 });
 
 test("local abort without the hang conditions stays inconclusive", () => {

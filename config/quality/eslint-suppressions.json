@@ -64,11 +64,6 @@
       "count": 1
     }
   },
-  "open-sse/executors/codex.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "open-sse/executors/copilot-web.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 3
@@ -132,11 +127,6 @@
   "open-sse/executors/kiro.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 2
-    }
-  },
-  "open-sse/executors/kiro/eventstream.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
     }
   },
   "open-sse/executors/muse-spark-web.ts": {
@@ -565,7 +555,7 @@
   },
   "open-sse/translator/request/openai-to-kiro.ts": {
     "@typescript-eslint/no-unused-vars": {
-      "count": 2
+      "count": 1
     }
   },
   "open-sse/translator/response/cursor-to-openai.ts": {
@@ -893,11 +883,6 @@
       "count": 4
     }
   },
-  "src/app/api/oauth/kiro/auto-import/route.ts": {
-    "@typescript-eslint/no-unused-vars": {
-      "count": 1
-    }
-  },
   "src/app/api/providers/[id]/models/discovery/providerModelsConfig.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 1
@@ -1106,11 +1091,6 @@
   "src/lib/cli-helper/doctor/checks.ts": {
     "@typescript-eslint/no-unused-vars": {
       "count": 2
-    }
-  },
-  "src/lib/combos/controlCenter.ts": {
-    "no-restricted-syntax": {
-      "count": 1
     }
   },
   "src/lib/compliance/index.ts": {

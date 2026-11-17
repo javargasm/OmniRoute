@@ -551,3 +551,92 @@ test("only the verify step is public, by exact path; enrollment routes need mana
     assert.equal(isPublicApiRoute(route, "POST"), false, route);
   }
 });
+
+for (const validatedHeader of [
+  "x-omniroute-trusted-peer-ip",
+  "x-omniroute-trusted-login-client-ip",
+]) {
+  test(`MFA attempt and audit use validated identity from ${validatedHeader}`, async () => {
+    const { beginMfaAttempt, recordMfaFailure, logMfaEvent } =
+      await import("../../src/server/auth/mfaRouteSupport.ts");
+    const { getAuditLog } = await import("../../src/lib/compliance/index.ts");
+    const clientIp = "203.0.113.10";
+    const request = new Request("http://localhost/api/auth/mfa/setup", {
+      method: "POST",
+      headers: {
+        ...peerHeaders("10.0.0.2"),
+        [validatedHeader]: clientIp,
+        "cf-connecting-ip": "198.51.100.99",
+        "x-forwarded-for": "198.51.100.98",
+      },
+    });
+    const result = await beginMfaAttempt(request, "auth.mfa.validated");
+    assert.ok(result.attempt);
+    try {
+      assert.equal(result.attempt.lockoutKey, clientIp);
+      recordMfaFailure(result.attempt, {
+        action: "auth.mfa.validated.failure",
+        reason: "invalid_password",
+        message: "Invalid password",
+      });
+      logMfaEvent(result.attempt, "auth.mfa.validated.success");
+      const entries = getAuditLog().filter((row) => row.action.startsWith("auth.mfa.validated."));
+      assert.equal(entries.length, 2);
+      assert.deepEqual(
+        entries.map((row) => row.ip),
+        [clientIp, clientIp]
+      );
+      assert.equal(result.attempt.ipAddress, clientIp);
+    } finally {
+      result.attempt.release();
+    }
+  });
+}
+
+test("MFA locked audit uses the same validated proxy client as its lockout", async () => {
+  const { beginMfaAttempt } = await import("../../src/server/auth/mfaRouteSupport.ts");
+  const { getAuditLog } = await import("../../src/lib/compliance/index.ts");
+  const clientIp = "203.0.113.10";
+  for (let i = 0; i < 5; i += 1) {
+    loginGuard.recordLoginFailure(clientIp, { enabled: true });
+  }
+  const result = await beginMfaAttempt(
+    new Request("http://localhost/api/auth/mfa/verify", {
+      method: "POST",
+      headers: {
+        ...peerHeaders("10.0.0.2"),
+        "x-omniroute-trusted-login-client-ip": clientIp,
+        "cf-connecting-ip": "198.51.100.99",
+      },
+    }),
+    "auth.mfa.validated"
+  );
+  assert.equal(result.blocked?.status, 429);
+  const event = getAuditLog().find((row) => row.action === "auth.mfa.validated.locked");
+  assert.equal(event?.ip, clientIp);
+});
+
+test("MFA verification audits the validated client instead of spoofed forwarding headers", async () => {
+  const { getAuditLog } = await import("../../src/lib/compliance/index.ts");
+  const secret = enrollFixture();
+  useCookieJar(
+    makeCookieJar({
+      [sessionToken.MFA_PENDING_COOKIE]: await sessionToken.mintMfaPendingToken(
+        sessionToken.getDashboardJwtSecret()!
+      ),
+    })
+  );
+  const request = new Request("http://localhost/api/auth/mfa/verify", {
+    method: "POST",
+    headers: {
+      ...peerHeaders("10.0.0.2"),
+      "x-omniroute-trusted-login-client-ip": "203.0.113.10",
+      "cf-connecting-ip": "198.51.100.99",
+    },
+    body: JSON.stringify({ code: currentCode(secret) }),
+  });
+  const response = await verifyRoute.POST(request);
+  assert.equal(response.status, 200);
+  const event = getAuditLog().find((row) => row.action === "auth.login.success");
+  assert.equal(event?.ip, "203.0.113.10");
+});

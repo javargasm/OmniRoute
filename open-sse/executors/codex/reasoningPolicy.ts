@@ -1,6 +1,7 @@
 import {
   CODEX_EFFORT_ORDER as EFFORT_ORDER,
   getCodexAliasEffortCap,
+  getCodexMaxEffort,
   splitCodexReasoningSuffix,
   type CodexEffortLevel as EffortLevel,
 } from "./reasoningSuffix.ts";
@@ -180,6 +181,10 @@ function selectCodexReasoning(
   body.reasoning = {
     ...reasoning,
     effort:
-      !hasCatalog && legacyEffortCap(split.baseModel) && resolved === "ultra" ? "max" : resolved,
+      !hasCatalog &&
+      (legacyEffortCap(split.baseModel) || getCodexMaxEffort(split.baseModel)) &&
+      resolved === "ultra"
+        ? "max"
+        : resolved,
   };
 }

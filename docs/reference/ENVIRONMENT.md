@@ -790,7 +790,7 @@ process.env[`${PROVIDER_ID}_USER_AGENT`]
 | `CLAUDE_USER_AGENT` | `claude-cli/2.1.280 (external, cli)` | When Anthropic releases a new CLI version |
 | `CLAUDE_DISABLE_TOOL_NAME_CLOAK` | `false` | `executors/base.ts` + `executors/cliproxyapi.ts` | Set to `1`/`true` to forward third-party harness tool names verbatim to Anthropic on both Anthropic-bound paths (native OAuth and CLIProxyAPI). By default the executor deterministically aliases non-Claude-Code tool names (Claude Code canonical mapping where one exists, otherwise PascalCase) and reverses them on the response via `_toolNameMap`, so harnesses with snake_case tools are not refused as fingerprinted third-party clients. Debugging only. |
 | `CODEX_USER_AGENT` | `codex-cli/0.155.0 (Windows 10.0.26200; x64)` | When OpenAI updates the Codex CLI |
-| `CODEX_CLIENT_VERSION` | `0.155.0` | Override Codex client version independently of full UA string |
+| `CODEX_CLIENT_VERSION`           | latest `@openai/codex` (floor `0.155.0`)      | Pins the Codex client version (independent of the UA string) and disables npm-registry tracking  |
 | `GROK_CLI_CLIENT_VERSION` | `1.0.41` | Override `x-grok-client-version` for inference, model sync, and device-code OAuth, plus the default Grok CLI User-Agent for inference and model sync. Accepts SemVer with optional prerelease/build metadata, up to 128 characters after trimming surrounding whitespace. Unset, empty, invalid, or line-break-containing values use the shipped pin. The existing full inference User-Agent override retains precedence. |
 | `CLAUDE_CODE_CLIENT_VERSION` | `2.1.280` | Override advertised Claude Code version independently of `CLAUDE_USER_AGENT`. Anthropic gates some models on this value (#12417). |
 | `CLAUDE_CODE_CLIENT_BUILD_REVISION` | `1e2` | Override the 3-character suffix OmniRoute appends to `cc_version=` in the Claude billing block. Bump alongside `CLAUDE_CODE_CLIENT_VERSION` — pinning only the version advertises a `version.revision` pair no real binary emits. |
@@ -804,6 +804,8 @@ process.env[`${PROVIDER_ID}_USER_AGENT`]
 | `KIRO_REQUIRE_CREDITS` | `false` | Fail a Kiro response that reports no credit metering instead of recording it unbilled |
 | `QODER_USER_AGENT` | `Qoder-Cli` | When Qoder CLI updates |
 | `CURSOR_USER_AGENT` | `Cursor/3.3` | When Cursor updates |
+| `KIRO_CUSTOM_USER_AGENT`         | _(unset)_                                    | Override the Kiro CLI fingerprint for streaming and model discovery requests                    |
+| `KIRO_ORIGIN`                    | KIRO_CLI                                     | Override the origin field in Kiro conversation messages                                         |
 
 > [!TIP]
 > You can add User-Agent overrides for **any** provider using the pattern `{PROVIDER_ID}_USER_AGENT`. The executor dynamically constructs the env var name.

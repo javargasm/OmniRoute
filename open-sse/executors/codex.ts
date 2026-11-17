@@ -72,7 +72,7 @@ import {
   ensureCodexCompactionReplayTools,
   isCodexCompactionWebReplay,
 } from "./codex/compactionReplay.ts";
-import { CODEX_ULTRA_ALIAS_MODELS, splitCodexReasoningSuffix } from "./codex/reasoningSuffix.ts";
+import { isCodexDelegationEffort, splitCodexReasoningSuffix } from "./codex/reasoningSuffix.ts";
 import {
   applyCodexReasoningSelection,
   normalizeCodexSummaryStreamOptions,
@@ -188,15 +188,13 @@ function isCodexResponsesLiteRequest(
   );
 }
 
-// Astra/Sol/Terra at "ultra" and Luna at "max" coordinate delegation to
-// sub-agents via parallel tool calls (see the effort-clamp comment near clampEffort()).
+// A model's Max/Ultra top tier (Astra/Sol/Terra "ultra", Luna "max", discovered models'
+// highest declared level) coordinates delegation to sub-agents via parallel tool calls.
 // Responses Lite must not strip parallel_tool_calls for those model/effort combos, or
 // delegation silently breaks while the request still returns HTTP 200 (issue #7821).
 function isCodexDelegationDependentModel(model: unknown): boolean {
   const { baseModel, effort } = splitCodexReasoningSuffix(model);
-  if (effort === "ultra" && CODEX_ULTRA_ALIAS_MODELS.has(baseModel)) return true;
-  if (effort === "max" && baseModel === "gpt-5.6-luna") return true;
-  return false;
+  return isCodexDelegationEffort(baseModel, effort);
 }
 
 function enforceCodexResponsesLiteParallelToolCalls(
@@ -1215,7 +1213,7 @@ export class CodexExecutor extends BaseExecutor {
    */
   buildHeaders(
     credentials: ProviderCredentials,
-    stream = true,
+    _stream = true,
     clientHeaders?: Record<string, string> | null,
     model?: string,
     health?: Record<string, KeyHealth>,

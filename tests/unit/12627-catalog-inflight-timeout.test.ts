@@ -158,7 +158,7 @@ test("slow build converging after two timeouts serves 200 on next retry", async 
   const third = await catalogCache.resolveCachedCatalogResponse(
     request(),
     { corsHeaders: {}, diagnosticHeaders: {} },
-    neverResolves as (req: Request) => Promise<catalogCache.CatalogPayload>
+    slowBuilder
   );
   assert.equal(third.status, 200);
   assert.equal(await third.text(), "late-good");

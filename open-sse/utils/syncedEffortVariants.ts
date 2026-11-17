@@ -32,6 +32,7 @@
 import { getCodexWireEfforts } from "@/shared/reasoning/codexEfforts.ts";
 import { CANONICAL_EFFORT_VALUES } from "@/shared/reasoning/effortStandardization.ts";
 import { isDevinLiteralModelIdProvider } from "./devinLiteralModelIds.ts";
+import { formatClaudeEffortLabel } from "./claudeEffortVariants.ts";
 
 /** Provider ids with dedicated `-{effort}` aliases — never synthesize another suffix layer. */
 export const SYNCED_EFFORT_SKIP_PROVIDERS = new Set(["glm", "glm-cn", "glmt"]);
@@ -119,6 +120,7 @@ export function shouldExposeSyncedEffortVariants(
   } else if (endsWithKnownEffortToken(id)) {
     return false;
   }
+  if (id.endsWith("-thinking") || id.includes("-thinking-")) return false;
   return extractEffortTiers(model).length > 0;
 }
 
@@ -162,6 +164,9 @@ export function appendSyncedEffortVariants<T extends CatalogModelEntry>(models: 
         ...model,
         id: variantId,
         root: `${baseRoot}-${tier}`,
+        ...(typeof model.name === "string" && model.name
+          ? { name: `${model.name} (${formatClaudeEffortLabel(tier)})` }
+          : {}),
         ...codexVariantOverrides(model, tier),
       });
     }

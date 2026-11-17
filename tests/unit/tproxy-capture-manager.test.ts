@@ -75,7 +75,11 @@ test("startCaptureMode wires the injected CA installer into the decrypt listener
   );
   assert.equal(status.running, true);
   assert.equal(status.onPort, 8443);
-  assert.equal(rec.options?.decrypt?.installCa, installCa, "installCa is passed through to decrypt");
+  assert.equal(
+    rec.options?.decrypt?.installCa,
+    installCa,
+    "installCa is passed through to decrypt"
+  );
   assert.equal(rec.options?.decrypt?.uninstallCa, uninstallCa, "uninstallCa is passed through");
 });
 
@@ -84,6 +88,62 @@ test("startCaptureMode refuses to start a second concurrent session", async () =
   const deps = { isAvailable: () => true, startTproxyCapture: fakeStart(rec) as never };
   await startCaptureMode(baseOptions({ deps }));
   await assert.rejects(() => startCaptureMode(baseOptions({ deps })), /already running/);
+});
+
+test("startCaptureMode rejects a concurrent start while the first start is pending", async () => {
+  let resolveStart: ((value: never) => void) | undefined;
+  const pendingStart = new Promise<never>((resolve) => {
+    resolveStart = resolve;
+  });
+  const deps = {
+    isAvailable: () => true,
+    startTproxyCapture: async () => pendingStart,
+  };
+  const firstStart = startCaptureMode(baseOptions({ deps: deps as never }));
+
+  await assert.rejects(
+    () => startCaptureMode(baseOptions({ deps: deps as never })),
+    /already running/
+  );
+
+  resolveStart?.({
+    cfg: CFG as never,
+    server: {} as never,
+    stop: async () => {},
+  } as never);
+  await firstStart;
+});
+
+test("stopCaptureMode stops a handle that resolves after stop during startup", async () => {
+  let resolveStart: ((value: never) => void) | undefined;
+  const pendingStart = new Promise<never>((resolve) => {
+    resolveStart = resolve;
+  });
+  let stopped = false;
+  const startPromise = startCaptureMode(
+    baseOptions({
+      deps: {
+        isAvailable: () => true,
+        startTproxyCapture: async () => pendingStart,
+      } as never,
+    })
+  );
+
+  const stopStatus = await stopCaptureMode();
+  assert.equal(stopStatus.running, false);
+
+  resolveStart?.({
+    cfg: CFG as never,
+    server: {} as never,
+    stop: async () => {
+      stopped = true;
+    },
+  } as never);
+  const startStatus = await startPromise;
+
+  assert.equal(stopped, true);
+  assert.equal(startStatus.running, false);
+  assert.equal(getCaptureStatus().running, false);
 });
 
 test("stopCaptureMode stops the handle and clears the running state", async () => {

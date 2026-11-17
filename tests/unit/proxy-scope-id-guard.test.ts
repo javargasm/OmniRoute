@@ -15,7 +15,10 @@ import { isScopeIdMissing } from "@/lib/db/proxies/mappers.js";
 const SCOPED_MSG = "scopeId is required for provider/account/combo/key scope";
 const NON_GLOBAL_MSG = "scopeId is required for non-global scope";
 
-function scopeIdIssues(result: { success: boolean; error?: { issues: Array<{ path: unknown[]; message: string }> } }): Array<{ path: unknown[]; message: string }> {
+function scopeIdIssues(result: {
+  success: boolean;
+  error?: { issues: Array<{ path: unknown[]; message: string }> };
+}): Array<{ path: unknown[]; message: string }> {
   if (result.success || !result.error) return [];
   return result.error.issues;
 }
@@ -38,9 +41,14 @@ describe("scopeId required outside global — zod schemas (5 sites)", () => {
     });
     it(`${name}: non-global without scopeId fails with frozen message`, () => {
       const base: Record<string, unknown> =
-        name === "rotation" ? { scope: "provider", strategy: "round-robin" } : { scope: "provider" };
+        name === "rotation"
+          ? { scope: "provider", strategy: "round-robin" }
+          : { scope: "provider" };
       if (name === "poolMember") base["proxyId"] = "p1";
-      const r = schema.safeParse(base) as { success: boolean; error?: { issues: Array<{ path: unknown[]; message: string }> } };
+      const r = schema.safeParse(base) as {
+        success: boolean;
+        error?: { issues: Array<{ path: unknown[]; message: string }> };
+      };
       assert.equal(r.success, false, `${name} provider without scopeId must fail`);
       const issues = scopeIdIssues(r);
       assert.ok(

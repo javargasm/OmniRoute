@@ -1,9 +1,6 @@
 import fs from "node:fs";
 import path from "node:path";
-import {
-  COLLECTORS,
-  globToRegExp,
-} from "../../check/check-test-discovery.mjs";
+import { COLLECTORS, globToRegExp } from "../../check/check-test-discovery.mjs";
 
 const UNIT_CI_GLOBS = new Set([
   "tests/unit/*.test.ts",

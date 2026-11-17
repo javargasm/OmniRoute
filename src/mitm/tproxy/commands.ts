@@ -62,7 +62,8 @@ function isPort(n: number): boolean {
 export function validateTproxyConfig(cfg: TproxyConfig): string | null {
   if (!isPort(cfg.dport)) return `dport must be a valid TCP port (1-65535), got ${cfg.dport}`;
   if (!isPort(cfg.onPort)) return `onPort must be a valid TCP port (1-65535), got ${cfg.onPort}`;
-  if (!Number.isInteger(cfg.mark) || cfg.mark < 1) return `mark must be a positive integer, got ${cfg.mark}`;
+  if (!Number.isInteger(cfg.mark) || cfg.mark < 1)
+    return `mark must be a positive integer, got ${cfg.mark}`;
   if (!Number.isInteger(cfg.routeTable) || cfg.routeTable < 1) {
     return `routeTable must be a positive integer, got ${cfg.routeTable}`;
   }
@@ -88,10 +89,23 @@ function outputRuleSpec(cfg: TproxyConfig): string[] {
 /** PREROUTING mangle TPROXY rule spec (assign marked, rerouted packets to the listener). */
 function preroutingRuleSpec(cfg: TproxyConfig): string[] {
   return [
-    "-t", "mangle", "PREROUTING",
-    "-p", "tcp", "--dport", String(cfg.dport),
-    "-m", "mark", "--mark", String(cfg.mark),
-    "-j", "TPROXY", "--on-port", String(cfg.onPort), "--tproxy-mark", String(cfg.mark),
+    "-t",
+    "mangle",
+    "PREROUTING",
+    "-p",
+    "tcp",
+    "--dport",
+    String(cfg.dport),
+    "-m",
+    "mark",
+    "--mark",
+    String(cfg.mark),
+    "-j",
+    "TPROXY",
+    "--on-port",
+    String(cfg.onPort),
+    "--tproxy-mark",
+    String(cfg.mark),
   ];
 }
 
@@ -104,8 +118,14 @@ function iptables(op: "-A" | "-D", spec: string[]): TproxyCommand {
 /** Commands to enable TPROXY interception of local outbound traffic, in apply order. */
 export function buildTproxyApplyCommands(cfg: TproxyConfig): TproxyCommand[] {
   return [
-    { bin: "ip", args: ["rule", "add", "fwmark", String(cfg.mark), "lookup", String(cfg.routeTable)] },
-    { bin: "ip", args: ["route", "add", "local", "0.0.0.0/0", "dev", "lo", "table", String(cfg.routeTable)] },
+    {
+      bin: "ip",
+      args: ["rule", "add", "fwmark", String(cfg.mark), "lookup", String(cfg.routeTable)],
+    },
+    {
+      bin: "ip",
+      args: ["route", "add", "local", "0.0.0.0/0", "dev", "lo", "table", String(cfg.routeTable)],
+    },
     iptables("-A", outputRuleSpec(cfg)),
     iptables("-A", preroutingRuleSpec(cfg)),
   ];
@@ -116,7 +136,13 @@ export function buildTproxyRevertCommands(cfg: TproxyConfig): TproxyCommand[] {
   return [
     iptables("-D", preroutingRuleSpec(cfg)),
     iptables("-D", outputRuleSpec(cfg)),
-    { bin: "ip", args: ["route", "del", "local", "0.0.0.0/0", "dev", "lo", "table", String(cfg.routeTable)] },
-    { bin: "ip", args: ["rule", "del", "fwmark", String(cfg.mark), "lookup", String(cfg.routeTable)] },
+    {
+      bin: "ip",
+      args: ["route", "del", "local", "0.0.0.0/0", "dev", "lo", "table", String(cfg.routeTable)],
+    },
+    {
+      bin: "ip",
+      args: ["rule", "del", "fwmark", String(cfg.mark), "lookup", String(cfg.routeTable)],
+    },
   ];
 }

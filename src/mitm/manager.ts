@@ -16,11 +16,11 @@ import { resolveActiveCertPath } from "./cert/activeCert.ts";
 import { ALL_TARGETS } from "./targets/index.ts";
 import { detectAgent } from "./detection/index.ts";
 import type { AgentId, DetectionResult, MitmTarget } from "./types.ts";
-import { getAllAgentBridgeStates } from "@/lib/db/agentBridgeState.ts";
-import { getUserBypassPatterns } from "@/lib/db/agentBridgeBypass.ts";
-import { getGheCopilotHosts } from "@/lib/db/providers.ts";
+import { getAllAgentBridgeStates } from "@/lib/db/agentBridgeState";
+import { getUserBypassPatterns } from "@/lib/db/agentBridgeBypass";
+import { getGheCopilotHosts } from "@/lib/db/providers";
 import { configureUpstreamCa } from "./upstreamTrust.ts";
-import { createLogger } from "@/shared/utils/logger.ts";
+import { createLogger } from "@/shared/utils/logger";
 import {
   buildRepairPlan,
   collectManagedHosts,

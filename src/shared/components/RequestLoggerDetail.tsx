@@ -764,6 +764,11 @@ export function RequestLoggerDetailPanel({
                 {t("model")}
               </div>
               <div className="text-sm font-medium text-primary font-mono">{log.model}</div>
+              {log.effective_reasoning_effort && (
+                <div className="text-xs text-text-muted">
+                  {t("effectiveReasoningEffort")}: {log.effective_reasoning_effort}
+                </div>
+              )}
             </div>
             <div className="min-w-[120px] flex-1">
               <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">
@@ -882,6 +887,11 @@ export function RequestLoggerDetailPanel({
                 {t("model")}
               </div>
               <div className="text-sm font-medium text-primary font-mono">{log.model}</div>
+              {log.effective_reasoning_effort && (
+                <div className="text-xs text-text-muted">
+                  {t("effectiveReasoningEffort")}: {log.effective_reasoning_effort}
+                </div>
+              )}
             </div>
             <div>
               <div className="text-[10px] text-text-muted uppercase tracking-wider mb-1">

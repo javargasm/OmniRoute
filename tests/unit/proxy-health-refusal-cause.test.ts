@@ -28,7 +28,11 @@ test("403 without proof is unproven — never a claimed refusal", () => {
 test("401 and 429 claim no cause", () => {
   for (const status of [401, 429]) {
     assert.equal(classifyRefusalCause(status), "unclassified", `status ${status}`);
-    assert.equal(classifyRefusalCause(status, { geoProven: true }), "unclassified", `status ${status}`);
+    assert.equal(
+      classifyRefusalCause(status, { geoProven: true }),
+      "unclassified",
+      `status ${status}`
+    );
   }
 });
 

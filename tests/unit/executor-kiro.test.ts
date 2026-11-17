@@ -2,6 +2,13 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 import { KiroExecutor } from "../../open-sse/executors/kiro.ts";
+import { runNonStreamingProviderLeg } from "../../open-sse/handlers/chatCore/nonStreamingProviderLeg.ts";
+import { createPassthroughStreamWithLogger, createSSEStream } from "../../open-sse/utils/stream.ts";
+import {
+  createStreamContentWatcher,
+  ensureStreamReadiness,
+  hasStreamReadinessSignal,
+} from "../../open-sse/utils/streamReadiness.ts";
 import { hasStreamReadinessSignal } from "../../open-sse/utils/streamReadiness.ts";
 import { getRegistryEntry } from "../../open-sse/config/providerRegistry.ts";
 
@@ -68,6 +75,30 @@ function buildEventFrame(eventType, payload) {
   frame.set(payloadBytes, 12 + headers.length);
   view.setUint32(totalLength - 4, crc32(frame.slice(0, totalLength - 4)), false);
   return frame;
+}
+
+function buildExceptionFrame(exceptionType: string, message: string) {
+  const h1 = encodeHeader(":message-type", "exception");
+  const h2 = encodeHeader(":exception-type", exceptionType);
+  const h3 = encodeHeader(":content-type", "application/json");
+  const headers = concatArrays(h1, h2, h3);
+  const payloadBytes = textEncoder.encode(JSON.stringify({ message }));
+  const totalLength = 12 + headers.length + payloadBytes.length + 4;
+  const frame = new Uint8Array(totalLength);
+  const view = new DataView(frame.buffer);
+  view.setUint32(0, totalLength, false);
+  view.setUint32(4, headers.length, false);
+  view.setUint32(8, crc32(frame.slice(0, 8)), false);
+  frame.set(headers, 12);
+  frame.set(payloadBytes, 12 + headers.length);
+  view.setUint32(totalLength - 4, crc32(frame.slice(0, totalLength - 4)), false);
+  return frame;
+}
+
+function buildIncompleteFramePrefix(totalLength: number, prefixBytes = 8) {
+  const prefix = new Uint8Array(prefixBytes);
+  new DataView(prefix.buffer).setUint32(0, totalLength, false);
+  return prefix;
 }
 
 function buildEventStreamResponse(frames) {
@@ -145,6 +176,10 @@ test("KiroExecutor.buildHeaders includes Kiro-specific auth and metadata", () =>
   assert.equal(headers.Authorization, "Bearer kiro-token");
   assert.equal(headers["anthropic-beta"], "prompt-caching-2024-07-31");
   assert.equal(headers["x-amzn-bedrock-cache-control"], "enable");
+  assert.equal(headers["Content-Type"], "application/x-amz-json-1.0");
+  assert.equal(headers["x-amzn-codewhisperer-optout"], "true");
+  assert.match(headers["User-Agent"], /AmazonQ-For-CLI/);
+  assert.match(headers["X-Amz-User-Agent"] || headers["x-amz-user-agent"], /aws-sdk/);
   assert.ok(headers["Amz-Sdk-Invocation-Id"]);
 });
 
@@ -157,6 +192,113 @@ test("KiroExecutor.buildHeaders marks long-lived Kiro API keys", () => {
 
   assert.equal(headers.Authorization, "Bearer kiro-api-key");
   assert.equal(headers.tokentype, "API_KEY");
+});
+
+test("KiroExecutor.transformRequest defaults to DEFAULT_PROFILE_ARN for builder-id accounts", () => {
+  const executor = new KiroExecutor();
+  const body = {
+    model: "kiro-model",
+    conversationState: {
+      currentMessage: { userInputMessage: { modelId: "kiro-model" } },
+    },
+  };
+  const result = executor.transformRequest("kiro-model", body, true, {
+    providerSpecificData: { authMethod: "builder-id" },
+  }) as Record<string, unknown>;
+  assert.equal(
+    result.profileArn,
+    "arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX"
+  );
+});
+
+test("KiroExecutor.transformRequest does not infer a Builder ID profile for IdC or external IdP", () => {
+  const executor = new KiroExecutor();
+  const body = {
+    model: "kiro-model",
+    conversationState: {
+      currentMessage: { userInputMessage: { modelId: "kiro-model" } },
+    },
+  };
+
+  for (const authMethod of ["idc", "external_idp"]) {
+    const result = executor.transformRequest("kiro-model", body, true, {
+      providerSpecificData: { authMethod },
+    }) as Record<string, unknown>;
+
+    assert.equal(result.profileArn, undefined, authMethod);
+  }
+});
+
+test("Amazon Q applies the default profile only to Builder ID credentials", () => {
+  const executor = new KiroExecutor("amazon-q");
+  const body = {
+    model: "kiro-model",
+    conversationState: {
+      currentMessage: { userInputMessage: { modelId: "kiro-model" } },
+    },
+  };
+
+  const builderId = executor.transformRequest("kiro-model", body, true, {
+    providerSpecificData: { authMethod: "builder-id" },
+  }) as Record<string, unknown>;
+  assert.equal(
+    builderId.profileArn,
+    "arn:aws:codewhisperer:us-east-1:638616132270:profile/AAAACCCCXXXX"
+  );
+
+  const idc = executor.transformRequest("kiro-model", body, true, {
+    providerSpecificData: { authMethod: "idc" },
+  }) as Record<string, unknown>;
+  assert.equal(idc.profileArn, undefined);
+});
+
+test("KiroExecutor strips historical images from prebuilt envelopes without mutating them", () => {
+  const executor = new KiroExecutor();
+  const body = {
+    model: "kiro-model",
+    conversationState: {
+      currentMessage: {
+        userInputMessage: {
+          modelId: "kiro-model",
+          images: [{ format: "png", source: { bytes: "current-image" } }],
+        },
+      },
+      history: [
+        {
+          userInputMessage: {
+            modelId: "kiro-model",
+            images: [{ format: "png", source: { bytes: "historical-image-1" } }],
+          },
+        },
+        { assistantResponseMessage: { content: "acknowledged" } },
+        {
+          userInputMessage: {
+            modelId: "kiro-model",
+            images: [{ format: "jpeg", source: { bytes: "historical-image-2" } }],
+          },
+        },
+      ],
+    },
+  };
+  const originalBody = structuredClone(body);
+
+  const result = executor.transformRequest("kiro-model", body, true, {
+    providerSpecificData: { authMethod: "builder-id" },
+  }) as {
+    conversationState: typeof body.conversationState;
+  };
+
+  assert.equal(result.conversationState.history[0].userInputMessage?.images, undefined);
+  assert.equal(result.conversationState.history[2].userInputMessage?.images, undefined);
+  assert.deepEqual(
+    result.conversationState.currentMessage.userInputMessage.images,
+    originalBody.conversationState.currentMessage.userInputMessage.images
+  );
+  assert.deepEqual(
+    body,
+    originalBody,
+    "transformRequest must not mutate a caller-provided envelope"
+  );
 });
 
 test("KiroExecutor.transformRequest removes the top-level model field", () => {
@@ -323,6 +465,242 @@ test("KiroExecutor reads usage and cache tokens from a metadataEvent frame", asy
   });
 });
 
+test("KiroExecutor maps authoritative metadataEvent stop reasons to OpenAI finish reasons", async () => {
+  const executor = new KiroExecutor();
+  const cases = [
+    {
+      stopReason: "END_TURN",
+      payload: { stopReason: "END_TURN" },
+      expected: "stop",
+      frames: [],
+    },
+    {
+      stopReason: "TOOL_USE",
+      payload: { stopReason: "TOOL_USE" },
+      expected: "tool_calls",
+      frames: [],
+    },
+    {
+      stopReason: "CONTENT_FILTERED",
+      payload: { stopReason: "CONTENT_FILTERED" },
+      expected: "content_filter",
+      frames: [
+        buildEventFrame("toolUseEvent", {
+          toolUseId: "tool_before_filter",
+          name: "read_file",
+          input: { path: "/tmp/partial" },
+        }),
+      ],
+    },
+    {
+      stopReason: "MAX_TOKENS",
+      // A tool frame makes the legacy heuristic choose tool_calls. The
+      // authoritative metadata must instead expose the truncation as length.
+      payload: { metadataEvent: { stopReason: "MAX_TOKENS" } },
+      expected: "length",
+      frames: [
+        buildEventFrame("toolUseEvent", {
+          toolUseId: "tool_at_limit",
+          name: "read_file",
+          input: { path: "/tmp/partial" },
+        }),
+      ],
+    },
+  ];
+
+  for (const { stopReason, payload, expected, frames } of cases) {
+    const response = buildEventStreamResponse([
+      buildEventFrame("assistantResponseEvent", { content: "partial response" }),
+      ...frames,
+      buildEventFrame("metadataEvent", payload),
+    ]);
+    const chunks = parseSSEJsonChunks(
+      await executor.transformEventStreamToSSE(response, "kiro-model").text()
+    );
+    const finish = chunks.find((chunk) => chunk.choices?.[0]?.finish_reason);
+    assert.equal(finish.choices[0].finish_reason, expected, stopReason);
+  }
+});
+
+test("KiroExecutor preserves CONTENT_FILTERED for empty and reasoning-only streams", async () => {
+  const executor = new KiroExecutor();
+  for (const nested of [false, true]) {
+    for (const reasoning of [false, true]) {
+      const metadata = { stopReason: "CONTENT_FILTERED" };
+      const response = buildEventStreamResponse([
+        ...(reasoning
+          ? [buildEventFrame("reasoningContentEvent", { text: "Considering the request." })]
+          : []),
+        buildEventFrame("metadataEvent", nested ? { metadataEvent: metadata } : metadata),
+        buildEventFrame("contextUsageEvent", { contextUsagePercentage: 1 }),
+      ]);
+      const text = await executor.transformEventStreamToSSE(response, "claude-opus-5.5").text();
+      const chunks = parseSSEJsonChunks(text);
+      const finishes = chunks.filter((chunk) => chunk.choices?.[0]?.finish_reason);
+      assert.equal(finishes.length, 1);
+      assert.equal(finishes[0].choices[0].finish_reason, "content_filter");
+      assert.equal(
+        chunks.some((chunk) => chunk.choices?.[0]?.delta?.content),
+        false
+      );
+      assert.equal(
+        chunks.some((chunk) => chunk.choices?.[0]?.delta?.tool_calls),
+        false
+      );
+      assert.equal(text.split("data: [DONE]").length - 1, 1);
+      const watcher = createStreamContentWatcher();
+      for (let offset = 0; offset < text.length; offset += 11) {
+        watcher.note(text.slice(offset, offset + 11));
+      }
+      watcher.finish();
+      assert.equal(watcher.sawLegitEmptyTerminal(), true);
+      assert.equal(watcher.sawError(), true);
+      const error = chunks.find((chunk) => chunk.error)?.error;
+      assert.equal(error?.code, "content_filter");
+      assert.match(error?.message, /Kiro.*safety filter/i);
+      if (!reasoning) assert.equal(watcher.sawContent(), false);
+    }
+  }
+});
+
+test("Kiro refusal survives client stream handling with one error and terminal", async () => {
+  const executor = new KiroExecutor();
+  const response = executor.transformEventStreamToSSE(
+    buildEventStreamResponse([
+      buildEventFrame("reasoningContentEvent", { text: "Considering." }),
+      buildEventFrame("metadataEvent", {
+        stopReason: "CONTENT_FILTERED",
+        stopDetails: { refusal: { category: "REASONING_EXTRACTION" } },
+      }),
+    ]),
+    "claude-opus-5.5"
+  );
+  const failures: Array<{ status: number; code?: string }> = [];
+  const stream = response.body!.pipeThrough(
+    createPassthroughStreamWithLogger(
+      "kiro",
+      null,
+      null,
+      "claude-opus-5.5",
+      null,
+      { messages: [{ role: "user", content: "Hi" }] },
+      null,
+      null,
+      (failure) => {
+        failures.push(failure);
+        return true;
+      }
+    )
+  );
+  const text = await new Response(stream).text();
+  const chunks = parseSSEJsonChunks(text);
+  assert.equal(chunks.filter((chunk) => chunk.error?.code === "content_filter").length, 1);
+  assert.match(text, /REASONING_EXTRACTION/);
+  assert.equal(failures.length, 1);
+  assert.equal(failures[0].status, 400);
+  assert.equal(failures[0].code, "content_filter");
+  assert.equal(
+    chunks.some((chunk) => chunk.choices?.[0]?.finish_reason === "stop"),
+    false
+  );
+  assert.equal(text.split("data: [DONE]").length - 1, 1);
+});
+
+test("Kiro refusal never exposes unrecognized categories or provider explanations", async () => {
+  const response = new KiroExecutor().transformEventStreamToSSE(
+    buildEventStreamResponse([
+      buildEventFrame("metadataEvent", {
+        stopReason: "CONTENT_FILTERED",
+        stopDetails: {
+          refusal: { category: "sk-private", explanation: "at /home/private/file.ts:42" },
+        },
+      }),
+    ]),
+    "claude-opus-5.5"
+  );
+  const text = await response.text();
+  const errors = parseSSEJsonChunks(text).filter((chunk) => chunk.error);
+  assert.equal(errors.length, 1);
+  assert.equal(errors[0].error.code, "content_filter");
+  assert.match(errors[0].error.message, /safety filter/);
+  assert.doesNotMatch(text, /sk-private|\/home\/private/);
+});
+
+test("Kiro refusal reaches translated Claude and Responses streams as a typed error", async () => {
+  for (const format of ["claude", "openai-responses"]) {
+    const response = new KiroExecutor().transformEventStreamToSSE(
+      buildEventStreamResponse([
+        buildEventFrame("metadataEvent", { stopReason: "CONTENT_FILTERED" }),
+      ]),
+      "claude-opus-5.5"
+    );
+    const text = await new Response(
+      response.body!.pipeThrough(
+        createSSEStream({
+          mode: "translate",
+          sourceFormat: format,
+          targetFormat: "openai",
+          provider: "kiro",
+          model: "claude-opus-5.5",
+        })
+      )
+    ).text();
+    assert.match(text, /"code":"content_filter"/);
+    assert.match(text, format === "claude" ? /event: error/ : /event: response.failed/);
+    assert.doesNotMatch(text, /data: \[DONE\]/);
+  }
+});
+
+test("Kiro refusal reaches non-streaming clients as HTTP 400 without retry", async () => {
+  const executor = new KiroExecutor();
+  for (const nested of [false, true]) {
+    let calls = 0;
+    const metadata = {
+      stopReason: "CONTENT_FILTERED",
+      stopDetails: {
+        refusal: {
+          category: "REASONING_EXTRACTION",
+          explanation: "secret API_KEY=sk-private at /home/private/server.ts:42",
+        },
+      },
+    };
+    const result = await runNonStreamingProviderLeg({
+      phase: "initial",
+      sourceBody: { model: "claude-opus-5.5", messages: [{ role: "user", content: "Hi" }] },
+      allowAccountRotation: true,
+      allowModelFallback: true,
+      provider: "kiro",
+      model: "claude-opus-5.5",
+      targetFormat: "openai",
+      setRequestWireState: () => {},
+      executeProviderRequest: async () => {
+        calls++;
+        return {
+          response: executor.transformEventStreamToSSE(
+            buildEventStreamResponse([
+              buildEventFrame("reasoningContentEvent", { text: "Considering." }),
+              buildEventFrame("metadataEvent", nested ? { metadataEvent: metadata } : metadata),
+            ]),
+            "claude-opus-5.5"
+          ),
+          url: "https://runtime.us-east-1.kiro.dev/",
+          headers: {},
+          transformedBody: {},
+        };
+      },
+    });
+    assert.equal(calls, 1);
+    assert.equal(result.kind, "error");
+    if (result.kind !== "error") continue;
+    assert.equal(result.receipt.httpStatus, 400);
+    assert.equal(result.result.response.status, 400);
+    const body = await result.result.response.json();
+    assert.equal(body.error.code, "content_filter");
+    assert.match(body.error.message, /REASONING_EXTRACTION/);
+    assert.doesNotMatch(JSON.stringify(body), /sk-private|\/home\/private|Considering/);
+  }
+});
+
 // Cache counts can arrive on a frame carrying no input/output totals. Dropping
 // the frame (the old behavior, gated on `inputTokens > 0 || outputTokens > 0`)
 // lost the cache accounting entirely.
@@ -374,6 +752,114 @@ test("KiroExecutor accepts snake_case cache token spellings", async () => {
     total_tokens: 6,
     cache_read_input_tokens: 64,
     cache_creation_input_tokens: 32,
+  });
+});
+
+test("KiroExecutor preserves explicit zero cache usage fields", async () => {
+  const executor = new KiroExecutor();
+  const response = buildEventStreamResponse([
+    buildEventFrame("metadataEvent", {
+      usage: {
+        inputTokens: 12,
+        outputTokens: 3,
+        cacheReadInputTokens: 0,
+        cacheWriteInputTokens: 0,
+      },
+    }),
+  ]);
+
+  const chunks = parseSSEJsonChunks(
+    await executor.transformEventStreamToSSE(response, "kiro-model").text()
+  );
+  const finish = chunks.find((chunk) => chunk.choices?.[0]?.finish_reason);
+
+  assert.deepEqual(finish.usage, {
+    prompt_tokens: 12,
+    completion_tokens: 3,
+    total_tokens: 15,
+    cache_read_input_tokens: 0,
+    cache_creation_input_tokens: 0,
+  });
+});
+
+test("KiroExecutor merges cache-only metadata usage with later metrics totals", async () => {
+  const executor = new KiroExecutor();
+  const response = buildEventStreamResponse([
+    buildEventFrame("metadataEvent", { usage: { cacheReadInputTokens: 900 } }),
+    buildEventFrame("metricsEvent", { inputTokens: 12, outputTokens: 3 }),
+  ]);
+
+  const chunks = parseSSEJsonChunks(
+    await executor.transformEventStreamToSSE(response, "kiro-model").text()
+  );
+  const finish = chunks.find((chunk) => chunk.choices?.[0]?.finish_reason);
+
+  assert.deepEqual(finish.usage, {
+    prompt_tokens: 12,
+    completion_tokens: 3,
+    total_tokens: 15,
+    cache_read_input_tokens: 900,
+  });
+});
+
+test("KiroExecutor merges partial usage fields regardless of event order", async () => {
+  const executor = new KiroExecutor();
+  const response = buildEventStreamResponse([
+    buildEventFrame("metricsEvent", { inputTokens: 12, outputTokens: 3 }),
+    buildEventFrame("metadataEvent", { usage: { cacheReadInputTokens: 900 } }),
+    buildEventFrame("metricsEvent", { cacheWriteInputTokens: 24 }),
+  ]);
+
+  const chunks = parseSSEJsonChunks(
+    await executor.transformEventStreamToSSE(response, "kiro-model").text()
+  );
+  const finish = chunks.find((chunk) => chunk.choices?.[0]?.finish_reason);
+
+  assert.deepEqual(finish.usage, {
+    prompt_tokens: 12,
+    completion_tokens: 3,
+    total_tokens: 15,
+    cache_read_input_tokens: 900,
+    cache_creation_input_tokens: 24,
+  });
+});
+
+test("KiroExecutor keeps previously reported totals when a later frame is partial", async () => {
+  const executor = new KiroExecutor();
+  const response = buildEventStreamResponse([
+    buildEventFrame("metricsEvent", { inputTokens: 12, outputTokens: 3 }),
+    buildEventFrame("metadataEvent", { usage: { outputTokens: 4 } }),
+  ]);
+
+  const chunks = parseSSEJsonChunks(
+    await executor.transformEventStreamToSSE(response, "kiro-model").text()
+  );
+  const finish = chunks.find((chunk) => chunk.choices?.[0]?.finish_reason);
+
+  assert.deepEqual(finish.usage, {
+    prompt_tokens: 12,
+    completion_tokens: 4,
+    total_tokens: 16,
+  });
+});
+
+test("KiroExecutor treats explicit zero input and output tokens as authoritative", async () => {
+  const executor = new KiroExecutor();
+  const response = buildEventStreamResponse([
+    buildEventFrame("assistantResponseEvent", { content: "response that must not be estimated" }),
+    buildEventFrame("contextUsageEvent", { contextUsagePercentage: 10 }),
+    buildEventFrame("metricsEvent", { inputTokens: 0, outputTokens: 0 }),
+  ]);
+
+  const chunks = parseSSEJsonChunks(
+    await executor.transformEventStreamToSSE(response, "kiro-model").text()
+  );
+  const finish = chunks.find((chunk) => chunk.choices?.[0]?.finish_reason);
+
+  assert.deepEqual(finish.usage, {
+    prompt_tokens: 0,
+    completion_tokens: 0,
+    total_tokens: 0,
   });
 });
 
@@ -468,12 +954,14 @@ test("KiroExecutor still reports a completion estimate without a context percent
 test("KiroExecutor.transformEventStreamToSSE surfaces native reasoning frames as reasoning_content", async () => {
   const executor = new KiroExecutor();
   // Verified live wire format: Kiro streams adaptive-thinking reasoning as a
-  // dedicated `reasoningContentEvent` frame carrying `{ text, signature }`. Also
-  // cover the `reasoningText` object variant and a signature-only frame.
+  // dedicated `reasoningContentEvent` frame carrying `{ reasoningContent }` or `{ text, signature }`.
+  // Also cover the `reasoningText` object variant, `redactedContent`, and a signature-only frame.
   const response = buildEventStreamResponse([
+    buildEventFrame("reasoningContentEvent", { reasoningContent: "Deep reasoning payload... " }),
     buildEventFrame("reasoningContentEvent", { text: "Let me think... " }),
     buildEventFrame("reasoningContentEvent", { text: "step two. " }),
     buildEventFrame("reasoningContentEvent", { signature: "sig-only-frame" }),
+    buildEventFrame("reasoningContentEvent", { redactedContent: "safety-redacted-reasoning" }),
     buildEventFrame("assistantResponseEvent", { reasoningText: { text: "variant." } }),
     buildEventFrame("assistantResponseEvent", { content: "The answer is 42." }),
     buildEventFrame("metricsEvent", { inputTokens: 3, outputTokens: 5 }),
@@ -492,10 +980,48 @@ test("KiroExecutor.transformEventStreamToSSE surfaces native reasoning frames as
 
   assert.equal(
     reasoning,
-    "Let me think... step two. variant.",
-    "reasoningContentEvent frames + reasoningText variant must all surface"
+    "Deep reasoning payload... Let me think... step two. variant.",
+    "reasoningContentEvent frames (with reasoningContent / text) + reasoningText variant must all surface"
   );
   assert.match(content, /The answer is 42\./, "normal content must still flow");
+});
+
+test("KiroExecutor.transformEventStreamToSSE preserves visible content in combined reasoning frames", async () => {
+  const executor = new KiroExecutor();
+  const response = buildEventStreamResponse([
+    buildEventFrame("assistantResponseEvent", {
+      content: "Visible answer.",
+      reasoningContent: "Private plan.",
+    }),
+    buildEventFrame("assistantResponseEvent", {
+      content: " Still visible.",
+      redactedContent: "opaque-redacted-state",
+    }),
+    buildEventFrame("messageStopEvent", {}),
+    buildEventFrame("metricsEvent", { inputTokens: 3, outputTokens: 5 }),
+  ]);
+
+  const text = await executor.transformEventStreamToSSE(response, "kiro-model").text();
+  const chunks = parseSSEJsonChunks(text);
+  const deltas = chunks.map((chunk) => chunk.choices?.[0]?.delta ?? {});
+  const visibleContent = deltas.map((delta) => delta.content || "").join("");
+  const reasoning = deltas.map((delta) => delta.reasoning_content || "").join("");
+  const firstReasoningIndex = deltas.findIndex(
+    (delta) => delta.reasoning_content === "Private plan."
+  );
+  const firstContentIndex = deltas.findIndex((delta) => delta.content === "Visible answer.");
+
+  assert.equal(visibleContent, "Visible answer. Still visible.");
+  assert.equal(reasoning, "Private plan.");
+  assert.equal(chunks[0].choices[0].delta.role, "assistant");
+  assert.ok(firstReasoningIndex >= 0 && firstReasoningIndex < firstContentIndex);
+  assert.equal(
+    deltas.some((delta) => delta.content !== undefined && delta.reasoning_content !== undefined),
+    false
+  );
+  assert.doesNotMatch(text, /opaque-redacted-state/);
+  assert.equal(chunks.filter((chunk) => chunk.choices?.[0]?.finish_reason).length, 1);
+  assert.match(text, /data: \[DONE\]/);
 });
 
 test("KiroExecutor.transformEventStreamToSSE parses fragmented frames and waits for post-stop usage", async () => {
@@ -651,7 +1177,7 @@ test("KiroExecutor.refreshCredentials returns null when the token refresh fails"
   try {
     const result = await executor.refreshCredentials(
       {
-        refreshToken: "refresh",
+        refreshToken: "failed-refresh",
         providerSpecificData: { clientId: "client", clientSecret: "secret" },
       },
       null
@@ -660,6 +1186,259 @@ test("KiroExecutor.refreshCredentials returns null when the token refresh fails"
   } finally {
     globalThis.fetch = originalFetch;
   }
+});
+
+test("KiroExecutor.refreshCredentials deduplicates concurrent rotating-token refreshes", async () => {
+  const executor = new KiroExecutor();
+  const originalFetch = globalThis.fetch;
+  let fetchCalls = 0;
+  let signalRefreshStarted!: () => void;
+  let releaseRefresh!: () => void;
+  const refreshStarted = new Promise<void>((resolve) => {
+    signalRefreshStarted = resolve;
+  });
+  const refreshReleased = new Promise<void>((resolve) => {
+    releaseRefresh = resolve;
+  });
+
+  globalThis.fetch = async () => {
+    fetchCalls += 1;
+    signalRefreshStarted();
+    await refreshReleased;
+    return new Response(
+      JSON.stringify({
+        accessToken: "new-access-token",
+        refreshToken: "rotated-refresh-token",
+        expiresIn: 3600,
+      }),
+      { status: 200, headers: { "Content-Type": "application/json" } }
+    );
+  };
+
+  const credentials = {
+    connectionId: "kiro-rotating-refresh-test",
+    refreshToken: "old-refresh-token",
+    providerSpecificData: { clientId: "client", clientSecret: "secret" },
+  };
+
+  try {
+    const first = executor.refreshCredentials(credentials, null);
+    await refreshStarted;
+    const second = executor.refreshCredentials({ ...credentials }, null);
+    releaseRefresh();
+
+    const [firstResult, secondResult] = await Promise.all([first, second]);
+    const expected = {
+      accessToken: "new-access-token",
+      refreshToken: "rotated-refresh-token",
+      expiresIn: 3600,
+    };
+    assert.equal(fetchCalls, 1, "one rotating refresh request must serve both callers");
+    assert.deepEqual(firstResult, expected);
+    assert.deepEqual(secondResult, expected);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});
+
+test("KiroExecutor.transformEventStreamToSSE classifies EventStream exception frames and errors the stream", async () => {
+  const executor = new KiroExecutor();
+  const exceptionFrame = buildExceptionFrame("ThrottlingException", "Rate exceeded");
+  const streamResponse = buildEventStreamResponse([exceptionFrame]);
+
+  const transformed = executor.transformEventStreamToSSE(streamResponse, "claude-sonnet-4.5");
+  const reader = transformed.body!.getReader();
+  const decoder = new TextDecoder();
+  let receivedText = "";
+  let errorCaught: Record<string, unknown> | null = null;
+
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      receivedText += decoder.decode(value, { stream: true });
+    }
+  } catch (err) {
+    errorCaught = err as Record<string, unknown>;
+  }
+
+  assert.match(receivedText, /rate_limit_exceeded/);
+  assert.match(receivedText, /Rate exceeded/);
+  assert.ok(errorCaught, "Stream should throw error on exception frame");
+  assert.equal(errorCaught.statusCode, 429);
+  assert.equal(errorCaught.code, "rate_limit_exceeded");
+  assert.equal(errorCaught.exceptionType, "ThrottlingException");
+});
+
+test("Kiro EventStream exceptions before readiness preserve their upstream classification", async () => {
+  const executor = new KiroExecutor();
+  const cases = [
+    {
+      exceptionType: "ThrottlingException",
+      message: "Rate exceeded",
+      status: 429,
+      code: "rate_limit_exceeded",
+      type: "requests",
+      publicType: "rate_limit_error",
+    },
+    {
+      exceptionType: "ServiceException",
+      message: "Temporarily unavailable",
+      status: 503,
+      code: "internal_server_error",
+      type: "api_error",
+      publicType: "api_error",
+    },
+    {
+      exceptionType: "ExpiredTokenException",
+      message: "Access token expired",
+      status: 401,
+      code: "invalid_api_key",
+      type: "authentication_error",
+      publicType: "authentication_error",
+    },
+  ];
+
+  for (const expected of cases) {
+    const transformed = executor.transformEventStreamToSSE(
+      buildEventStreamResponse([buildExceptionFrame(expected.exceptionType, expected.message)]),
+      "claude-sonnet-4.5"
+    );
+    const readiness = await ensureStreamReadiness(transformed, { timeoutMs: 100 });
+
+    assert.equal(readiness.ok, false, `${expected.exceptionType} must fail before readiness`);
+    if (readiness.ok) continue;
+    assert.equal(readiness.response.status, expected.status);
+    assert.equal(readiness.code, expected.code);
+    assert.equal(readiness.type, expected.type);
+    assert.match(readiness.classificationReason, new RegExp(expected.message));
+    const body = (await readiness.response.json()) as {
+      error: { code: string; type: string; message: string };
+    };
+    assert.equal(body.error.code, expected.code);
+    assert.equal(body.error.type, expected.publicType);
+    assert.match(body.error.message, new RegExp(expected.message));
+  }
+});
+
+test("Kiro EventStream exceptions after readiness retain their upstream error marker", async () => {
+  const executor = new KiroExecutor();
+  const transformed = executor.transformEventStreamToSSE(
+    buildEventStreamResponse([
+      buildEventFrame("contextUsageEvent", { contextUsagePercentage: 1 }),
+      buildExceptionFrame("ThrottlingException", "Rate exceeded after stream start"),
+    ]),
+    "claude-sonnet-4.5"
+  );
+  const readiness = await ensureStreamReadiness(transformed, { timeoutMs: 100 });
+
+  assert.equal(readiness.ok, true);
+  if (!readiness.ok) return;
+  const reader = readiness.response.body!.getReader();
+  const decoder = new TextDecoder();
+  const start = await reader.read();
+  assert.equal(start.done, false);
+  let receivedText = decoder.decode(start.value);
+  assert.match(receivedText, /"role":"assistant"/);
+
+  let forwardedError = "";
+  let streamError: Record<string, unknown> | null = null;
+  try {
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      forwardedError += decoder.decode(value, { stream: true });
+    }
+  } catch (error) {
+    streamError = error as Record<string, unknown>;
+  }
+
+  assert.ok(streamError, "post-readiness Kiro exception must terminate the stream");
+  assert.equal(streamError.statusCode, 429);
+  assert.equal(streamError.code, "rate_limit_exceeded");
+  assert.equal(streamError.type, "requests");
+  assert.equal(streamError.isKiroEventStreamException, true);
+  // A TransformStream may reject after handing off the role chunk before its
+  // queued error frame becomes readable. The outer pipeline renders the
+  // client-facing SSE error; this unit seam verifies the richer marker it uses.
+  assert.ok(receivedText.includes('"role":"assistant"'));
+  void forwardedError;
+});
+
+test("Kiro EventStream rejects an oversized declared frame before readiness", async () => {
+  const executor = new KiroExecutor();
+  const transformed = executor.transformEventStreamToSSE(
+    buildEventStreamResponse([buildIncompleteFramePrefix(8 * 1024 * 1024 + 1, 16)]),
+    "claude-sonnet-4.5"
+  );
+  const readiness = await ensureStreamReadiness(transformed, { timeoutMs: 100 });
+
+  assert.equal(readiness.ok, false);
+  if (readiness.ok) return;
+  assert.equal(readiness.response.status, 502);
+  assert.equal(readiness.code, "kiro_eventstream_frame_too_large");
+  assert.equal(readiness.type, "stream_error");
+});
+
+test("Kiro EventStream rejects an incomplete frame instead of completing successfully", async () => {
+  const executor = new KiroExecutor();
+  const transformed = executor.transformEventStreamToSSE(
+    buildEventStreamResponse([buildIncompleteFramePrefix(16)]),
+    "claude-sonnet-4.5"
+  );
+  const readiness = await ensureStreamReadiness(transformed, { timeoutMs: 100 });
+
+  assert.equal(readiness.ok, false);
+  if (readiness.ok) return;
+  assert.equal(readiness.response.status, 502);
+  assert.equal(readiness.code, "kiro_eventstream_incomplete_frame");
+  assert.equal(readiness.type, "stream_error");
+});
+
+test("Kiro EventStream rejects a fragmented response beyond its total byte limit", async () => {
+  const executor = new KiroExecutor();
+  const transformed = executor.transformEventStreamToSSE(
+    buildEventStreamResponse([buildIncompleteFramePrefix(16, 4), new Uint8Array([0])]),
+    "claude-sonnet-4.5",
+    { maxEventStreamResponseBytes: 4 }
+  );
+  const readiness = await ensureStreamReadiness(transformed, { timeoutMs: 100 });
+
+  assert.equal(readiness.ok, false);
+  if (readiness.ok) return;
+  assert.equal(readiness.response.status, 502);
+  assert.equal(readiness.code, "kiro_eventstream_response_too_large");
+  assert.equal(readiness.type, "stream_error");
+});
+
+test("Kiro EventStream rejects a fragmented incomplete frame beyond its buffer limit", async () => {
+  const executor = new KiroExecutor();
+  const transformed = executor.transformEventStreamToSSE(
+    buildEventStreamResponse([buildIncompleteFramePrefix(16, 4), new Uint8Array([0])]),
+    "claude-sonnet-4.5",
+    { maxEventStreamBufferBytes: 4 }
+  );
+  const readiness = await ensureStreamReadiness(transformed, { timeoutMs: 100 });
+
+  assert.equal(readiness.ok, false);
+  if (readiness.ok) return;
+  assert.equal(readiness.response.status, 502);
+  assert.equal(readiness.code, "kiro_eventstream_buffer_too_large");
+  assert.equal(readiness.type, "stream_error");
+});
+
+test("Kiro EventStream accepts one aggregate read containing multiple complete frames", async () => {
+  const executor = new KiroExecutor();
+  const first = buildEventFrame("contextUsageEvent", { contextUsagePercentage: 5 });
+  const second = buildEventFrame("messageStopEvent", {});
+  const transformed = executor.transformEventStreamToSSE(
+    buildEventStreamResponse([concatArrays(first, second)]),
+    "claude-sonnet-4.5",
+    { maxEventStreamBufferBytes: Math.max(first.length, second.length) }
+  );
+
+  const text = await transformed.text();
+  assert.match(text, /data: \[DONE\]/);
 });
 
 test("Kiro bills summed credits across metrics frames and requires metering in strict mode", async () => {

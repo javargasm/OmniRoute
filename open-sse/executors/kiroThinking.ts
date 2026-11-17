@@ -27,12 +27,26 @@ export type KiroThinkingState = {
    * complete on the next slice (e.g. `<thi`).
    */
   pendingTag: string;
+  /** Active closing tag when inside thinkingMode, e.g. "</thinking>" or "</think>". */
+  activeCloseTag?: string;
 };
+
+export const THINKING_TAG_VARIANTS: Array<{ open: string; close: string }> = [
+  { open: "<thinking>", close: "</thinking>" },
+  { open: "<think>", close: "</think>" },
+  { open: "<reasoning>", close: "</reasoning>" },
+  { open: "<thought>", close: "</thought>" },
+  { open: "<internal_thinking>", close: "</internal_thinking>" },
+];
+
+const OPEN_TAGS = THINKING_TAG_VARIANTS.map((v) => v.open);
+const CLOSE_TAGS = THINKING_TAG_VARIANTS.map((v) => v.close);
+const MAX_TAG_LENGTH = Math.max(...[...OPEN_TAGS, ...CLOSE_TAGS].map((t) => t.length));
 
 /**
  * Stream-safe splitter. Walks one slice of upstream content at a time and
  * routes characters to either the content channel or the reasoning channel
- * based on the current `<thinking>` state.
+ * based on the current `<thinking>` state. Supports multiple tag variants.
  *
  * State is mutated on `state` so a tag split between frames (e.g. `…</think`
  * followed by `ing>foo`) is still recognised.
@@ -53,43 +67,76 @@ export function splitInlineThinking(
   let text = (state.pendingTag || "") + (raw || "");
   state.pendingTag = "";
 
-  // Maximum length of an unfinished tag we might still complete on the next
-  // frame: `</thinking>` is the longest at 11 chars.
-  const PARTIAL_MAX = 11;
-
   while (text.length > 0) {
-    const target = state.thinkingMode ? "</thinking>" : "<thinking>";
-    const idx = text.indexOf(target);
+    if (!state.thinkingMode) {
+      // Find the earliest opening tag among all variants
+      let earliestIdx = -1;
+      let matchedVariant: (typeof THINKING_TAG_VARIANTS)[number] | null = null;
 
-    if (idx === -1) {
-      // No full target tag in `text`. Look for a possible partial at the end
-      // so we can complete it on the next frame.
-      let holdFrom = text.length;
-      for (let i = Math.max(0, text.length - PARTIAL_MAX); i < text.length; i++) {
-        const tail = text.slice(i);
-        if (target.startsWith(tail) && tail.length > 0) {
-          holdFrom = i;
-          break;
+      for (const variant of THINKING_TAG_VARIANTS) {
+        const idx = text.indexOf(variant.open);
+        if (idx !== -1 && (earliestIdx === -1 || idx < earliestIdx)) {
+          earliestIdx = idx;
+          matchedVariant = variant;
         }
       }
-      const flushable = text.slice(0, holdFrom);
-      if (flushable) {
-        if (state.thinkingMode) onReasoning(flushable);
-        else onContent(flushable);
-      }
-      state.pendingTag = text.slice(holdFrom);
-      return;
-    }
 
-    // Found a complete target tag. Flush everything before it in the current
-    // mode, flip the mode, and keep walking the remainder.
-    const before = text.slice(0, idx);
-    if (before) {
-      if (state.thinkingMode) onReasoning(before);
-      else onContent(before);
+      if (earliestIdx === -1) {
+        // No full opening tag in `text`. Check for trailing partial of ANY open tag.
+        let holdFrom = text.length;
+        for (let i = Math.max(0, text.length - MAX_TAG_LENGTH); i < text.length; i++) {
+          const tail = text.slice(i);
+          if (tail.length > 0 && OPEN_TAGS.some((open) => open.startsWith(tail))) {
+            holdFrom = i;
+            break;
+          }
+        }
+        const flushable = text.slice(0, holdFrom);
+        if (flushable) {
+          onContent(flushable);
+        }
+        state.pendingTag = text.slice(holdFrom);
+        return;
+      }
+
+      // Found a complete opening tag. Flush everything before it to content,
+      // flip mode to thinking, store the expected close tag, and advance.
+      const before = text.slice(0, earliestIdx);
+      if (before) onContent(before);
+      state.thinkingMode = true;
+      state.activeCloseTag = matchedVariant?.close ?? "</thinking>";
+      text = text.slice(earliestIdx + (matchedVariant?.open.length ?? "<thinking>".length));
+    } else {
+      // Inside thinking mode: look for the closing tag.
+      // Prefer activeCloseTag, or fall back to any close tag.
+      const targetClose = state.activeCloseTag || "</thinking>";
+      const idx = text.indexOf(targetClose);
+
+      if (idx === -1) {
+        // Look for trailing partial of the closing tag
+        let holdFrom = text.length;
+        for (let i = Math.max(0, text.length - targetClose.length); i < text.length; i++) {
+          const tail = text.slice(i);
+          if (targetClose.startsWith(tail) && tail.length > 0) {
+            holdFrom = i;
+            break;
+          }
+        }
+        const flushable = text.slice(0, holdFrom);
+        if (flushable) {
+          onReasoning(flushable);
+        }
+        state.pendingTag = text.slice(holdFrom);
+        return;
+      }
+
+      // Found closing tag
+      const before = text.slice(0, idx);
+      if (before) onReasoning(before);
+      state.thinkingMode = false;
+      state.activeCloseTag = undefined;
+      text = text.slice(idx + targetClose.length);
     }
-    state.thinkingMode = !state.thinkingMode;
-    text = text.slice(idx + target.length);
   }
 }
 

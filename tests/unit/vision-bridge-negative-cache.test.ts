@@ -18,9 +18,8 @@ import assert from "node:assert/strict";
 
 process.env.DATA_DIR = `/tmp/omniroute-test-vision-negative-cache-${Date.now()}`;
 
-const { getBestVisionModel, clearSelectionCache } = await import(
-  "../../src/lib/guardrails/visionBridgeRouter.ts"
-);
+const { getBestVisionModel, clearSelectionCache } =
+  await import("../../src/lib/guardrails/visionBridgeRouter.ts");
 
 /** Counts credential lookups, which is one scan's worth of work per call. */
 function countingDeps(usable: boolean | null) {

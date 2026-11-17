@@ -38,7 +38,11 @@ export function adaptScript({ commandId, inputDigest, exitCode, stdout }) {
       parsed = null;
     }
   }
-  const diagnostics = parsed ?? { input_digest: digest, exit_code: exitCode, diagnostics: stdout ?? "" };
+  const diagnostics = parsed ?? {
+    input_digest: digest,
+    exit_code: exitCode,
+    diagnostics: stdout ?? "",
+  };
   const status = exitCode === 0 ? (digest ? "PASS" : "INFRA_ERROR") : "FAIL";
   return {
     command_id: commandId,

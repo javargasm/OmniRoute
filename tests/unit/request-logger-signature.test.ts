@@ -88,7 +88,7 @@ test("computeLogsSignature: non-array input collapses to empty", () => {
 test("computeLogsSignature: missing tokens remain distinct from explicit zero", () => {
   assert.equal(
     computeLogsSignature([{ id: "a", status: 200, duration: 5 }]),
-    JSON.stringify(["a", 200, 5, null, null, null])
+    JSON.stringify(["a", 200, 5, null, null, null, null])
   );
 });
 
@@ -113,4 +113,12 @@ test("resolveInitialVisibility: mirrors document.visibilityState when present", 
     if (original === undefined) delete (globalThis as any).document;
     else (globalThis as any).document = original;
   }
+});
+
+test("computeLogsSignature: changes when Kiro effort becomes available", () => {
+  const pending = [
+    { id: "kiro", status: 200, duration: 5, tokens: { out: 1 }, effectiveReasoningEffort: null },
+  ];
+  const resolved = [{ ...pending[0], effectiveReasoningEffort: "max" }];
+  assert.notEqual(computeLogsSignature(pending), computeLogsSignature(resolved));
 });

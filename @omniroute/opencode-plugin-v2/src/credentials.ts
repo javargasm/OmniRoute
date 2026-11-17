@@ -29,10 +29,11 @@ const ENV_VAR = "OMNIROUTE_API_KEY";
  */
 function connectionApi(
   ctx: StableContext
-): { active: (id: string) => Promise<unknown>; resolve: (c: unknown) => Promise<unknown> } | undefined {
+):
+  | { active: (id: string) => Promise<unknown>; resolve: (c: unknown) => Promise<unknown> }
+  | undefined {
   const connection = (ctx.integration as unknown as Record<string, unknown>).connection as
-    | { active?: unknown; resolve?: unknown }
-    | undefined;
+    { active?: unknown; resolve?: unknown } | undefined;
   if (
     connection === undefined ||
     typeof connection.active !== "function" ||
@@ -69,8 +70,7 @@ async function keyFromConnection(
     const active = await connection.active(integrationID);
     if (active === undefined) return undefined;
     const credential = (await connection.resolve(active)) as
-      | { type?: unknown; key?: unknown }
-      | undefined;
+      { type?: unknown; key?: unknown } | undefined;
     if (credential === undefined) return undefined;
     if (credential.type !== "key") {
       log.warn(

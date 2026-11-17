@@ -523,6 +523,36 @@ export const DEFAULT_PRICING_OAUTH = {
     },
   },
   kiro: {
+    // Reference Claude rates for the retained local catalog.
+    "claude-opus-5": CLAUDE_OPUS_5_PRICING,
+    "claude-opus-4.8": {
+      input: 5.0,
+      output: 25.0,
+      cached: 0.5,
+      reasoning: 25.0,
+      cache_creation: 6.25,
+    },
+    "claude-opus-4.7": {
+      input: 5.0,
+      output: 25.0,
+      cached: 0.5,
+      reasoning: 25.0,
+      cache_creation: 6.25,
+    },
+    "claude-opus-4.6": {
+      input: 5.0,
+      output: 25.0,
+      cached: 0.5,
+      reasoning: 25.0,
+      cache_creation: 6.25,
+    },
+    "claude-sonnet-4.6": {
+      input: 3.0,
+      output: 15.0,
+      cached: 0.3,
+      reasoning: 15.0,
+      cache_creation: 3.75,
+    },
     "claude-sonnet-4.5": {
       input: 3.0,
       output: 15.0,

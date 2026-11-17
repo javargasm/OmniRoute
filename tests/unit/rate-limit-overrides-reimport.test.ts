@@ -59,9 +59,7 @@ test("dashboard re-import without overrides preserves existing rate_limit_overri
       ],
     });
     runJsonMigration(db, {
-      providerConnections: [
-        { id: "dashboard-preserve-1", provider: "openai", authType: "apikey" },
-      ],
+      providerConnections: [{ id: "dashboard-preserve-1", provider: "openai", authType: "apikey" }],
     });
     const row = db
       .prepare("SELECT rate_limit_overrides_json FROM provider_connections WHERE id = ?")
@@ -78,9 +76,7 @@ test("dashboard re-import without overrides on a missing row stores NULL without
   db.prepare("DELETE FROM provider_connections").run();
   try {
     runJsonMigration(db, {
-      providerConnections: [
-        { id: "dashboard-missing-1", provider: "openai", authType: "apikey" },
-      ],
+      providerConnections: [{ id: "dashboard-missing-1", provider: "openai", authType: "apikey" }],
     });
     const row = db
       .prepare("SELECT rate_limit_overrides_json FROM provider_connections WHERE id = ?")

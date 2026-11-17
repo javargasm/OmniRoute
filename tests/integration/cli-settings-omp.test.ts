@@ -161,7 +161,10 @@ test("omp-settings POST: writes models.yml and persists credentials for a seeded
   assert.ok(fs.existsSync(modelsYmlPath), "models.yml must be written");
   const content = fs.readFileSync(modelsYmlPath, "utf-8");
   assert.ok(content.includes("http://localhost:20128/v1"), "models.yml must contain the base URL");
-  assert.ok(content.includes("openai-models-list"), "models.yml must use openai-models-list discovery");
+  assert.ok(
+    content.includes("openai-models-list"),
+    "models.yml must use openai-models-list discovery"
+  );
   assert.ok(content.includes("injectV1: false"), "models.yml must specify injectV1: false");
 
   const getRes = await GET(req());

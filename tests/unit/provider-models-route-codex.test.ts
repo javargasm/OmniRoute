@@ -1,10 +1,16 @@
+import { setSafeOutboundPinnedFetchTestOverride } from "../../src/shared/network/safeOutboundFetch.ts";
 import test from "node:test";
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-import { getCodexClientVersion } from "../../open-sse/config/codexClient.ts";
+import {
+  DEFAULT_CODEX_CLIENT_VERSION,
+  getCodexClientVersion,
+  clearCodexClientVersionCache,
+  resetCodexClientVersionCacheForTests,
+} from "../../open-sse/config/codexClient.ts";
 
 const TEST_DATA_DIR = fs.mkdtempSync(
   path.join(os.tmpdir(), "omniroute-provider-model-routes-codex-")
@@ -14,8 +20,13 @@ process.env.DATA_DIR = TEST_DATA_DIR;
 const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const modelsDb = await import("../../src/lib/db/models.ts");
+const settingsDb = await import("../../src/lib/db/settings.ts");
 const providerModelsRoute = await import("../../src/app/api/providers/[id]/models/route.ts");
 const codexDiscovery = await import("../../src/app/api/providers/[id]/models/discovery/codex.ts");
+const codexClientVersionTracker =
+  await import("../../src/shared/services/codexClientVersionTracker.ts");
+const codexReasoningSuffix = await import("../../open-sse/executors/codex/reasoningSuffix.ts");
+const codexReasoningLevels = await import("../../src/shared/services/codexReasoningLevels.ts");
 
 type RouteModel = {
   id: string;
@@ -44,10 +55,16 @@ type ProviderOverrides = {
 };
 
 const originalFetch = globalThis.fetch;
+const CODEX_NPM_LATEST_URL = "https://registry.npmjs.org/@openai/codex/latest";
 
 async function resetStorage() {
   globalThis.fetch = originalFetch;
+  clearCodexClientVersionCache();
+  resetCodexClientVersionCacheForTests();
   codexDiscovery.clearCodexGithubCatalogCacheForTests();
+  codexClientVersionTracker.__resetCodexClientVersionTrackerForTests();
+  codexReasoningSuffix.__resetCodexReasoningLevelsForTests();
+  codexReasoningLevels.__resetCodexReasoningLevelsHydrationForTests();
   core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
   fs.mkdirSync(TEST_DATA_DIR, { recursive: true });
@@ -74,12 +91,19 @@ async function callRoute(connectionId: string, search = "") {
 }
 
 test.beforeEach(async () => {
+  setSafeOutboundPinnedFetchTestOverride(() => globalThis.fetch);
   await resetStorage();
 });
 
 test.after(async () => {
+  setSafeOutboundPinnedFetchTestOverride(undefined);
   globalThis.fetch = originalFetch;
+  clearCodexClientVersionCache();
+  resetCodexClientVersionCacheForTests();
   codexDiscovery.clearCodexGithubCatalogCacheForTests();
+  codexClientVersionTracker.__resetCodexClientVersionTrackerForTests();
+  codexReasoningSuffix.__resetCodexReasoningLevelsForTests();
+  codexReasoningLevels.__resetCodexReasoningLevelsHydrationForTests();
   core.resetDbInstance();
   fs.rmSync(TEST_DATA_DIR, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 });
@@ -138,6 +162,8 @@ test("provider models route merges live Codex models with the local catalog then
   globalThis.fetch = async (url, init) => {
     const requestUrl = String(url);
     const headers = new Headers(init?.headers as HeadersInit | undefined);
+    if (requestUrl.includes("registry.npmjs.org"))
+      return new Response("registry unavailable", { status: 503 });
     seenRequests.push({
       url: requestUrl,
       authorization: headers.get("authorization"),
@@ -601,4 +627,182 @@ test("vendor models route reports an error envelope as a failure, not a live or 
   assert.ok(modelIds.includes("gpt-5.6-sol"));
   const synced = await modelsDb.getSyncedAvailableModelsForConnection("codex", connection.id);
   assert.equal(synced.length, 1, "a failed lookup must not touch the cached catalog");
+});
+
+test("provider models route tracks the published Codex CLI version so version-gated models are discovered", async () => {
+  const connection = await seedCodexConnection({
+    accessToken: "codex-access-token",
+    providerSpecificData: { chatgptAccountId: "account-123" },
+  });
+  // gpt-6-sol / gpt-6-luna require a Codex CLI one minor above the built-in
+  // floor (0.155.0 vs 0.154.0 today), so they only appear once OmniRoute
+  // advertises the published CLI (0.156.0 today). Derived from the floor so a
+  // routine floor bump keeps this guard meaningful.
+  const [floorMajor, floorMinor] = DEFAULT_CODEX_CLIENT_VERSION.split(".").map(Number);
+  const gatedVersion = `${floorMajor}.${floorMinor + 1}.0`;
+  const publishedVersion = `${floorMajor}.${floorMinor + 2}.0`;
+  const versionGatedModels = [
+    {
+      slug: "gpt-6-sol",
+      display_name: "GPT-6 Sol",
+      visibility: "list",
+      supported_in_api: true,
+      minimal_client_version: gatedVersion,
+    },
+    {
+      slug: "gpt-6-luna",
+      display_name: "GPT-6 Luna",
+      visibility: "list",
+      supported_in_api: true,
+      minimal_client_version: gatedVersion,
+    },
+  ];
+  const liveRequests: Array<{ url: string; userAgent: string | null }> = [];
+
+  globalThis.fetch = async (url, init) => {
+    const requestUrl = String(url);
+    if (
+      requestUrl === CODEX_NPM_LATEST_URL ||
+      requestUrl.includes("registry.npmjs.org/@openai%2Fcodex")
+    ) {
+      return Response.json({ name: "@openai/codex", version: publishedVersion });
+    }
+    if (requestUrl.includes("raw.githubusercontent.com/openai/codex")) {
+      return Response.json({ models: versionGatedModels });
+    }
+    const headers = new Headers(init?.headers as HeadersInit | undefined);
+    liveRequests.push({ url: requestUrl, userAgent: headers.get("user-agent") });
+    return Response.json({ models: versionGatedModels });
+  };
+
+  const response = await callRoute(connection.id, "?refresh=true");
+  const body = (await response.json()) as RouteBody;
+  const modelIds = new Set((body.models || []).map((model) => model.id));
+  const syncedModels = await modelsDb.getSyncedAvailableModelsForConnection("codex", connection.id);
+  const syncedIds = new Set(syncedModels.map((model) => model.id));
+
+  assert.equal(response.status, 200);
+  assert.ok(modelIds.has("gpt-6-sol"), `gpt-6-sol (minimal_client_version ${gatedVersion})`);
+  assert.ok(modelIds.has("gpt-6-luna"), `gpt-6-luna (minimal_client_version ${gatedVersion})`);
+  assert.equal(body.source, "api");
+  assert.ok(syncedIds.has("gpt-6-sol"));
+  assert.ok(syncedIds.has("gpt-6-luna"));
+  assert.deepEqual(liveRequests, [
+    {
+      url: `https://chatgpt.com/backend-api/codex/models?client_version=${publishedVersion}`,
+      userAgent: `codex-cli/${publishedVersion} (Windows 10.0.26200; x64)`,
+    },
+  ]);
+  const settings = await settingsDb.getSettings();
+  assert.equal(settings.codex_client_version_tracked, publishedVersion);
+});
+
+test("provider models route derives effort variants from discovered Codex reasoning levels", async () => {
+  const connection = await seedCodexConnection({
+    accessToken: "codex-access-token",
+    providerSpecificData: { chatgptAccountId: "account-123" },
+  });
+  // gpt-6-sol / gpt-6-luna have no hand-written registry variants: their tiers come
+  // only from the live catalog's `supported_reasoning_levels`.
+  const solLevels = ["low", "medium", "high", "xhigh", "max", "ultra"];
+  const lunaLevels = ["low", "medium", "high", "xhigh", "max"];
+  const toReasoningLevels = (efforts: string[]) =>
+    efforts.map((effort) => ({ effort, description: `${effort} reasoning` }));
+  const liveModels = [
+    {
+      slug: "gpt-6-sol",
+      display_name: "GPT-6 Sol",
+      visibility: "list",
+      supported_in_api: true,
+      default_reasoning_level: "medium",
+      supported_reasoning_levels: toReasoningLevels(solLevels),
+    },
+    {
+      slug: "gpt-6-luna",
+      display_name: "GPT-6 Luna",
+      visibility: "list",
+      supported_in_api: true,
+      default_reasoning_level: "medium",
+      supported_reasoning_levels: toReasoningLevels(lunaLevels),
+    },
+  ];
+
+  globalThis.fetch = async (url) => {
+    const requestUrl = String(url);
+    if (
+      requestUrl === CODEX_NPM_LATEST_URL ||
+      requestUrl.includes("registry.npmjs.org/@openai%2Fcodex")
+    ) {
+      return new Response("registry unavailable", { status: 503 });
+    }
+    if (requestUrl.includes("raw.githubusercontent.com/openai/codex")) {
+      return Response.json({ models: [] });
+    }
+    return Response.json({ models: liveModels });
+  };
+
+  const response = await callRoute(connection.id, "?refresh=true");
+  const body = (await response.json()) as RouteBody;
+  const modelIds = (body.models || []).map((model) => model.id);
+  const syncedModels = await modelsDb.getSyncedAvailableModelsForConnection("codex", connection.id);
+  const syncedById = new Map(syncedModels.map((model) => [model.id, model]));
+
+  assert.equal(response.status, 200);
+  assert.equal(body.source, "api");
+  // Each base is followed by its declared tiers, highest first (the registry convention).
+  const solIndex = modelIds.indexOf("gpt-6-sol");
+  assert.deepEqual(modelIds.slice(solIndex, solIndex + 7), [
+    "gpt-6-sol",
+    "gpt-6-sol-ultra",
+    "gpt-6-sol-max",
+    "gpt-6-sol-xhigh",
+    "gpt-6-sol-high",
+    "gpt-6-sol-medium",
+    "gpt-6-sol-low",
+  ]);
+  const lunaIndex = modelIds.indexOf("gpt-6-luna");
+  assert.deepEqual(modelIds.slice(lunaIndex, lunaIndex + 6), [
+    "gpt-6-luna",
+    "gpt-6-luna-max",
+    "gpt-6-luna-xhigh",
+    "gpt-6-luna-high",
+    "gpt-6-luna-medium",
+    "gpt-6-luna-low",
+  ]);
+  assert.equal(modelIds.includes("gpt-6-luna-ultra"), false);
+  assert.equal(
+    body.models?.find((model) => model.id === "gpt-6-sol-ultra")?.name,
+    "GPT-6 Sol (Ultra)"
+  );
+
+  for (const id of ["gpt-6-sol-ultra", "gpt-6-sol-medium", "gpt-6-luna-max"]) {
+    assert.ok(syncedById.has(id), `${id} is persisted to the synced catalog`);
+  }
+  assert.deepEqual(syncedById.get("gpt-6-sol")?.supportedThinkingEfforts, solLevels);
+  assert.deepEqual(syncedById.get("gpt-6-luna")?.supportedThinkingEfforts, lunaLevels);
+  assert.equal(syncedById.get("gpt-6-sol-ultra")?.supportedThinkingEfforts, undefined);
+  assert.equal(syncedById.get("gpt-6-sol")?.defaultThinkingEffort, "medium");
+  // The executor's runtime level table learned the declared tiers.
+  assert.deepEqual(codexReasoningSuffix.splitCodexReasoningSuffix("gpt-6-sol-max"), {
+    baseModel: "gpt-6-sol",
+    effort: "max",
+  });
+
+  // A cache hit rebuilds exactly the persisted id list, so it never re-persists.
+  const cachedResponse = await callRoute(connection.id);
+  const cachedBody = (await cachedResponse.json()) as RouteBody;
+  assert.equal(cachedBody.source, "cache");
+  assert.deepEqual(
+    (cachedBody.models || []).map((model) => model.id),
+    syncedModels.map((model) => model.id)
+  );
+
+  // After a restart the synced rows alone restore the runtime level table.
+  codexReasoningSuffix.__resetCodexReasoningLevelsForTests();
+  assert.equal(codexReasoningSuffix.splitCodexReasoningSuffix("gpt-6-luna-max").effort, "max");
+  await codexReasoningLevels.hydrateCodexReasoningLevelsFromSyncedModels();
+  assert.deepEqual(codexReasoningSuffix.splitCodexReasoningSuffix("gpt-6-luna-max"), {
+    baseModel: "gpt-6-luna",
+    effort: "max",
+  });
 });

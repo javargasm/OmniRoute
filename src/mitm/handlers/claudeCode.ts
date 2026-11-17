@@ -7,8 +7,8 @@
  * Format: Anthropic Messages API — POST `/v1/messages` on the OmniRoute router.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { AgentId } from "../types";
-import { MitmHandlerBase, createBoundedCollector } from "./base";
+import type { AgentId } from "../types.ts";
+import { MitmHandlerBase, createBoundedCollector } from "./base.ts";
 
 export class ClaudeCodeHandler extends MitmHandlerBase {
   readonly agentId: AgentId = "claude-code";

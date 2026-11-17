@@ -6,8 +6,8 @@
  * the mapped target and the request is forwarded to the OmniRoute router.
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { AgentId } from "../types";
-import { MitmHandlerBase, createBoundedCollector } from "./base";
+import type { AgentId } from "../types.ts";
+import { MitmHandlerBase, createBoundedCollector } from "./base.ts";
 
 export class CodexHandler extends MitmHandlerBase {
   readonly agentId: AgentId = "codex";
@@ -16,7 +16,7 @@ export class CodexHandler extends MitmHandlerBase {
     req: IncomingMessage,
     res: ServerResponse,
     body: Buffer,
-    mappedModel: string,
+    mappedModel: string
   ): Promise<void> {
     const startedAt = this.now();
     const intercepted = await this.hookBufferStart(req, body, mappedModel);

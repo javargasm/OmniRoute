@@ -20,9 +20,9 @@
  * before (see `tests/unit/mitm-handler-antigravity.test.ts`).
  */
 import type { IncomingMessage, ServerResponse } from "node:http";
-import type { AgentId } from "../types";
-import type { InterceptedRequest } from "../inspector/types";
-import { MitmHandlerBase, createBoundedCollector } from "./base";
+import type { AgentId } from "../types.ts";
+import type { InterceptedRequest } from "../inspector/types.ts";
+import { MitmHandlerBase, createBoundedCollector } from "./base.ts";
 import { TOOL_RENAME_MAP } from "@omniroute/open-sse/services/claudeCodeToolRemapper";
 
 interface GeminiPart {

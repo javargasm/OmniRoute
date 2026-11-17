@@ -3,7 +3,14 @@ export function readKiroReasoningText(
   eventType: string,
   payload: Record<string, unknown> | undefined
 ): string | undefined {
-  const reasoningText = payload?.reasoningText;
+  const content = payload?.reasoningContent;
+  const reasoningText =
+    typeof content === "string"
+      ? content
+      : content && typeof content === "object"
+        ? ((content as { text?: unknown; reasoningText?: unknown }).text ??
+          (content as { reasoningText?: unknown }).reasoningText)
+        : payload?.reasoningText;
   let text = "";
   if (reasoningText && typeof reasoningText === "object") {
     const value = reasoningText as { text?: unknown; Text?: unknown };

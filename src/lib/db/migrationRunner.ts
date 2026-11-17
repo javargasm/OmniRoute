@@ -638,6 +638,8 @@ function isSchemaAlreadyApplied(
         hasColumn(db, "provider_nodes", "daily_quota_reset_timezone") &&
         hasColumn(db, "provider_nodes", "daily_quota_reset_hour")
       );
+    case "177":
+      return hasColumn(db, "provider_connections", "synced_models_at");
     case "178":
       // 178 only exists to give memory_fts_au a WHEN clause. A released ledger slot
       // (#18952) can replay it long after 203 rewrote that trigger, and the replay would
@@ -683,6 +685,11 @@ function isSchemaAlreadyApplied(
       return (
         hasColumn(db, "usage_history", "provider_credits") &&
         hasColumn(db, "usage_history", "provider_cost_usd")
+      );
+    case "218":
+      return (
+        migration.name === "call_logs_effective_reasoning_effort" &&
+        hasColumn(db, "call_logs", "effective_reasoning_effort")
       );
     case "230":
       // Cache-write tier columns (#17307, renumbered 213 -> 217 -> 226 -> 227 -> 228 -> 229 -> 230:

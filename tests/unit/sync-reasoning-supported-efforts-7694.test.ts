@@ -238,6 +238,17 @@ test("shouldExposeSyncedEffortVariants: skips a model id that already ends in a 
   );
 });
 
+test("shouldExposeSyncedEffortVariants: skips a model id that carries -thinking suffix", () => {
+  assert.equal(
+    shouldExposeSyncedEffortVariants({
+      id: "someprovider/my-model-thinking",
+      owned_by: "someprovider",
+      capabilities: { effort_tiers: ["low", "high"] },
+    }),
+    false
+  );
+});
+
 test("shouldExposeSyncedEffortVariants: exposes a plain synced model carrying effort_tiers", () => {
   assert.equal(
     shouldExposeSyncedEffortVariants({

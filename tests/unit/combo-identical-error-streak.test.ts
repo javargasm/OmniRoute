@@ -10,15 +10,15 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 
-const { hasIdenticalModelErrorStreak, IDENTICAL_MODEL_ERROR_STREAK } = await import(
-  "../../open-sse/services/combo/comboPredicates.ts"
-);
+const { hasIdenticalModelErrorStreak, IDENTICAL_MODEL_ERROR_STREAK } =
+  await import("../../open-sse/services/combo/comboPredicates.ts");
 
 function entry(overrides: Partial<{ status: number; error: string; kind: string }> = {}) {
   return {
     model: "gemini/gemini-3.1-flash-lite",
     status: 400,
-    error: "[400]: Please ensure that function call turn comes immediately after a user turn or after a function response turn.",
+    error:
+      "[400]: Please ensure that function call turn comes immediately after a user turn or after a function response turn.",
     kind: "model",
     ...overrides,
   } as never;
@@ -28,7 +28,9 @@ test("false when fewer than the streak threshold have been attempted", () => {
   assert.equal(hasIdenticalModelErrorStreak([]), false);
   assert.equal(hasIdenticalModelErrorStreak([entry()]), false);
   assert.equal(
-    hasIdenticalModelErrorStreak(Array.from({ length: IDENTICAL_MODEL_ERROR_STREAK - 1 }, () => entry())),
+    hasIdenticalModelErrorStreak(
+      Array.from({ length: IDENTICAL_MODEL_ERROR_STREAK - 1 }, () => entry())
+    ),
     false
   );
 });
@@ -63,7 +65,10 @@ test("false when the same status/kind repeats but with a genuinely different err
   const errors = [
     entry({ error: "[400]: missing required field 'model'" }),
     entry({ error: "[400]: unknown tool 'foo'" }),
-    entry({ error: "[400]: Please ensure that function call turn comes immediately after a user turn or after a function response turn." }),
+    entry({
+      error:
+        "[400]: Please ensure that function call turn comes immediately after a user turn or after a function response turn.",
+    }),
   ];
   assert.equal(hasIdenticalModelErrorStreak(errors), false);
 });

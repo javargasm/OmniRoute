@@ -23,11 +23,7 @@ test("#13847 reported combo members resolve as vision-capable", () => {
 });
 
 test("#13847 known MiMo Pro text-only siblings stay excluded", () => {
-  for (const model of [
-    "mimo-v2.5-pro",
-    "command-code/xiaomi/mimo-v2.5-pro",
-    "mimo-v2-pro",
-  ]) {
+  for (const model of ["mimo-v2.5-pro", "command-code/xiaomi/mimo-v2.5-pro", "mimo-v2-pro"]) {
     assert.notEqual(
       getResolvedModelCapabilities(model).supportsVision,
       true,

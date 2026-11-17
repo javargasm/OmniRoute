@@ -11,7 +11,10 @@ export async function OPTIONS() {
   return fishAudioOptionsResponse();
 }
 
-async function validateProviderAndAuth(request: Request, rawProvider: string): Promise<Response | null> {
+async function validateProviderAndAuth(
+  request: Request,
+  rawProvider: string
+): Promise<Response | null> {
   if (!isFishAudioVoiceProvider(rawProvider)) {
     return errorResponse(
       HTTP_STATUS.BAD_REQUEST,
@@ -34,7 +37,10 @@ export async function GET(request: Request, { params }: { params: Promise<{ prov
  * Send Fish's native multipart/form-data fields (`type=tts`, `title`,
  * `train_mode=fast`, one or more `voices` files, optional `texts`, etc.).
  */
-export async function POST(request: Request, { params }: { params: Promise<{ provider: string }> }) {
+export async function POST(
+  request: Request,
+  { params }: { params: Promise<{ provider: string }> }
+) {
   const { provider } = await params;
   const rejection = await validateProviderAndAuth(request, provider);
   if (rejection) return rejection;

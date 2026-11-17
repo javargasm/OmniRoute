@@ -40,9 +40,12 @@ function runSetupWithEnv(value: string | undefined): string {
   const res = spawnSync(
     process.execPath,
     [
-      "--import", "tsx/esm",
-      "--import", "./tests/_setup/isolateDataDir.ts",
-      "-e", "process.stdout.write(String(process.env.ADOBE_FIREFLY_BROWSER_REFRESH))",
+      "--import",
+      "tsx/esm",
+      "--import",
+      "./tests/_setup/isolateDataDir.ts",
+      "-e",
+      "process.stdout.write(String(process.env.ADOBE_FIREFLY_BROWSER_REFRESH))",
     ],
     { env, encoding: "utf8" }
   );

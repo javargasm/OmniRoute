@@ -77,6 +77,11 @@ export function createStreamFailureAborter(context: AborterContext) {
     }
     context.clearIdleTimer();
     if (!handled) context.clearPendingRequest();
+    if (failure.code === "content_filter") {
+      // Preserve the queued refusal event when closing a rejected turn.
+      controller.terminate();
+      return;
+    }
     // The caller has already queued an explicit failure terminal.
     // controller.error() would discard those queued deltas and the failure
     // event before a slow reader can consume them. At EOF (flush) the stream

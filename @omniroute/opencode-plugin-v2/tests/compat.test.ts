@@ -27,7 +27,13 @@ describe("assertContext", () => {
     // The integration domain carries the credential flow, not the catalog.
     // Refusing to load without it would deny the whole plugin to a host that
     // simply does not implement that surface yet.
-    assert.doesNotThrow(() => assertContext({ provider: { transform: () => {} }, model: { transform: () => {} }, options: {} }));
+    assert.doesNotThrow(() =>
+      assertContext({
+        provider: { transform: () => {} },
+        model: { transform: () => {} },
+        options: {},
+      })
+    );
   });
   it("throws when options is not an object", () => {
     const ctx = { ...validContext(), options: undefined };

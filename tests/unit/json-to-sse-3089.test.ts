@@ -139,9 +139,7 @@ describe("synthesizeOpenAiSseFromJson (#3089)", () => {
             message: {
               role: "assistant",
               reasoning: "client-readable reasoning string",
-              reasoning_details: [
-                { type: "reasoning.text", text: "details thinking trace" },
-              ],
+              reasoning_details: [{ type: "reasoning.text", text: "details thinking trace" }],
               content: "final text",
             },
           },

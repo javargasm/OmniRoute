@@ -8,6 +8,12 @@ import {
 import { readCodexReasoningMetadata } from "@/shared/reasoning/codexEfforts";
 import type { DiscoveryFailure } from "@/shared/discovery/degradedCause";
 import {
+  normalizeCodexEffortLevels,
+  registerCodexReasoningLevels,
+  splitCodexReasoningSuffix,
+  type CodexEffortLevel,
+} from "@omniroute/open-sse/services/codexReasoningLevelTable.ts";
+import {
   classifyCodexDiscoveryModel,
   isCodexDiscoveryModelExcluded,
   type CodexDiscoveryMode,
@@ -37,6 +43,7 @@ export type CodexDiscoveryModel = {
   inputTokenLimit?: number;
   outputTokenLimit?: number;
   description?: string;
+  // Upstream `supported_reasoning_levels`, canonical order; drives the effort variants.
   supportedThinkingEfforts?: string[];
   defaultThinkingEffort?: string;
   supportsThinking?: boolean;
@@ -55,6 +62,8 @@ type CodexGithubCatalogCache = {
   models: CodexDiscoveryModel[];
   etag?: string;
   expiresAt: number;
+  // Invalidate on tracked client-version changes so compatibility is reconsidered.
+  clientVersion: string;
 };
 
 let codexGithubCatalogCache: CodexGithubCatalogCache | null = null;
@@ -248,11 +257,17 @@ export function clearCodexGithubCatalogCacheForTests(): void {
   codexGithubCatalogCache = null;
 }
 
+/** A client-version change invalidates cached catalog compatibility metadata. */
+function getCodexGithubCatalogCacheForCurrentVersion(): CodexGithubCatalogCache | null {
+  const cache = codexGithubCatalogCache;
+  return cache && cache.clientVersion === getCodexClientVersion() ? cache : null;
+}
+
 function getFreshCodexGithubCatalogCache(
   now: number,
   cacheTtlMs: number
 ): CodexDiscoveryModel[] | null {
-  const cache = codexGithubCatalogCache;
+  const cache = getCodexGithubCatalogCacheForCurrentVersion();
   if (cacheTtlMs > 0 && cache && cache.expiresAt > now) {
     return cache.models;
   }
@@ -264,8 +279,9 @@ function buildCodexGithubCatalogHeaders(): Record<string, string> {
     Accept: "application/json",
     "Content-Type": "application/json",
   };
-  if (codexGithubCatalogCache?.etag) {
-    headers["If-None-Match"] = codexGithubCatalogCache.etag;
+  const etag = getCodexGithubCatalogCacheForCurrentVersion()?.etag;
+  if (etag) {
+    headers["If-None-Match"] = etag;
   }
   return headers;
 }
@@ -275,10 +291,11 @@ function getNotModifiedCodexGithubCatalog(
   now: number,
   cacheTtlMs: number
 ): CodexDiscoveryModel[] | null {
-  if (response.status !== 304 || !codexGithubCatalogCache) return null;
+  const cache = getCodexGithubCatalogCacheForCurrentVersion();
+  if (response.status !== 304 || !cache) return null;
 
   codexGithubCatalogCache = {
-    ...codexGithubCatalogCache,
+    ...cache,
     expiresAt: now + cacheTtlMs,
   };
   return codexGithubCatalogCache.models;
@@ -295,6 +312,7 @@ function storeCodexGithubCatalogCache(
     models,
     ...(etag ? { etag } : {}),
     expiresAt: now + cacheTtlMs,
+    clientVersion: getCodexClientVersion(),
   };
 }
 
@@ -429,6 +447,55 @@ export function applyCodexDiscoveryFilters(
   });
 }
 
+const CODEX_EFFORT_LABELS: Record<CodexEffortLevel, string> = {
+  none: "None",
+  low: "Low",
+  medium: "Medium",
+  high: "High",
+  xhigh: "xHigh",
+  max: "Max",
+  ultra: "Ultra",
+};
+
+function buildCodexEffortVariant(
+  base: CodexDiscoveryModel,
+  level: CodexEffortLevel
+): CodexDiscoveryModel {
+  const variant: CodexDiscoveryModel = {
+    id: `${base.id}-${level}`,
+    name: `${base.name} (${CODEX_EFFORT_LABELS[level]})`,
+    owned_by: "codex",
+    apiFormat: "responses",
+    supportedEndpoints: ["responses"],
+  };
+  if (typeof base.inputTokenLimit === "number") variant.inputTokenLimit = base.inputTokenLimit;
+  if (typeof base.outputTokenLimit === "number") variant.outputTokenLimit = base.outputTokenLimit;
+  if (base.description) variant.description = base.description;
+  if (typeof base.supportsThinking === "boolean") variant.supportsThinking = base.supportsThinking;
+  if (typeof base.supportsVision === "boolean") variant.supportsVision = base.supportsVision;
+  return variant;
+}
+
+/**
+ * Upstream declares every model's reasoning levels, but only some models have
+ * hand-written registry variants. Synthesize `${id}-${level}` for each declared level
+ * that is not listed yet (registry rows always win), right after its base and highest
+ * effort first — the registry convention. Variants carry no levels of their own, so the
+ * result fed back in (the cached path) yields the same ids in the same order.
+ */
+function appendCodexEffortVariants(models: CodexDiscoveryModel[]): CodexDiscoveryModel[] {
+  const listedIds = new Set(models.map((model) => model.id));
+  return models.flatMap((model) => {
+    // An effort variant (e.g. `gpt-6-sol-max`) never gets variants of its own.
+    if (splitCodexReasoningSuffix(model.id).effort !== null) return [model];
+    const variants = normalizeCodexEffortLevels(model.supportedThinkingEfforts)
+      .reverse()
+      .filter((level) => !listedIds.has(`${model.id}-${level}`))
+      .map((level) => buildCodexEffortVariant(model, level));
+    return [model, ...variants];
+  });
+}
+
 export type CodexDiscoveryCatalogResult = {
   activeModels: CodexDiscoveryModel[];
   candidateModels: CodexDiscoveryModel[];
@@ -462,11 +529,13 @@ export function reconcileCodexDiscoveryCatalog(
     }
   }
 
+  const keptModels = applyCodexDiscoveryFilters(
+    mergeCodexLiveModelsWithLocalCatalog(activeRemoteModels, localCatalogModels),
+    extraFilters
+  );
+  registerCodexReasoningLevels(keptModels);
   return {
-    activeModels: applyCodexDiscoveryFilters(
-      mergeCodexLiveModelsWithLocalCatalog(activeRemoteModels, localCatalogModels),
-      extraFilters
-    ),
+    activeModels: applyCodexDiscoveryFilters(appendCodexEffortVariants(keptModels), extraFilters),
     candidateModels,
   };
 }
@@ -618,6 +687,6 @@ export async function fetchCodexGithubCatalogModels({
     storeCodexGithubCatalogCache(models, response, now, cacheTtlMs);
     return { models };
   } catch {
-    return { models: codexGithubCatalogCache?.models || [], failure: {} };
+    return { models: getCodexGithubCatalogCacheForCurrentVersion()?.models || [], failure: {} };
   }
 }

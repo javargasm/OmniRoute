@@ -94,7 +94,11 @@ test("#13194 — Korean usage limit exceeded → quota_exhausted", serial, () =>
 test("#13194 — Chinese transient rate limit stays rate_limit", serial, () => {
   const body = "请求过于频繁，请稍后重试。";
   const kind = classify429({ status: 429, body });
-  assert.equal(kind, "rate_limit", "Chinese transient rate limit must NOT match CJK quota patterns");
+  assert.equal(
+    kind,
+    "rate_limit",
+    "Chinese transient rate limit must NOT match CJK quota patterns"
+  );
 });
 
 // ── English patterns still work ─────────────────────────────────────────

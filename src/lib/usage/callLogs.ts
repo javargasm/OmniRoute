@@ -124,6 +124,7 @@ type CallLogSummaryRow = {
   cache_write_priced_tokens?: number | null;
   tokens_reasoning: number | null;
   tokens_compressed: number | null;
+  effective_reasoning_effort: string | null;
   reasoning_source?: string | null;
   reasoning_chars?: number | null;
   cache_source: string | null;
@@ -457,6 +458,7 @@ function mapSummaryRow(row: CallLogSummaryRow) {
       reasoning: row.tokens_reasoning != null ? toNumber(row.tokens_reasoning) : null,
       compressed: row.tokens_compressed != null ? toNumber(row.tokens_compressed) : null,
     },
+    effectiveReasoningEffort: row.effective_reasoning_effort || null,
     cacheSource: row.cache_source || "upstream",
     cacheWriteUsage: storedCacheWriteUsage(
       row.tokens_cache_creation,
@@ -639,6 +641,10 @@ async function buildCallLogRow(entry: any, metadataOnly = false): Promise<Prepar
   // #6187: usage-derived reasoning tokens stay UNCHANGED (cost math reads this),
   // while reasoning source/char-count are recorded separately for observability.
   const tokensReasoning = getReasoningTokensOrNull(entry.tokens);
+  const effectiveReasoningEffort =
+    !noLogEnabled && rawProvider.trim().toLowerCase() === "kiro"
+      ? (toStringOrNull(entry.effectiveReasoningEffort)?.trim() ?? null)
+      : null;
   const streamReasoningMeta =
     entry.reasoningMeta !== null && typeof entry.reasoningMeta === "object"
       ? (entry.reasoningMeta as { encryptedSeen?: boolean; durationMs?: unknown })
@@ -751,6 +757,7 @@ async function buildCallLogRow(entry: any, metadataOnly = false): Promise<Prepar
     tokensReasoning,
     reasoningSource: reasoningObservation.source,
     reasoningChars: reasoningObservation.chars,
+    effectiveReasoningEffort,
     reasoningDurationMs,
     reasoningEffortRequested,
     reasoningEffortUpstream,
@@ -870,7 +877,7 @@ function insertCallLogRow(prepared: PreparedCallLogRow): void {
         tokens_cache_read, tokens_cache_creation, tokens_reasoning, tokens_compressed,
         tokens_cache_creation_5m, tokens_cache_creation_1h, cache_creation_tier_status,
         cache_write_cost_usd, cache_write_priced_tokens,
-        reasoning_source, reasoning_chars,
+        reasoning_source, reasoning_chars, effective_reasoning_effort,
         reasoning_duration_ms, reasoning_effort_requested, reasoning_effort_upstream,
         reasoning_encrypted,
         cache_source, request_type, source_format, target_format, api_key_id, api_key_name,
@@ -887,7 +894,7 @@ function insertCallLogRow(prepared: PreparedCallLogRow): void {
         @tokensCacheRead, @tokensCacheCreation, @tokensReasoning, @tokensCompressed,
         @tokensCacheCreation5m, @tokensCacheCreation1h, @cacheCreationTierStatus,
         @cacheWriteCostUsd, @cacheWritePricedTokens,
-        @reasoningSource, @reasoningChars,
+        @reasoningSource, @reasoningChars, @effectiveReasoningEffort,
         @reasoningDurationMs, @reasoningEffortRequested, @reasoningEffortUpstream,
         @reasoningEncrypted,
         @cacheSource, @requestType, @sourceFormat, @targetFormat, @apiKeyId, @apiKeyName,

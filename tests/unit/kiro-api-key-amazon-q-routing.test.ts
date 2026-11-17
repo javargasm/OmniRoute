@@ -114,5 +114,5 @@ test("social connection in us-east-1 still tries the Kiro IDE gateway first (reg
     accessToken: "social-token",
     providerSpecificData: { authMethod: "social", region: "us-east-1" },
   });
-  assert.deepEqual(urls, ["https://runtime.us-east-1.kiro.dev/generateAssistantResponse"]);
+  assert.deepEqual(urls, ["https://runtime.us-east-1.kiro.dev"]);
 });

@@ -225,7 +225,14 @@ test("key quota: monthly amount blocks when ledger month total reaches cap", () 
 
   // Clearing the ledger month (simulating a reset) re-allows.
   costLedger.recordLedgerEntries([
-    { apiKeyId: "key-1", provider: "openai", model: "gpt-4o", amountUsd: -3, success: true, timestamp: "2026-09-02T00:00:00.000Z" },
+    {
+      apiKeyId: "key-1",
+      provider: "openai",
+      model: "gpt-4o",
+      amountUsd: -3,
+      success: true,
+      timestamp: "2026-09-02T00:00:00.000Z",
+    },
   ]);
 });
 

@@ -364,13 +364,10 @@ class AdaptiveAdmissionRuntimeImpl implements AdaptiveAdmissionRuntime {
       };
     }
 
-    const features = extractAdmissionCostFeatures(
-      input.body,
-      {
-        streaming: input.streaming,
-        cost: this.costConfig,
-      }
-    );
+    const features = extractAdmissionCostFeatures(input.body, {
+      streaming: input.streaming,
+      cost: this.costConfig,
+    });
     let result: AdmissionAcquireResult;
     try {
       result = await this.controller.acquire({

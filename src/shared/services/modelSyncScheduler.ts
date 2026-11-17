@@ -98,7 +98,9 @@ const fetchWithDispatcher = undiciFetch as unknown as (
   init: RequestInit & { dispatcher: Dispatcher }
 ) => Promise<Response>;
 
-export const fetchModelSyncInternal: typeof fetch = async (input, init = {}) => {
+type ModelSyncFetch = (input: RequestInfo | URL, init?: RequestInit) => Promise<Response>;
+
+export const fetchModelSyncInternal: ModelSyncFetch = async (input, init = {}) => {
   const inputUrl =
     typeof input === "string" || input instanceof URL ? new URL(input) : new URL(input.url);
   const expectedBase = new URL(getModelSyncInternalBaseUrl());
@@ -381,6 +383,24 @@ export function startModelSyncScheduler(
     .then(({ scheduleCodexCatalogRevalidation }) => {
       scheduleCodexCatalogRevalidation({ apiBaseUrl: trustedApiBaseUrl });
     })
+    .catch(() => {
+      // silent
+    });
+
+  // Codex-only: restore the last tracked Codex CLI version so inference uses it
+  // right after a restart, before any discovery refreshes it.
+  void import("./codexClientVersionTracker")
+    .then(({ hydrateCodexClientVersionFromSettings }) => hydrateCodexClientVersionFromSettings())
+    .catch(() => {
+      // silent
+    });
+
+  // Codex-only: re-register the reasoning levels stored on the synced Codex catalog so
+  // discovered effort variants (e.g. gpt-6-sol-max) resolve right after a restart.
+  void import("./codexReasoningLevels")
+    .then(({ hydrateCodexReasoningLevelsFromSyncedModels }) =>
+      hydrateCodexReasoningLevelsFromSyncedModels()
+    )
     .catch(() => {
       // silent
     });

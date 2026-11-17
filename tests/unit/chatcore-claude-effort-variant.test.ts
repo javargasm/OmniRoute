@@ -274,3 +274,32 @@ test("a claude-lane strip still happens for the same model name (control)", () =
   assert.equal(r.effectiveModel, "claude-opus-5");
   assert.equal(body.reasoning_effort, "low");
 });
+
+for (const provider of ["openai-compatible-tx", "openai-compatible-responses-tx"]) {
+  for (const model of ["claude-sonnet-5-5-high", "claude-opus-5-5-high"]) {
+    for (const sourceFormat of [FORMATS.OPENAI, FORMATS.CLAUDE, FORMATS.OPENAI_RESPONSES]) {
+      test(`${provider}/${model}/${sourceFormat}: preserves custom upstream literal tier`, () => {
+        const body = { model, messages: [] };
+        const result = applyClaudeEffortVariant({
+          provider,
+          effectiveModel: model,
+          body,
+          sourceFormat,
+        });
+        assert.deepEqual(result, { effectiveModel: model, log: null });
+        assert.deepEqual(body, { model, messages: [] });
+      });
+    }
+  }
+  test(`${provider}: preserves explicit effort independently of the literal model`, () => {
+    const body = { model: "claude-opus-5-5-high", reasoning_effort: "low" };
+    const result = applyClaudeEffortVariant({
+      provider,
+      effectiveModel: body.model,
+      body,
+      sourceFormat: FORMATS.OPENAI,
+    });
+    assert.deepEqual(result, { effectiveModel: "claude-opus-5-5-high", log: null });
+    assert.deepEqual(body, { model: "claude-opus-5-5-high", reasoning_effort: "low" });
+  });
+}

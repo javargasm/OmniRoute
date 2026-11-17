@@ -170,10 +170,7 @@ describe("account-rotation sticky head (flag-gated)", () => {
     const accounts = fleet();
     const state = { nextAccountIdx: 0 };
     pickAccount(accounts, state); // memorizes m0
-    assert.equal(
-      (state as { lastHealthyFingerprint?: string }).lastHealthyFingerprint,
-      "m0"
-    );
+    assert.equal((state as { lastHealthyFingerprint?: string }).lastHealthyFingerprint, "m0");
     const picked = pickAccount(accounts, state, (a) => a.fingerprint !== "m0");
     assert.notEqual(picked.fingerprint, "m0");
   });

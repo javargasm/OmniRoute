@@ -15,10 +15,8 @@ process.env.API_KEY_SECRET = "test-ag-image-quota-secret";
 
 const core = await import("../../src/lib/db/core.ts");
 const { getUsageForProvider } = await import("../../open-sse/services/usage.ts");
-const {
-  isDiscoverableAntigravityModelId,
-  isUserVisibleAntigravityQuotaModelId,
-} = await import("../../open-sse/config/antigravityModelAliases.ts");
+const { isDiscoverableAntigravityModelId, isUserVisibleAntigravityQuotaModelId } =
+  await import("../../open-sse/config/antigravityModelAliases.ts");
 const originalFetch = globalThis.fetch;
 
 const RESET_IN_2_HOURS = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();

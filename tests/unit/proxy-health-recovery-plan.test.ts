@@ -19,7 +19,10 @@ test("only ip_quota_429 entries are planned", () => {
     ],
     LIMITS
   );
-  assert.deepEqual(planned.map((c) => c.key), ["http://u@h1:8080"]);
+  assert.deepEqual(
+    planned.map((c) => c.key),
+    ["http://u@h1:8080"]
+  );
 });
 
 test("proxy_unreachable is excluded even with a 429 observed for the same key", () => {
@@ -38,7 +41,10 @@ test("null keys are never planned", () => {
     ],
     LIMITS
   );
-  assert.deepEqual(planned.map((c) => c.key), ["http://u@h:8080"]);
+  assert.deepEqual(
+    planned.map((c) => c.key),
+    ["http://u@h:8080"]
+  );
 });
 
 test("oldest set-aside first, cut at maxCandidates", () => {
@@ -50,5 +56,8 @@ test("oldest set-aside first, cut at maxCandidates", () => {
     ],
     { ...LIMITS, maxCandidates: 2 }
   );
-  assert.deepEqual(planned.map((c) => c.key), ["http://u@a:8080", "http://u@b:8080"]);
+  assert.deepEqual(
+    planned.map((c) => c.key),
+    ["http://u@a:8080", "http://u@b:8080"]
+  );
 });

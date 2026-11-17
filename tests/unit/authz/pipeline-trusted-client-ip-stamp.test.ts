@@ -149,3 +149,47 @@ test("a client cannot pre-set the stamped client address", async () => {
   );
   assert.equal(forwarded.has(TRUSTED_CLIENT_IP), false, "forged stamp token");
 });
+
+test("login identity requires explicit trust and cannot widen locality", async () => {
+  const loginHeader = "x-omniroute-trusted-login-client-ip";
+  let headers = await forwardedHeaders(
+    stampedRequest("127.0.0.1", { "x-forwarded-for": PROXIED_CLIENT })
+  );
+  assert.equal(headers.get(loginHeader), "127.0.0.1");
+  process.env.OMNIROUTE_TRUSTED_PROXIES = "127.0.0.1";
+  headers = await forwardedHeaders(
+    stampedRequest("127.0.0.1", { "x-forwarded-for": PROXIED_CLIENT })
+  );
+  assert.equal(headers.get(loginHeader), PROXIED_CLIENT);
+  assert.equal(headers.get("x-omniroute-peer-locality"), "remote");
+  assert.equal(headers.get("x-omniroute-trusted-peer-ip"), "127.0.0.1");
+  assert.equal(headers.has("x-omniroute-login-client-ip"), false);
+  headers = await forwardedHeaders(
+    unstampedRequest({ [loginHeader]: FORGED, "x-omniroute-login-client-ip": `wrong|${FORGED}` })
+  );
+  assert.equal(headers.has(loginHeader), false);
+  assert.equal(headers.has("x-omniroute-login-client-ip"), false);
+  const req = stampedRequest("127.0.0.1", { "x-forwarded-for": "127.0.0.1" });
+  const denied = await pipeline.runAuthzPipeline(
+    new NextRequest("http://localhost/api/services/test/start", {
+      method: "POST",
+      headers: req.headers,
+    }),
+    { enforce: true }
+  );
+  assert.equal(denied.status, 403);
+});
+
+test("invalid login sentinel is token validated and never changes locality", async () => {
+  process.env.OMNIROUTE_TRUSTED_PROXIES = "127.0.0.1/32";
+  const headers = await forwardedHeaders(stampedRequest("127.0.0.1", { "x-forwarded-for": "bad" }));
+  assert.equal(headers.get("x-omniroute-trusted-login-client-ip"), "invalid");
+  assert.equal(headers.get("x-omniroute-peer-locality"), "remote");
+  const forged = await forwardedHeaders(
+    unstampedRequest({
+      "x-omniroute-login-client-ip": "wrong|invalid",
+      "x-omniroute-trusted-login-client-ip": "invalid",
+    })
+  );
+  assert.equal(forged.has("x-omniroute-trusted-login-client-ip"), false);
+});

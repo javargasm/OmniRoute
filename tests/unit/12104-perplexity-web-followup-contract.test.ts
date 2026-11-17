@@ -6,7 +6,7 @@ test("PR #3: buildQuery preserves system contract on follow-up requests", () => 
   const parsed = {
     systemMsg: "You are an expert coder. <tool>contract</tool>",
     history: [],
-    currentMsg: "How do I reverse a string in JS?"
+    currentMsg: "How do I reverse a string in JS?",
   };
 
   // Turn 1: followUpUuid is null
@@ -18,12 +18,21 @@ test("PR #3: buildQuery preserves system contract on follow-up requests", () => 
   // Turn 2: follow-up request
   const parsedTurn2 = {
     systemMsg: "You are an expert coder. <tool>contract</tool>",
-    history: [{ role: "user", content: "How do I reverse a string in JS?" }, { role: "assistant", content: "Use .reverse()" }],
-    currentMsg: "What about Python?"
+    history: [
+      { role: "user", content: "How do I reverse a string in JS?" },
+      { role: "assistant", content: "Use .reverse()" },
+    ],
+    currentMsg: "What about Python?",
   };
   const turn2Output = buildQuery(parsedTurn2, "abc-123");
 
   // Since we append systemMsg to currentMsg for follow-ups (Approach B)
-  assert.ok(turn2Output.includes("<tool>contract</tool>"), "Follow-up query should preserve the tool contract");
-  assert.ok(turn2Output.includes("What about Python?"), "Follow-up query should include the current message");
+  assert.ok(
+    turn2Output.includes("<tool>contract</tool>"),
+    "Follow-up query should preserve the tool contract"
+  );
+  assert.ok(
+    turn2Output.includes("What about Python?"),
+    "Follow-up query should include the current message"
+  );
 });

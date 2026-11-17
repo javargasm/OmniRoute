@@ -11,11 +11,7 @@
  * the worst-case wall-clock for 3 attempts is ~7s.
  */
 
-export const TRANSIENT_BACKEND_STATUS_CODES: ReadonlySet<number> = new Set([
-  502,
-  503,
-  504,
-]);
+export const TRANSIENT_BACKEND_STATUS_CODES: ReadonlySet<number> = new Set([502, 503, 504]);
 
 export function isResponseStatusRetryable(status: number | undefined | null): boolean {
   if (typeof status !== "number") return false;
@@ -30,7 +26,13 @@ export interface TransientRetryOptions {
   source?: string;
   sleep?: (ms: number, signal?: AbortSignal) => Promise<void>;
   signal?: AbortSignal;
-  onRetry?: (info: { attempt: number; delayMs: number; status?: number; error?: unknown; source?: string }) => void;
+  onRetry?: (info: {
+    attempt: number;
+    delayMs: number;
+    status?: number;
+    error?: unknown;
+    source?: string;
+  }) => void;
 }
 
 export interface ResponseLike {
@@ -64,7 +66,7 @@ const DEFAULT_SLEEP = (ms: number, signal?: AbortSignal): Promise<void> =>
  */
 export async function runWithTransientBackendRetry<T extends ResponseLike>(
   action: () => Promise<T>,
-  options: TransientRetryOptions = {},
+  options: TransientRetryOptions = {}
 ): Promise<T> {
   const maxAttempts = options.maxAttempts ?? 3;
   const baseMs = options.baseMs ?? 200;

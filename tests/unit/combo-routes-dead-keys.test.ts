@@ -60,7 +60,9 @@ test("POST strips the 3 dead keys and keeps a live witness", async () => {
     )
   );
   assert.equal(response.status, 201);
-  const stored = (await combosDb.getComboByName("dead-post")) as { config?: Record<string, unknown> } | null;
+  const stored = (await combosDb.getComboByName("dead-post")) as {
+    config?: Record<string, unknown>;
+  } | null;
   assert.deepEqual(stored?.config, { maxComboDepth: 3 });
 });
 

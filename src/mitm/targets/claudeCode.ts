@@ -8,7 +8,7 @@
  * tutorial therefore is opt-in: the user explicitly enables interception when
  * they want Claude Code traffic captured.
  */
-import type { MitmTarget } from "../types";
+import type { MitmTarget } from "../types.ts";
 
 export const CLAUDE_CODE_TARGET: MitmTarget = {
   id: "claude-code",
@@ -32,6 +32,6 @@ export const CLAUDE_CODE_TARGET: MitmTarget = {
     detection: { command: "which claude", platform: "all" },
   },
   handler: () =>
-    import("../handlers/claudeCode").then((m) => ({ default: m.ClaudeCodeHandler })),
+    import("../handlers/claudeCode.ts").then((m) => ({ default: m.ClaudeCodeHandler })),
   riskNoticeKey: "providers.riskNotice.oauth",
 };

@@ -30,10 +30,7 @@ for (const effort of efforts) {
       "claude-opus-5.5"
     );
     assert.equal(payload.additionalModelRequestFields?.output_config?.effort, effort);
-    assert.deepEqual(payload.additionalModelRequestFields?.thinking, {
-      type: "adaptive",
-      display: "summarized",
-    });
+    assert.equal(payload.additionalModelRequestFields?.thinking, undefined);
     assert.equal(payload.additionalModelRequestFields?.max_tokens, 2048);
     assert.match(
       payload.conversationState.currentMessage.userInputMessage.content,

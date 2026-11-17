@@ -16,8 +16,7 @@ const { handleChat } = await import("../../src/sse/handlers/chat.ts");
 const { initTranslators } = await import("../../open-sse/translator/index.ts");
 const { clearInflight } = await import("../../open-sse/services/requestDedup.ts");
 const { BaseExecutor } = await import("../../open-sse/executors/base.ts");
-const { resetAllCircuitBreakers } =
-  await import("../../src/shared/utils/circuitBreaker.ts");
+const { resetAllCircuitBreakers } = await import("../../src/shared/utils/circuitBreaker.ts");
 
 const originalFetch = globalThis.fetch;
 const originalRetryDelayMs = BaseExecutor.RETRY_CONFIG.delayMs;
@@ -62,12 +61,13 @@ function buildOpenRouterStreamingSse({
       object: "chat.completion.chunk",
       created: 1783636289,
       model: "deepseek/deepseek-v4-flash",
-      choices: [
-        { index: 0, delta, finish_reason: null, logprobs: null },
-      ],
+      choices: [{ index: 0, delta, finish_reason: null, logprobs: null }],
     })}\n\n`;
   return (
-    chunk({ reasoning: thinking, reasoning_details: [{ type: "reasoning.text", text: thinking }] }) +
+    chunk({
+      reasoning: thinking,
+      reasoning_details: [{ type: "reasoning.text", text: thinking }],
+    }) +
     chunk({ content }) +
     chunk({}) +
     chunk({}) +
@@ -220,9 +220,12 @@ test("openrouter provider: streaming deltas carry reasoning_content from reasoni
   const payloads = chunks
     .map((line) => line.replace(/^data: /, ""))
     .filter((json) => json !== "[DONE]")
-    .map((json) => JSON.parse(json) as {
-      choices?: Array<{ delta?: Record<string, unknown> }>;
-    });
+    .map(
+      (json) =>
+        JSON.parse(json) as {
+          choices?: Array<{ delta?: Record<string, unknown> }>;
+        }
+    );
 
   const reasoningContentDeltas = payloads
     .map((payload) => payload.choices?.[0]?.delta?.reasoning_content)

@@ -10,6 +10,8 @@ type StreamErrorEvent = {
   error: unknown;
   message: string;
   statusCode: number;
+  code?: string;
+  type?: string;
   duration: number;
 };
 

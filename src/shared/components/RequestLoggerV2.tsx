@@ -1504,6 +1504,21 @@ const RequestLoggerV2 = forwardRef<RequestLoggerV2Handle, RequestLoggerV2Initial
                         <TableCell className="px-3 py-2 font-mono text-[11px] text-primary">
                           <div className="flex items-center gap-1.5">
                             <span>{log.model}</span>
+                            {typeof log.provider === "string" &&
+                              log.provider.toLowerCase() === "kiro" &&
+                              typeof log.effectiveReasoningEffort === "string" &&
+                              log.effectiveReasoningEffort.trim() && (
+                                <span
+                                  data-testid="kiro-reasoning-effort-badge"
+                                  className="inline-flex px-1 py-0 rounded text-xs font-semibold bg-primary/15 text-primary border border-primary/25"
+                                  title={t("detail.reasoning", {
+                                    value: log.effectiveReasoningEffort,
+                                  })}
+                                >
+                                  {log.effectiveReasoningEffort}
+                                </span>
+                              )}
+
                             {!isActive && log.groupStatus === "healed" && !log.isRetry && (
                               <span
                                 className="inline-flex items-center gap-0.5 rounded border border-success/25 bg-success/15 px-1 py-0 text-[8px] font-semibold text-success"

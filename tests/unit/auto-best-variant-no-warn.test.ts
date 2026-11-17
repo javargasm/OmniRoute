@@ -54,27 +54,24 @@ async function readLogWhen(
   return existsSync(logFile) ? readFileSync(logFile, "utf8") : "";
 }
 
-test(
-  "built-in auto/best-* variant does NOT log 'Invalid auto prefix format'",
-  async () => {
-    // Recognized built-in variant -> must resolve without the spurious warning.
-    const state = await resolveAutoRoutingState("auto/best-coding");
-    assert.equal(state.recognizedBuiltInAuto, true);
-    assert.equal(state.variant, "coding");
-    assert.equal(state.response, null);
+test("built-in auto/best-* variant does NOT log 'Invalid auto prefix format'", async () => {
+  // Recognized built-in variant -> must resolve without the spurious warning.
+  const state = await resolveAutoRoutingState("auto/best-coding");
+  assert.equal(state.recognizedBuiltInAuto, true);
+  assert.equal(state.variant, "coding");
+  assert.equal(state.response, null);
 
-    // Known-good stream: the variant log line proves the request took the happy
-    // path (and flushed the worker before we read the file).
-    await readLogWhen((c) => c.includes("Zero-config routing variant"));
-    const contents = readFileSync(logFile, "utf8");
+  // Known-good stream: the variant log line proves the request took the happy
+  // path (and flushed the worker before we read the file).
+  await readLogWhen((c) => c.includes("Zero-config routing variant"));
+  const contents = readFileSync(logFile, "utf8");
 
-    assert.doesNotMatch(
-      contents,
-      /Invalid auto prefix format: auto\/best-coding/,
-      "a recognized built-in auto/best-* variant must not trigger the misleading invalid-prefix warning"
-    );
-  }
-);
+  assert.doesNotMatch(
+    contents,
+    /Invalid auto prefix format: auto\/best-coding/,
+    "a recognized built-in auto/best-* variant must not trigger the misleading invalid-prefix warning"
+  );
+});
 
 test("genuinely unknown auto variant still logs 'Invalid auto prefix format' (probe has teeth)", async () => {
   // A truly unrecognized prefix must still warn — proves this probe is able to

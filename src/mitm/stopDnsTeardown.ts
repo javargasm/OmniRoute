@@ -1,4 +1,4 @@
-import { createLogger } from "@/shared/utils/logger.ts";
+import { createLogger } from "@/shared/utils/logger";
 
 const log = createLogger("mitm-manager");
 

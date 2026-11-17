@@ -208,6 +208,45 @@ test("ensureCallLogsColumns back-fills video_content_removed on a pre-173 lineag
   }
 });
 
+test("timestamped reasoning migration and ensureCallLogsColumns add nullable effective reasoning effort", () => {
+  const migrationDb = openMemoryDb();
+  try {
+    migrationDb.exec("CREATE TABLE call_logs (id TEXT PRIMARY KEY, timestamp TEXT)");
+    const sql = fs.readFileSync(
+      path.join(
+        process.cwd(),
+        "src/lib/db/migrations/20261117162313_call_logs_effective_reasoning_effort.sql"
+      ),
+      "utf8"
+    );
+    migrationDb.exec(sql);
+    assert.equal(hasColumn(migrationDb, "call_logs", "effective_reasoning_effort"), true);
+    migrationDb
+      .prepare("INSERT INTO call_logs (id, timestamp, effective_reasoning_effort) VALUES (?, ?, ?)")
+      .run("kiro", "2026-09-17T00:00:00.000Z", "max");
+    assert.equal(
+      (
+        migrationDb
+          .prepare("SELECT effective_reasoning_effort FROM call_logs WHERE id = ?")
+          .get("kiro") as { effective_reasoning_effort: string }
+      ).effective_reasoning_effort,
+      "max"
+    );
+  } finally {
+    migrationDb.close?.();
+  }
+
+  const legacyDb = openMemoryDb();
+  try {
+    legacyDb.exec("CREATE TABLE call_logs (id TEXT PRIMARY KEY, timestamp TEXT)");
+    ensureCallLogsColumns(legacyDb);
+    assert.equal(hasColumn(legacyDb, "call_logs", "effective_reasoning_effort"), true);
+    assert.doesNotThrow(() => ensureCallLogsColumns(legacyDb));
+  } finally {
+    legacyDb.close?.();
+  }
+});
+
 // #13130: migration 195 adds call_logs.ttft_ms (dashboard generation-time TPS
 // reads it via mapSummaryRow on every row). A lineage that skipped 195 must
 // still expose the column, same reconciliation pattern as #12150/#12470.

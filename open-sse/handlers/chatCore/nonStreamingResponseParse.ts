@@ -12,7 +12,8 @@
  */
 
 import { normalizePayloadForLog } from "@/lib/logPayloads";
-import { extractSSEErrorFrame } from "../sseParser.ts";
+import { extractSSEErrorFrame, extractSSEErrorMessage } from "../sseParser.ts";
+import { buildErrorBody } from "../../utils/error.ts";
 import { readNonStreamingResponseBody } from "./nonStreamingResponseBody.ts";
 import { parseJsonDocumentBehindEventStream } from "./nonStreamingJsonDocument.ts";
 import { isTruncatedStreamBody } from "../sseParser/truncation.ts";
@@ -135,6 +136,20 @@ function parseBufferedEventStream(
       looksLikeSSE: true,
       normalizedProviderPayload,
     };
+  }
+
+  const choices = parsedFromSSE.body.choices as Array<{ finish_reason?: string }> | undefined;
+  const filtered =
+    Array.isArray(choices) && choices.some((choice) => choice?.finish_reason === "content_filter");
+  const filterMessage = filtered ? extractSSEErrorMessage(streamPayload) : null;
+  if (filterMessage) {
+    Object.assign(
+      parsedFromSSE.body,
+      buildErrorBody(400, filterMessage, undefined, {
+        code: "content_filter",
+        type: "invalid_request_error",
+      })
+    );
   }
 
   // #18460 follow-up — carry the parser's cut-stream verdict onto the upstream Response

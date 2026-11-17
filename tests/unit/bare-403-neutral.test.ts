@@ -1,9 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 
-const { checkFallbackError } = await import(
-  "../../open-sse/services/accountFallback.ts"
-);
+const { checkFallbackError } = await import("../../open-sse/services/accountFallback.ts");
 
 test("checkFallbackError: bare 403 on a non-apikey provider resolves unknown (status_403 neutral)", () => {
   const result = checkFallbackError(

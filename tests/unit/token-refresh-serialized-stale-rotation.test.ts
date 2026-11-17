@@ -2,7 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 
 const tokenRefresh = await import("../../open-sse/services/tokenRefresh.ts");
-const { __resetRefreshSerializerForTest } = await import("../../open-sse/services/refreshSerializer.ts");
+const { __resetRefreshSerializerForTest } =
+  await import("../../open-sse/services/refreshSerializer.ts");
 const { lookupRotation } = await import("../../open-sse/services/tokenRefresh/rotationMap.ts");
 
 const { getAccessToken } = tokenRefresh;
@@ -72,61 +73,67 @@ test("getAccessToken_Layer1QueuedBehindLayer2_DoesNotPostConsumedClaudeRefreshTo
   });
 
   try {
-    await withMockedFetch(async (_url, options = {}) => {
-      const presentedToken = refreshTokenFromBody(options.body);
-      presented.push(presentedToken || "");
-      if (presentedToken === "old-rt" && !firstPostEntered) {
-        firstPostEntered = true;
-        await holdFirstPost;
-        return jsonResponse({
-          access_token: "new-access",
-          refresh_token: "new-rt",
-          expires_in: 28800,
+    await withMockedFetch(
+      async (_url, options = {}) => {
+        const presentedToken = refreshTokenFromBody(options.body);
+        presented.push(presentedToken || "");
+        if (presentedToken === "old-rt" && !firstPostEntered) {
+          firstPostEntered = true;
+          await holdFirstPost;
+          return jsonResponse({
+            access_token: "new-access",
+            refresh_token: "new-rt",
+            expires_in: 28800,
+          });
+        }
+        if (presentedToken === "old-rt") {
+          return jsonResponse(
+            { error: "invalid_grant", error_description: "refresh_token_reused" },
+            400
+          );
+        }
+        throw new Error(`unexpected refresh_token ${presentedToken}`);
+      },
+      async () => {
+        const layer2 = getAccessToken("claude", { refreshToken: "old-rt" }, log);
+        await new Promise<void>((resolve, reject) => {
+          const started = Date.now();
+          const tick = () => {
+            if (firstPostEntered) {
+              resolve();
+              return;
+            }
+            if (Date.now() - started > 2000) {
+              reject(new Error("Layer 2 never reached the Anthropic token endpoint"));
+              return;
+            }
+            setTimeout(tick, 5);
+          };
+          tick();
         });
+
+        const layer1 = getAccessToken(
+          "claude",
+          { connectionId: "healthcheck-conn", refreshToken: "old-rt" },
+          log
+        );
+        await new Promise((resolve) => setTimeout(resolve, 30));
+        releaseFirstPost();
+
+        const [layer2Result, layer1Result] = await Promise.all([layer2, layer1]);
+
+        assert.deepEqual(presented, ["old-rt"], "the consumed refresh token must be POSTed once");
+        assert.equal(layer2Result?.accessToken, "new-access");
+        assert.equal(layer2Result?.refreshToken, "new-rt");
+        assert.equal(layer1Result?.accessToken, "new-access");
+        assert.equal(layer1Result?.refreshToken, "new-rt");
+        assert.notEqual(
+          (layer1Result as { error?: string } | null)?.error,
+          "unrecoverable_refresh_error",
+          "Layer 1 must reuse the rotated tokens instead of burning the family"
+        );
       }
-      if (presentedToken === "old-rt") {
-        return jsonResponse({ error: "invalid_grant", error_description: "refresh_token_reused" }, 400);
-      }
-      throw new Error(`unexpected refresh_token ${presentedToken}`);
-    }, async () => {
-      const layer2 = getAccessToken("claude", { refreshToken: "old-rt" }, log);
-      await new Promise<void>((resolve, reject) => {
-        const started = Date.now();
-        const tick = () => {
-          if (firstPostEntered) {
-            resolve();
-            return;
-          }
-          if (Date.now() - started > 2000) {
-            reject(new Error("Layer 2 never reached the Anthropic token endpoint"));
-            return;
-          }
-          setTimeout(tick, 5);
-        };
-        tick();
-      });
-
-      const layer1 = getAccessToken(
-        "claude",
-        { connectionId: "healthcheck-conn", refreshToken: "old-rt" },
-        log
-      );
-      await new Promise((resolve) => setTimeout(resolve, 30));
-      releaseFirstPost();
-
-      const [layer2Result, layer1Result] = await Promise.all([layer2, layer1]);
-
-      assert.deepEqual(presented, ["old-rt"], "the consumed refresh token must be POSTed once");
-      assert.equal(layer2Result?.accessToken, "new-access");
-      assert.equal(layer2Result?.refreshToken, "new-rt");
-      assert.equal(layer1Result?.accessToken, "new-access");
-      assert.equal(layer1Result?.refreshToken, "new-rt");
-      assert.notEqual(
-        (layer1Result as { error?: string } | null)?.error,
-        "unrecoverable_refresh_error",
-        "Layer 1 must reuse the rotated tokens instead of burning the family"
-      );
-    });
+    );
   } finally {
     if (previousSpacing === undefined) delete process.env.CODEX_REFRESH_SPACING_MS;
     else process.env.CODEX_REFRESH_SPACING_MS = previousSpacing;
@@ -137,18 +144,24 @@ test("getAccessToken_Layer1QueuedBehindLayer2_DoesNotPostConsumedClaudeRefreshTo
 test("getAccessToken_Layer2Refresh_RecordsRotationForTheConsumedToken", async () => {
   const log = createLog();
 
-  await withMockedFetch(async () => {
-    return jsonResponse({
-      access_token: "layer2-access",
-      refresh_token: "layer2-new-rt",
-      expires_in: 28800,
-    });
-  }, async () => {
-    const result = await getAccessToken("claude", { refreshToken: "layer2-old-rt" }, log);
-    assert.equal(result?.refreshToken, "layer2-new-rt");
-    const cached = lookupRotation("claude", "layer2-old-rt");
-    assert.ok(cached, "Layer 2 must record the rotation so a later stale caller can skip upstream");
-    assert.equal(cached.result.refreshToken, "layer2-new-rt");
-    assert.equal(cached.result.accessToken, "layer2-access");
-  });
+  await withMockedFetch(
+    async () => {
+      return jsonResponse({
+        access_token: "layer2-access",
+        refresh_token: "layer2-new-rt",
+        expires_in: 28800,
+      });
+    },
+    async () => {
+      const result = await getAccessToken("claude", { refreshToken: "layer2-old-rt" }, log);
+      assert.equal(result?.refreshToken, "layer2-new-rt");
+      const cached = lookupRotation("claude", "layer2-old-rt");
+      assert.ok(
+        cached,
+        "Layer 2 must record the rotation so a later stale caller can skip upstream"
+      );
+      assert.equal(cached.result.refreshToken, "layer2-new-rt");
+      assert.equal(cached.result.accessToken, "layer2-access");
+    }
+  );
 });

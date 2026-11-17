@@ -284,6 +284,30 @@ function finishOk(
     requestUrl?: string;
   }
 ): NonStreamingProviderLegResult {
+  if (
+    params.provider === "kiro" &&
+    isJsonRecord(params.responseBody.error) &&
+    params.responseBody.error.code === "content_filter"
+  ) {
+    const message = String(params.responseBody.error.message);
+    return {
+      kind: "error",
+      result: legError(400, message, undefined, null, "content_filter", "invalid_request_error"),
+      receipt: buildReceipt(input, {
+        httpStatus: 400,
+        errorType: "content_filter",
+        usage: extractUsage(params.responseBody, params.provider),
+        termination: "provider_error",
+        latencyMs: Date.now() - params.startMs,
+        startedAt: params.startedAt,
+        endedAt: new Date().toISOString(),
+        connectionId: params.connectionId,
+        model: params.model,
+      }),
+      usage: extractUsage(params.responseBody, params.provider),
+    };
+  }
+
   const failed = bufferedResponsesFailure(input, params, { legError, extractUsage, buildReceipt });
   if (failed) return failed;
   // F-02: restore + sanitize + translate is the only success tail.

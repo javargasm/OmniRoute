@@ -31,27 +31,59 @@ import { createHash } from "node:crypto";
  * the operator, so it must not carry what the upstream sent.
  */
 type DiscoveryFailure = { status?: number; code?: string };
-
-import { v4 as uuidv4 } from "uuid";
-
 import {
   isExternalIdpAuthMethod,
   KIRO_EXTERNAL_IDP_TOKEN_TYPE_HEADER,
   KIRO_EXTERNAL_IDP_TOKEN_TYPE_VALUE,
 } from "./kiroExternalIdp.ts";
-import { resolveKiroRuntimeRegion } from "./kiroRegion.ts";
-import { supportsKiroAdaptiveThinking } from "../translator/request/openai-to-kiro/adaptiveThinking.ts";
+import { DEFAULT_PROFILE_ARN, resolveKiroRuntimeRegion } from "./kiroRegion.ts";
+import { KIRO_CLI_VERSION } from "../config/providerHeaderProfiles.ts";
+import { getProviderModels } from "../config/providerModels.ts";
+import { formatKiroModelName } from "../utils/kiroModelName.ts";
+import { supportsKiroNativeReasoning } from "../translator/request/openai-to-kiro/adaptiveThinking.ts";
+import {
+  parseKiroModelCapabilities,
+  recordKiroModelCapabilities,
+} from "./kiroModelCapabilities.ts";
 
 type RawRecord = Record<string, unknown>;
 
-const KIRO_RUNTIME_SDK_VERSION = "1.0.0";
-const KIRO_AGENT_OS = "windows";
-const KIRO_AGENT_OS_VERSION = "10.0.26200";
-const KIRO_NODE_VERSION = "22.21.1";
-const KIRO_IDE_VERSION = "0.10.32";
+export const KIRO_CLI_ORIGIN = "KIRO_CLI";
+export const KIRO_CLI_USER_AGENT =
+  process.env.KIRO_CUSTOM_USER_AGENT ||
+  `aws-sdk-rust/1.3.15 ua/2.1 api/codewhispererruntime/0.1.17975 os/macos lang/rust/1.92.0 md/appVersion-${KIRO_CLI_VERSION} app/AmazonQ-For-CLI`;
+export const KIRO_CLI_X_AMZ_USER_AGENT = `${KIRO_CLI_USER_AGENT} m/F,C`;
+
+export const KIRO_MANAGEMENT_TARGET = {
+  listAvailableProfiles: "AmazonCodeWhispererService.ListAvailableProfiles",
+  listAvailableModels: "AmazonCodeWhispererService.ListAvailableModels",
+} as const;
+
+export const KIRO_MANAGEMENT_BASE_HEADERS = {
+  "Content-Type": "application/x-amz-json-1.0",
+  "user-agent": KIRO_CLI_USER_AGENT,
+  "x-amz-user-agent": KIRO_CLI_X_AMZ_USER_AGENT,
+  "x-amzn-codewhisperer-optout": "true",
+  Accept: "*/*",
+  "accept-encoding": "gzip",
+  "amz-sdk-request": "attempt=1; max=3",
+  Pragma: "no-cache",
+  "Cache-Control": "no-cache",
+} as const;
+
 const CACHE_TTL_MS = 5 * 60 * 1000;
 
 const catalogCache = new Map<string, { expiresAt: number; models: KiroModel[] }>();
+
+/**
+ * `ListAvailableModels` advertises this pseudo-model, but Kiro rejects it on
+ * GenerateAssistantResponse with INVALID_MODEL_ID. Also filter out disabled/invalid
+ * models like fable.
+ */
+function isUnusableKiroCatalogModelId(modelId: string): boolean {
+  const lower = modelId.toLowerCase();
+  return lower === "auto" || lower.includes("fable");
+}
 
 function asRecord(value: unknown): RawRecord {
   return value && typeof value === "object" && !Array.isArray(value) ? (value as RawRecord) : {};
@@ -76,13 +108,17 @@ export type KiroModel = {
   capabilities?: {
     thinking: boolean;
     agentic: boolean;
+    effort_tiers?: string[];
   };
   contextLength?: number;
+  maxOutputTokens?: number;
+  supportsVision?: boolean;
   outputTokenLimit?: number;
   rateMultiplier?: number;
   upstreamModelId?: string;
   description?: string;
   promptCaching?: KiroPromptCaching;
+  supportedThinkingEfforts?: string[];
 };
 
 function toNonNegativeInteger(value: unknown): number | null {
@@ -131,7 +167,7 @@ export function parseKiroModels(data: unknown): KiroModel[] {
   for (const value of items) {
     const item = asRecord(value);
     const id = toNonEmptyString(item.modelId) || toNonEmptyString(item.id);
-    if (!id || seen.has(id)) continue;
+    if (!id || isUnusableKiroCatalogModelId(id) || seen.has(id)) continue;
     seen.add(id);
     const name = toNonEmptyString(item.modelName) || toNonEmptyString(item.name) || id;
     const promptCaching = parsePromptCaching(item.promptCaching);
@@ -142,43 +178,53 @@ export function parseKiroModels(data: unknown): KiroModel[] {
 }
 
 function formatDisplayName(modelName: unknown, modelId: string, rateMultiplier: unknown): string {
-  const base = toNonEmptyString(modelName) || modelId;
-  const rate = Number(rateMultiplier);
-  if (!Number.isFinite(rate) || Math.abs(rate - 1.0) < 1e-9 || rate <= 0) {
-    return `Kiro ${base}`;
-  }
-  return `Kiro ${base} (${rate.toFixed(1)}x credit)`;
+  const registeredName = getProviderModels("kiro").find((model) => model.id === modelId)?.name;
+  return formatKiroModelName(
+    toNonEmptyString(modelName) || modelId,
+    modelId,
+    rateMultiplier,
+    registeredName
+  );
 }
 
+export const KIRO_GPT_EFFORT_TIERS = ["none", "low", "medium", "high", "xhigh", "max"] as const;
+
 function buildVariants(upstream: string, displayName: string): KiroModel[] {
-  const display = displayName || `Kiro ${upstream}`;
+  const display = displayName || formatKiroModelName(upstream, upstream);
+  const isNativeReasoning = supportsKiroNativeReasoning(upstream);
+
+  const baseCapabilities: { thinking: boolean; agentic: boolean; effort_tiers?: string[] } = {
+    thinking: false,
+    agentic: false,
+  };
+  if (isNativeReasoning) {
+    baseCapabilities.effort_tiers = [...KIRO_GPT_EFFORT_TIERS];
+  }
+
   const variants: KiroModel[] = [
     {
       id: upstream,
       name: display,
       owned_by: "kiro",
-      capabilities: { thinking: false, agentic: false },
+      capabilities: baseCapabilities,
+      ...(isNativeReasoning ? { supportedThinkingEfforts: [...KIRO_GPT_EFFORT_TIERS] } : {}),
     },
   ];
-
-  if (supportsKiroAdaptiveThinking(upstream)) {
-    variants.push({
-      id: `${upstream}-thinking`,
-      name: `${display} (Thinking)`,
-      owned_by: "kiro",
-      capabilities: { thinking: true, agentic: false },
-    });
-  }
 
   return variants;
 }
 
 export function isObsoleteKiroModelAlias(modelId: unknown): boolean {
   if (typeof modelId !== "string") return false;
-  if (modelId === "auto-kiro" || modelId.endsWith("-agentic")) return true;
-  if (!modelId.endsWith("-thinking")) return false;
-  const upstream = modelId.slice(0, -"-thinking".length);
-  return !supportsKiroAdaptiveThinking(upstream);
+  if (
+    isUnusableKiroCatalogModelId(modelId) ||
+    modelId === "auto-kiro" ||
+    modelId.endsWith("-agentic") ||
+    modelId.endsWith("-thinking")
+  ) {
+    return true;
+  }
+  return false;
 }
 
 function expandKiroModels(data: unknown): KiroModel[] {
@@ -194,7 +240,7 @@ function expandKiroModels(data: unknown): KiroModel[] {
   for (const value of items) {
     const item = asRecord(value);
     const upstreamId = toNonEmptyString(item.modelId) || toNonEmptyString(item.id);
-    if (!upstreamId) continue;
+    if (!upstreamId || isUnusableKiroCatalogModelId(upstreamId)) continue;
     const display = formatDisplayName(item.modelName || item.name, upstreamId, item.rateMultiplier);
     const tokenLimits = asRecord(item.tokenLimits);
     // Only the upstream number. Stamping a 200k default here would be persisted as the
@@ -206,15 +252,30 @@ function expandKiroModels(data: unknown): KiroModel[] {
     const maxOutputTokens = Number(tokenLimits.maxOutputTokens);
     const outputTokenLimit =
       Number.isFinite(maxOutputTokens) && maxOutputTokens > 0 ? maxOutputTokens : undefined;
+    const inputTypes = Array.isArray(item.supportedInputTypes) ? item.supportedInputTypes : [];
+    const supportsVision = inputTypes.some(
+      (type) => typeof type === "string" && type.toUpperCase() === "IMAGE"
+    );
     const rateMultiplier = Number(item.rateMultiplier);
     const promptCaching = parsePromptCaching(item.promptCaching);
+    const caps = parseKiroModelCapabilities(item);
+    if (caps) recordKiroModelCapabilities(upstreamId, caps);
 
     for (const variant of buildVariants(upstreamId, display)) {
       if (seen.has(variant.id)) continue;
       seen.add(variant.id);
+      const catalogEfforts = caps?.efforts;
       expanded.push({
         ...variant,
+        ...(catalogEfforts
+          ? {
+              supportedThinkingEfforts: [...catalogEfforts],
+              capabilities: { ...variant.capabilities, effort_tiers: [...catalogEfforts] },
+            }
+          : {}),
         ...(contextLength ? { contextLength } : {}),
+        ...(Number.isFinite(maxOutputTokens) && maxOutputTokens > 0 ? { maxOutputTokens } : {}),
+        ...(supportsVision ? { supportsVision: true } : {}),
         ...(outputTokenLimit ? { outputTokenLimit } : {}),
         rateMultiplier: Number.isFinite(rateMultiplier) ? rateMultiplier : 1.0,
         upstreamModelId: upstreamId,
@@ -240,15 +301,15 @@ export function resolveKiroRegion(providerSpecificData: unknown): string {
 }
 
 /**
- * Build the ordered list of `ListAvailableModels` base URLs to try: the
- * region-matched Amazon Q host first, then the us-east-1 home region as a
- * fallback (CodeWhisperer's canonical region).
+ * Build the ordered list of Kiro management base URLs to try: the
+ * region-matched host first, then the us-east-1 home region as a
+ * fallback.
  */
 export function buildKiroModelsEndpoints(region: string): string[] {
   const normalized = (toNonEmptyString(region) || "us-east-1").toLowerCase();
-  const urls: string[] = [`https://q.${normalized}.amazonaws.com/ListAvailableModels`];
+  const urls: string[] = [`https://management.${normalized}.kiro.dev`];
   if (normalized !== "us-east-1") {
-    urls.push("https://q.us-east-1.amazonaws.com/ListAvailableModels");
+    urls.push("https://management.us-east-1.kiro.dev");
   }
   return urls;
 }
@@ -271,7 +332,7 @@ function toFallbackResult(
   const models = (fallbackModels || [])
     .map((model) => {
       const id = toNonEmptyString(model.id);
-      if (!id) return null;
+      if (!id || isUnusableKiroCatalogModelId(id)) return null;
       return {
         id,
         name: toNonEmptyString(model.name) || id,
@@ -282,38 +343,60 @@ function toFallbackResult(
   return { models, source: "fallback", ...(failure ? { failure } : {}) };
 }
 
-function buildKiroFingerprintHeaders(providerSpecificData: unknown, accessToken: string) {
-  const psd = asRecord(providerSpecificData);
-  const seed =
-    toNonEmptyString(psd.clientId) ||
-    toNonEmptyString(psd.profileArn) ||
-    accessToken ||
-    "kiro-anonymous";
-  const machineId = createHash("sha256").update(String(seed)).digest("hex");
-  const userAgent =
-    `aws-sdk-js/${KIRO_RUNTIME_SDK_VERSION} ua/2.1 ` +
-    `os/${KIRO_AGENT_OS}#${KIRO_AGENT_OS_VERSION} ` +
-    `lang/js md/nodejs#${KIRO_NODE_VERSION} ` +
-    `api/codewhispererruntime#${KIRO_RUNTIME_SDK_VERSION} m/N,E ` +
-    `KiroIDE-${KIRO_IDE_VERSION}-${machineId}`;
+/**
+ * Resolve the Kiro profile ARN by calling ListAvailableProfiles on the management endpoint.
+ * Builder ID accounts get AccessDenied on ListAvailableProfiles, falling back to DEFAULT_PROFILE_ARN.
+ */
+export async function resolveProfileArn(
+  accessToken: string,
+  apiRegion: string,
+  fetchImpl: typeof fetch = fetch,
+  signal?: AbortSignal
+): Promise<string> {
+  try {
+    const endpoint = `https://management.${apiRegion}.kiro.dev/`;
+    const resp = await fetchImpl(endpoint, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        ...KIRO_MANAGEMENT_BASE_HEADERS,
+        "X-Amz-Target": KIRO_MANAGEMENT_TARGET.listAvailableProfiles,
+      },
+      body: "{}",
+      ...(signal ? { signal } : {}),
+    });
+    if (resp && resp.ok) {
+      const data = (await resp.json()) as {
+        profiles?: { arn?: string; profileType?: string; status?: string }[];
+      };
+      const profiles = data.profiles ?? [];
+      const kiroProfile = profiles.find((p) => p.profileType === "KIRO" && p.status === "ACTIVE");
+      const arn = kiroProfile?.arn ?? profiles[0]?.arn ?? DEFAULT_PROFILE_ARN;
+      return arn;
+    }
+  } catch {
+    // Best-effort; fall through to DEFAULT_PROFILE_ARN
+  }
+  return DEFAULT_PROFILE_ARN;
+}
 
+function buildKiroManagementHeaders(
+  providerSpecificData: unknown,
+  accessToken: string,
+  target: string
+): Record<string, string> {
   const headers: Record<string, string> = {
-    "User-Agent": userAgent,
-    "x-amz-user-agent": `aws-sdk-js/${KIRO_RUNTIME_SDK_VERSION} KiroIDE-${KIRO_IDE_VERSION}-${machineId}`,
-    "x-amzn-kiro-agent-mode": "vibe",
-    "x-amzn-codewhisperer-optout": "true",
-    "amz-sdk-request": "attempt=1; max=1",
-    "amz-sdk-invocation-id": uuidv4(),
-    Accept: "application/json",
+    Authorization: `Bearer ${accessToken}`,
+    ...KIRO_MANAGEMENT_BASE_HEADERS,
+    "X-Amz-Target": target,
   };
-
+  const psd = asRecord(providerSpecificData);
   if (psd.authMethod === "api_key") {
     headers.tokentype = "API_KEY";
   }
   if (isExternalIdpAuthMethod(psd.authMethod)) {
     headers[KIRO_EXTERNAL_IDP_TOKEN_TYPE_HEADER] = KIRO_EXTERNAL_IDP_TOKEN_TYPE_VALUE;
   }
-
   return headers;
 }
 
@@ -334,17 +417,21 @@ function cacheKey(accessToken: string, providerSpecificData: unknown): string {
  */
 async function tryFetchModels(
   fetchImpl: typeof fetch,
-  url: string,
+  baseEndpoint: string,
   accessToken: string,
+  profileArn: string,
   providerSpecificData: unknown
 ): Promise<{ models: KiroModel[]; failure?: DiscoveryFailure }> {
+  const url = `${baseEndpoint}/?origin=${KIRO_CLI_ORIGIN}&profileArn=${encodeURIComponent(profileArn)}`;
   try {
     const response = await fetchImpl(url, {
-      method: "GET",
-      headers: {
-        ...buildKiroFingerprintHeaders(providerSpecificData, accessToken),
-        Authorization: `Bearer ${accessToken}`,
-      },
+      method: "POST",
+      headers: buildKiroManagementHeaders(
+        providerSpecificData,
+        accessToken,
+        KIRO_MANAGEMENT_TARGET.listAvailableModels
+      ),
+      body: JSON.stringify({ origin: KIRO_CLI_ORIGIN, profileArn }),
     });
     if (!response.ok) return { models: [], failure: { status: response.status } };
     const data = await response.json();
@@ -357,14 +444,9 @@ async function tryFetchModels(
 }
 
 /**
- * Discover the Kiro model catalog live via `ListAvailableModels`, falling back
- * to the static catalog when no token is available or every attempt fails.
- *
- * Attempt order (stops at the first success):
- *   1. `origin=AI_EDITOR` on each region-matched endpoint — universal path that
- *      works for Builder ID / social ("simple") and IAM Identity Center accounts.
- *   2. `origin=AI_EDITOR&profileArn=...` on the primary endpoint, only when a
- *      profileArn is present (desktop-style accounts that require it).
+ * Discover the Kiro model catalog live via `ListAvailableModels` on the management
+ * endpoint, matching opencode-kiro parity. Falls back to static catalog when offline
+ * or every attempt fails.
  */
 export async function fetchKiroAvailableModels(
   options: FetchKiroModelsOptions
@@ -384,31 +466,20 @@ export async function fetchKiroAvailableModels(
 
   const region = resolveKiroRegion(providerSpecificData);
   const endpoints = buildKiroModelsEndpoints(region);
-  const profileArn = toNonEmptyString(asRecord(providerSpecificData).profileArn);
+  const psd = asRecord(providerSpecificData);
+  let profileArn = toNonEmptyString(psd.profileArn);
+
+  if (!profileArn && psd.authMethod !== "api_key") {
+    profileArn = await resolveProfileArn(token, region, fetchImpl);
+  } else if (!profileArn) {
+    profileArn = DEFAULT_PROFILE_ARN;
+  }
+
   // The first attempt that produced no model explains the fallback.
   let failure: DiscoveryFailure | undefined;
 
-  // Pass 1: origin-only (works for Builder ID / social / IdC).
   for (const base of endpoints) {
-    const attempt = await tryFetchModels(
-      fetchImpl,
-      `${base}?origin=AI_EDITOR`,
-      token,
-      providerSpecificData
-    );
-    if (attempt.models.length > 0) {
-      catalogCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, models: attempt.models });
-      return { models: attempt.models, source: "api" };
-    }
-    failure = failure ?? attempt.failure;
-  }
-
-  // Pass 2: retry with profileArn (desktop accounts that require it) on the
-  // region-matched endpoint only. Skipped for Builder ID / IdC where sending a
-  // profileArn can 403.
-  if (profileArn) {
-    const url = `${endpoints[0]}?origin=AI_EDITOR&profileArn=${encodeURIComponent(profileArn)}`;
-    const attempt = await tryFetchModels(fetchImpl, url, token, providerSpecificData);
+    const attempt = await tryFetchModels(fetchImpl, base, token, profileArn, providerSpecificData);
     if (attempt.models.length > 0) {
       catalogCache.set(key, { expiresAt: Date.now() + CACHE_TTL_MS, models: attempt.models });
       return { models: attempt.models, source: "api" };

@@ -4,7 +4,7 @@
  * Hosts: `api.zed.dev`.
  * Format: OpenAI-compatible Chat Completions on `/v1/chat/completions`.
  */
-import type { MitmTarget } from "../types";
+import type { MitmTarget } from "../types.ts";
 
 export const ZED_TARGET: MitmTarget = {
   id: "zed",
@@ -27,6 +27,6 @@ export const ZED_TARGET: MitmTarget = {
     ],
     detection: { command: "which zed", platform: "all" },
   },
-  handler: () => import("../handlers/zed").then((m) => ({ default: m.ZedHandler })),
+  handler: () => import("../handlers/zed.ts").then((m) => ({ default: m.ZedHandler })),
   riskNoticeKey: "providers.riskNotice.oauth",
 };

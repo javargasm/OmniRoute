@@ -13,16 +13,16 @@ export interface ModelPricing {
 }
 
 export const PRICING_TABLE: Record<string, ModelPricing> = {
-  "gpt-4o-mini": { inputPerMTok: 0.15, outputPerMTok: 0.60 },
-  "gpt-4o": { inputPerMTok: 2.50, outputPerMTok: 10.00 },
-  "claude-3-5-sonnet": { inputPerMTok: 3.00, outputPerMTok: 15.00 },
-  "claude-3-5-haiku": { inputPerMTok: 0.80, outputPerMTok: 4.00 },
-  "claude-3-opus": { inputPerMTok: 15.00, outputPerMTok: 75.00 },
-  "gemini-2.0-flash": { inputPerMTok: 0.10, outputPerMTok: 0.40 },
-  "gemini-1.5-flash": { inputPerMTok: 0.075, outputPerMTok: 0.30 },
-  "gemini-1.5-pro": { inputPerMTok: 1.25, outputPerMTok: 5.00 },
+  "gpt-4o-mini": { inputPerMTok: 0.15, outputPerMTok: 0.6 },
+  "gpt-4o": { inputPerMTok: 2.5, outputPerMTok: 10.0 },
+  "claude-3-5-sonnet": { inputPerMTok: 3.0, outputPerMTok: 15.0 },
+  "claude-3-5-haiku": { inputPerMTok: 0.8, outputPerMTok: 4.0 },
+  "claude-3-opus": { inputPerMTok: 15.0, outputPerMTok: 75.0 },
+  "gemini-2.0-flash": { inputPerMTok: 0.1, outputPerMTok: 0.4 },
+  "gemini-1.5-flash": { inputPerMTok: 0.075, outputPerMTok: 0.3 },
+  "gemini-1.5-pro": { inputPerMTok: 1.25, outputPerMTok: 5.0 },
   "deepseek-reasoner": { inputPerMTok: 0.55, outputPerMTok: 2.19 },
-  "deepseek-chat": { inputPerMTok: 0.27, outputPerMTok: 1.10 },
+  "deepseek-chat": { inputPerMTok: 0.27, outputPerMTok: 1.1 },
 };
 
 /**
@@ -46,7 +46,7 @@ export function lookupPricing(model: string | null): ModelPricing | null {
 export function estimateCost(
   model: string | null,
   tokensIn: number | null,
-  tokensOut: number | null,
+  tokensOut: number | null
 ): number | null {
   if (tokensIn == null && tokensOut == null) return null;
   const price = lookupPricing(model);

@@ -1,8 +1,4 @@
-import {
-  MUSE_CODE_MINT_URL,
-  museCodeHeaders,
-  normalizeMuseBaseUrl,
-} from "../config/museCode.ts";
+import { MUSE_CODE_MINT_URL, museCodeHeaders, normalizeMuseBaseUrl } from "../config/museCode.ts";
 
 /** Mint failure carrying the upstream HTTP status so callers can separate a dead
  * OIDC token (401/403 → re-login) from a transient failure (keep the stored key). */

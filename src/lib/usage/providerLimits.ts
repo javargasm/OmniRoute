@@ -1203,17 +1203,21 @@ async function fetchLiveProviderLimitsWithOptions(
     result = await fetchUsageWithContext(null);
   }
 
+  let quotaObservationConflict = false;
   return runWithCodexConnectionFence(codexFence, async () => {
     assertCodexOperationCurrent(connectionId);
     if (connection.provider === "codex") {
       const data = await syncCodexQuotaObservation(
         connection.id,
         result.usage,
-        connection.providerSpecificData
+        connection.providerSpecificData,
+        () => {
+          quotaObservationConflict = true;
+        }
       );
       if (data) connection = { ...connection, providerSpecificData: data };
     }
-    if (isRecord(result.usage.quotas)) {
+    if (isRecord(result.usage.quotas) && !quotaObservationConflict) {
       setQuotaCache(
         connectionId,
         connection.provider,

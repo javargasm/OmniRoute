@@ -128,7 +128,10 @@ test("Openference is registered as an OAuth gateway with default executor", asyn
   );
   assert.equal(hasSpecializedExecutor("openference"), false);
 
-  const headers = (await getExecutor("openference")).buildHeaders({ accessToken: "oauth-access" }, false);
+  const headers = (await getExecutor("openference")).buildHeaders(
+    { accessToken: "oauth-access" },
+    false
+  );
   assert.equal(headers.Authorization, "Bearer oauth-access");
 });
 

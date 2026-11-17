@@ -60,6 +60,40 @@ test("createStreamFailureFinalizers: caller classification survives into respons
   assert.equal(body.error.code, "stream_pipeline_error");
 });
 
+test("createStreamFailureFinalizers: late pipeline errors retain provider classification", () => {
+  let capturedFailure: {
+    status: number;
+    code?: string;
+    type?: string;
+    message: string;
+    outputEmitted?: boolean;
+  } | null = null;
+
+  const { onPipelineStreamError } = createStreamFailureFinalizers({
+    isFailureCompletionRecorded: () => false,
+    onStreamComplete: () => {},
+    persistFailureUsage: () => {},
+    onStreamFailure: (failure) => {
+      capturedFailure = failure;
+    },
+  });
+
+  onPipelineStreamError({
+    message: "Kiro throttled the request",
+    statusCode: 429,
+    code: "rate_limit_exceeded",
+    type: "requests",
+  });
+
+  assert.deepEqual(capturedFailure, {
+    status: 429,
+    message: "Kiro throttled the request",
+    code: "rate_limit_exceeded",
+    type: "requests",
+    outputEmitted: false,
+  });
+});
+
 test("formatTranslatedStreamError projects unsafe upstream classification fields", () => {
   const unsafeCode = "bad access_token=TOP_SECRET /home/alice/code.ts";
   const unsafeType = "bad_type\n    at /home/alice/type.ts:1:2";

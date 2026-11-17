@@ -168,4 +168,37 @@ describe("splitInlineThinking", () => {
     assert.equal(h.content, "just content");
     assert.equal(h.reasoning, "");
   });
+
+  it("splits <think> and </think> tags (DeepSeek/Qwen variant)", () => {
+    const h = makeHarness();
+    h.feed("Answer: <think>pondering hard</think>42");
+    h.flush();
+    assert.equal(h.content, "Answer: 42");
+    assert.equal(h.reasoning, "pondering hard");
+  });
+
+  it("splits <thought> and </thought> tags", () => {
+    const h = makeHarness();
+    h.feed("<thought>deep insight</thought>result");
+    h.flush();
+    assert.equal(h.content, "result");
+    assert.equal(h.reasoning, "deep insight");
+  });
+
+  it("splits <reasoning> and </reasoning> tags", () => {
+    const h = makeHarness();
+    h.feed("start<reasoning>analyzing</reasoning>end");
+    h.flush();
+    assert.equal(h.content, "startend");
+    assert.equal(h.reasoning, "analyzing");
+  });
+
+  it("handles a split <think> tag across slices", () => {
+    const h = makeHarness();
+    h.feed("hello <thi");
+    h.feed("nk>calculating</think> world");
+    h.flush();
+    assert.equal(h.content, "hello  world");
+    assert.equal(h.reasoning, "calculating");
+  });
 });

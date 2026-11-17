@@ -30,7 +30,9 @@ export async function addProxiesToScopePool(
 
   const db = getDbInstance();
   const maxRow = db
-    .prepare("SELECT MAX(position) AS maxPos FROM proxy_assignments WHERE scope = ? AND scope_id IS ?")
+    .prepare(
+      "SELECT MAX(position) AS maxPos FROM proxy_assignments WHERE scope = ? AND scope_id IS ?"
+    )
     .get(normalizedScope, normalizedScopeId) as { maxPos?: number | null } | undefined;
   const base = maxRow && typeof maxRow.maxPos === "number" ? maxRow.maxPos + 1 : 0;
   const now = new Date().toISOString();

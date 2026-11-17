@@ -23,12 +23,7 @@ test("success ends the set-aside: the proxy is no longer avoided", async () => {
   process.env.PROXY_HEALTH_RECOVERY_ENABLED = "true";
   memory.noteProxyRefusal(KEY, "ip_quota_429");
   assert.equal(memory.isProxyAvoided(KEY), true);
-  const result = await scheduler.runRecoveryPass(
-    async () => "ok",
-    CANDIDATES,
-    LIMITS,
-    process.env
-  );
+  const result = await scheduler.runRecoveryPass(async () => "ok", CANDIDATES, LIMITS, process.env);
   assert.equal(result.recovered, 1);
   assert.equal(memory.isProxyAvoided(KEY), false);
 });
