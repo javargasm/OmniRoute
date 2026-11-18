@@ -1,5 +1,32 @@
 // Heuristic token estimation constants
 const CHARS_PER_TOKEN_SCHEMA = 6; // ~6 chars/token for JSON schemas (more verbose per token)
+const MAX_REGEX_ESTIMATE_CHARS = 32 * 1024;
+
+const inputTokenEstimateCache = new WeakMap<object, number>();
+
+/**
+ * Linear token estimate for text above 32 KB: one token per CJK ideograph and
+ * ~3.8 characters per token for remaining text, avoiding million-element regex splits.
+ */
+function estimateLongTextTokens(text: string): number {
+  let cjkChars = 0;
+  let cjkCodeUnits = 0;
+  for (let i = 0; i < text.length; i++) {
+    const code = text.charCodeAt(i);
+    if ((code >= 0x3000 && code <= 0x9fff) || (code >= 0xf900 && code <= 0xfaff)) {
+      cjkChars += 1;
+      cjkCodeUnits += 1;
+    } else if (code >= 0xd840 && code <= 0xd87e) {
+      const codePoint = text.codePointAt(i) ?? 0;
+      if (codePoint >= 0x20000 && codePoint <= 0x2fa1f) {
+        cjkChars += 1;
+        cjkCodeUnits += 2;
+        i += 1;
+      }
+    }
+  }
+  return cjkChars + Math.ceil((text.length - cjkCodeUnits) / 3.8);
+}
 
 /**
  * Improved token estimation heuristic (no dependency).
@@ -14,6 +41,7 @@ const CHARS_PER_TOKEN_SCHEMA = 6; // ~6 chars/token for JSON schemas (more verbo
  */
 function estimateTokenCount(text: unknown) {
   if (!text || typeof text !== "string") return 0;
+  if (text.length > MAX_REGEX_ESTIMATE_CHARS) return estimateLongTextTokens(text);
 
   // Count CJK ideographs separately — each is roughly 1 token
   const cjkMatches = text.match(/[\u3000-\u9fff\uf900-\ufaff\u{20000}-\u{2fa1f}]/gu);
@@ -42,6 +70,9 @@ function estimateTokenCount(text: unknown) {
  */
 export function estimateInputTokens(body: unknown) {
   if (!body || typeof body !== "object") return 0;
+  const cached = inputTokenEstimateCache.get(body);
+  if (cached !== undefined) return cached;
+
   const record = body as Record<string, unknown>;
 
   try {
@@ -59,7 +90,9 @@ export function estimateInputTokens(body: unknown) {
       messageTokens = estimateTokenCount(JSON.stringify(record));
     }
 
-    return messageTokens + toolTokens;
+    const total = messageTokens + toolTokens;
+    inputTokenEstimateCache.set(body, total);
+    return total;
   } catch {
     // Fallback if stringify fails
     return 0;
