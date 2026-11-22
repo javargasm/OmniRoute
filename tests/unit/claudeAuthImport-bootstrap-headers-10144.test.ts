@@ -16,7 +16,7 @@ process.env.APP_LOG_TO_FILE = "false";
 // required header or stops persisting the device identity.
 const { createConnectionFromAuthFile, enrichWithBootstrap, parseAndValidateClaudeAuth } =
   await import("../../src/lib/oauth/utils/claudeAuthImport.ts");
-import { getClaudeCodeUserAgent } from "../../src/shared/constants/claudeCodeClient.ts";
+import { getClaudeCodeClientVersion } from "../../src/shared/constants/claudeCodeClient.ts";
 import { cleanupTempDataDir } from "../_setup/tempDataDir.ts";
 
 const originalFetch = globalThis.fetch;
@@ -64,7 +64,7 @@ test("real enrichWithBootstrap sends the required CLI headers", async () => {
   assert.equal(captured.headers.get("authorization"), "Bearer unit-test-access-token");
   assert.equal(captured.headers.get("anthropic-version"), "2023-06-01");
   assert.equal(captured.headers.get("content-type"), "application/json");
-  assert.equal(captured.headers.get("user-agent"), getClaudeCodeUserAgent("cli"));
+  assert.equal(captured.headers.get("user-agent"), `claude-code/${getClaudeCodeClientVersion()}`);
   assert.equal(captured.headers.get("anthropic-beta"), "oauth-2025-04-20");
   assert.equal(enriched.accountUUID, "unit-account-10144");
   assert.equal(enriched.email, "unit-10144@example.invalid");

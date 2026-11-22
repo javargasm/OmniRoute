@@ -14,13 +14,13 @@ import {
 } from "../config/providers/alternateFormats.ts";
 import {
   applyStainlessHeaders,
-  getClaudeCliBillingVersion,
   mergeCcHeaders,
   mergeClientAnthropicBeta,
   normalizeAnthropicHeaderVariants,
   maybeAppendSkillsBeta,
   syncSkillsBeta,
 } from "../config/anthropicHeaders.ts";
+import { getExplicitClaudeCodeBuildRevisionOverride } from "@/shared/constants/claudeCodeClient";
 import { applyContextEditingToBody } from "../config/contextEditing.ts";
 import { createCopilotIdentityFallback } from "./copilotIdentityFallback.ts";
 import {
@@ -68,6 +68,10 @@ import {
 } from "../services/tokenRefresh.ts";
 import type { ProviderRequestDefaults } from "../services/providerRequestDefaults.ts";
 import { signRequestBody } from "../services/claudeCodeCCH.ts";
+import {
+  computeFingerprint,
+  extractFirstUserMessageText,
+} from "../services/claudeCodeFingerprint.ts";
 import { normalizeCacheControlTtl } from "../services/claudeCodeConstraints.ts";
 import {
   appendAnthropicBetaHeader,
@@ -1109,11 +1113,15 @@ export class BaseExecutor {
           // Cloak third-party tool names + sanitize invalid tool schemas so
           // Anthropic does not refuse native Claude OAuth traffic with a
           // misleading "out of extra usage" placeholder. See Spec E.
+          // Real Claude Code CLI requests keep their prompt text intact without
+          // zero-width joiner mutations.
           cloakThirdPartyToolNames(tb);
           if (Array.isArray(tb.tools)) {
             tb.tools = sanitizeClaudeToolSchemas(tb.tools);
           }
-          obfuscateInBody(tb);
+          if (!isClaudeCodeClient) {
+            obfuscateInBody(tb);
+          }
 
           // NOTE (issue #2260): This is the native `claude` provider OAuth path.
           // It is intentionally NOT routed through applyCcBridgeTransformPipeline.
@@ -1285,33 +1293,65 @@ export class BaseExecutor {
                 : "synthesized";
           }
 
-          // system[0] (billing) and system[1] (sentinel) must not carry
-          // cache_control — that belongs on upstream prompt blocks at [2..].
-          const billingLine = `x-anthropic-billing-header: cc_version=${getClaudeCliBillingVersion()}; cc_entrypoint=cli; cch=00000;`;
+          // system[0] (billing) must not carry cache_control. Real Claude Code
+          // CLI computes the 3-hex cc_version suffix per request from
+          // sha256("59cf53e54c78" + firstUser[4,7,20] + version).slice(0, 3).
+          const ccVersion = getClaudeCodeVersion();
+          const explicitRevision = getExplicitClaudeCodeBuildRevisionOverride();
+          const ccRevision =
+            explicitRevision ??
+            computeFingerprint(
+              extractFirstUserMessageText(
+                tb.messages as Array<{ role?: string; content?: unknown }> | undefined
+              ),
+              ccVersion
+            );
+          const billingLine = `x-anthropic-billing-header: cc_version=${ccVersion}.${ccRevision}; cc_entrypoint=cli; cch=00000;`;
           const SENTINEL = "You are Claude Code, Anthropic's official CLI for Claude.";
 
-          const sysBlocks: Array<Record<string, unknown>> = Array.isArray(tb.system)
-            ? (tb.system as Array<Record<string, unknown>>)
-            : typeof tb.system === "string"
-              ? [{ type: "text", text: tb.system }]
-              : [];
+          const sysBlocks: Array<Record<string, unknown>> = (
+            Array.isArray(tb.system)
+              ? (tb.system as Array<Record<string, unknown>>)
+              : typeof tb.system === "string"
+                ? [{ type: "text", text: tb.system }]
+                : []
+          ).filter((block) => {
+            if (!block || typeof block !== "object") return false;
+            if (typeof block.text === "string") {
+              return block.text.length > 0 && block.text !== "__SYSTEM_PROMPT_STATIC_BREAKPOINT__";
+            }
+            return true;
+          });
+
+          const existingSentinelBlock = sysBlocks.find(
+            (block) => typeof block.text === "string" && block.text.startsWith(SENTINEL)
+          );
+          const sentinelCacheControl =
+            existingSentinelBlock?.cache_control &&
+            typeof existingSentinelBlock.cache_control === "object"
+              ? existingSentinelBlock.cache_control
+              : undefined;
 
           // Strip any pre-existing billing/sentinel before re-prepending — keeps
           // retries idempotent and avoids stacking that breaks prompt-cache prefix
           // matching (see issue #1712).
           stripClaudeSystemPrefixBlocks(sysBlocks, SENTINEL);
-          sysBlocks.unshift({ type: "text", text: billingLine }, { type: "text", text: SENTINEL });
+          sysBlocks.unshift(
+            { type: "text", text: billingLine },
+            {
+              type: "text",
+              text: SENTINEL,
+              ...(sentinelCacheControl ? { cache_control: sentinelCacheControl } : {}),
+            }
+          );
           tb.system = sysBlocks;
           normalizeCacheControlTtl(tb);
 
-          // Run the configurable system-transforms pipeline for the native
-          // `claude` provider (issue #2260 / comment 4459544580). The default
-          // claude pipeline runs cosmetic ops only (Open WebUI paragraph
-          // anchors, identity-prefix paragraph drop, ZWJ obfuscation of
-          // sensitive words). It deliberately does NOT include
-          // `inject_billing_header` — billing + sentinel are already
-          // prepended above. Users can extend the pipeline via Settings UI.
-          {
+          // Run the configurable system-transforms pipeline for non-CLI clients
+          // on the native `claude` provider path (issue #2260). Genuine Claude
+          // Code CLI traffic already emits native system blocks and should pass
+          // through without cosmetic rewrites.
+          if (!isClaudeCodeClient) {
             const transformResult = applySystemTransformPipeline(PROVIDER_CLAUDE, tb);
             if (transformResult.appliedOpKinds.length > 0) {
               console.log(
@@ -1382,6 +1422,34 @@ export class BaseExecutor {
               "x-client-request-id": randomUUID(),
               "X-Claude-Code-Session-Id": sessionId,
             };
+            if (isClaudeCodeClient && clientHeaders) {
+              const passthroughCcHeaderKeys = [
+                "x-claude-code-prompt-id",
+                "x-claude-code-request-class",
+                "x-claude-1p-request-class",
+                "x-claude-code-agent-id",
+                "x-claude-code-parent-agent-id",
+                "x-claude-code-agent-type",
+                "x-claude-code-wiggly-dove",
+                "x-claude-code-sandy-plover",
+                "x-cc-atis",
+                "x-claude-code-managed-settings-checksum",
+                "anthropic-client-platform",
+                "anthropic-client-version",
+              ];
+              for (const headerName of passthroughCcHeaderKeys) {
+                const matchKey = Object.keys(clientHeaders).find(
+                  (k) => k.toLowerCase() === headerName
+                );
+                const val = matchKey ? clientHeaders[matchKey] : undefined;
+                if (typeof val === "string") {
+                  const trimmed = val.trim();
+                  if (trimmed && !/[\r\n]/.test(trimmed)) {
+                    ccHeaders[headerName] = trimmed;
+                  }
+                }
+              }
+            }
 
             mergeCcHeaders(headers, ccHeaders);
             if (usesCcWireImage(this.provider) && usesClaudeCodeProtocol) {

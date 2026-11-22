@@ -96,7 +96,7 @@ test("#9474: real Anthropic Claude OAuth is provider `claude` with browser PKCE 
   const claude = mod.claude;
   assert.equal(claude.flowType, "authorization_code_pkce");
   assert.notEqual(claude.flowType, "device_code");
-  assert.equal(claude.config.authorizeUrl, "https://claude.ai/oauth/authorize");
+  assert.equal(claude.config.authorizeUrl, "https://claude.com/cai/oauth/authorize");
 });
 
 test("#9474: command-code provider is the unrelated CommandCode.ai apikey provider (unchanged, sanity)", async () => {

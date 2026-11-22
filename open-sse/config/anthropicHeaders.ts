@@ -289,6 +289,13 @@ export function hasMidConversationSystemTurn(body: unknown): boolean {
  * header".
  */
 export const FORWARDABLE_CLIENT_BETAS = Object.freeze([
+  "claude-code-20250219",
+  "oauth-2025-04-20",
+  "interleaved-thinking-2025-05-14",
+  "fine-grained-tool-streaming-2025-05-14",
+  "context-management-2025-06-27",
+  "prompt-caching-scope-2026-01-05",
+  "advanced-tool-use-2025-11-20",
   "tool-search-tool-2025-10-19",
   "context-1m-2025-08-07",
   "code-execution-2025-08-25",
@@ -301,14 +308,23 @@ export const FORWARDABLE_CLIENT_BETAS = Object.freeze([
   // Per-message effort (message-level output_config) — sources in doc comment above.
   "mid-conversation-output-config-2026-07-01",
   "per-turn-control-2026-07-01",
-  // Fable 5.1 betas (@ai-sdk/anthropic sends both automatically): without them
-  // upstream rejects `thinking.block_binding` / `thinking.display` with 400.
+  // Fable 5.1 / Claude Code 2.1.330 thinking & resumption betas.
   "thinking-binding-controls-2026-08-01",
   "thinking-display-updates-2026-08-18",
+  "thinking-token-count-2026-05-13",
+  "thinking-resumption-2026-07-17",
+  "resumption-2026-10-08",
+  "redact-thinking-2026-02-12",
   "dangerous-tool-use-2026-09-03",
+  "auto-mode-classifier-2026-07-16",
   "afk-mode-2026-01-31",
   "timing-2026-09-09",
   "inline-tools-2026-09-15",
+  "mid-conversation-tool-changes-2026-07-01",
+  "mid-conversation-system-clear-at-2026-08-21",
+  "tool-provenance-2026-10-26",
+  "claude-code-side-query-2026-09-29",
+  "program-use-case-ids-2026-09-17",
   // Top-level `thread` {type:create|continue,previous_message_id} (#15705), captured from
   // @anthropic-ai/claude-code@2.1.291 (`v("message_threads","message-threads-2026-08-12")`).
   // The body field passes through; without this beta upstream 400s "thread: Extra inputs".
@@ -318,7 +334,21 @@ export const FORWARDABLE_CLIENT_BETAS = Object.freeze([
   // without these betas upstream 400s "fallbacks: Extra inputs are not permitted".
   "server-side-fallback-2026-06-01",
   "server-side-fallback-2026-07-01",
+  "fallback-credit-2026-06-01",
   "fast-mode-2026-02-01",
+  "structured-outputs-2025-12-15",
+  "token-efficient-tools-2026-03-28",
+  "advisor-tool-2026-03-01",
+  "extended-cache-ttl-2025-04-11",
+  "cache-diagnosis-2026-04-07",
+  "cache-keepalive-2026-09-03",
+  "prompt-caching-evict-2026-05-12",
+  "context-hint-2026-04-09",
+  "task-budgets-2026-03-13",
+  "web-search-2025-03-05",
+  "web-search-results-only-2026-11-15",
+  "files-api-2025-04-14",
+  "mcp-servers-2025-12-04",
 ]);
 
 /**

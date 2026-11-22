@@ -45,8 +45,8 @@ import { buildGitLabOAuthEndpoints, GITLAB_DUO_DEFAULT_BASE_URL } from "../gitla
 // Claude OAuth Configuration (Authorization Code Flow with PKCE)
 export const CLAUDE_CONFIG = {
   clientId: resolvePublicCred("claude_id", "CLAUDE_OAUTH_CLIENT_ID"),
-  authorizeUrl: "https://claude.ai/oauth/authorize",
-  tokenUrl: "https://api.anthropic.com/v1/oauth/token",
+  authorizeUrl: "https://claude.com/cai/oauth/authorize",
+  tokenUrl: "https://platform.claude.com/v1/oauth/token",
   redirectUri:
     process.env.CLAUDE_CODE_REDIRECT_URI || "https://platform.claude.com/oauth/code/callback",
   scopes: [
@@ -55,6 +55,9 @@ export const CLAUDE_CONFIG = {
     "user:inference",
     "user:sessions:claude_code",
     "user:mcp_servers",
+    "user:file_upload",
+    "user:plugins",
+    "user:privacy_consents:write",
   ],
   codeChallengeMethod: "S256",
 };

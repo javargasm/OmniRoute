@@ -162,17 +162,24 @@ export type ClaudeBootstrap = {
   seat_tier: string | null;
 };
 
-/** GET /api/claude_cli/bootstrap with the same headers real CLI uses. */
-export async function fetchClaudeBootstrap(accessToken: string): Promise<ClaudeBootstrap | null> {
+/** GET /api/claude_cli/bootstrap with the same headers real CLI 2.1.330 uses. */
+export async function fetchClaudeBootstrap(
+  accessToken: string,
+  options?: { entrypoint?: string; model?: string }
+): Promise<ClaudeBootstrap | null> {
   const ctrl = new AbortController();
   const timer = setTimeout(() => ctrl.abort(), BOOTSTRAP_FETCH_TIMEOUT_MS);
   try {
-    const res = await fetch("https://api.anthropic.com/api/claude_cli/bootstrap", {
+    const url = new URL("https://api.anthropic.com/api/claude_cli/bootstrap");
+    if (options?.entrypoint) url.searchParams.set("entrypoint", options.entrypoint);
+    if (options?.model) url.searchParams.set("model", options.model);
+    const res = await fetch(url.toString(), {
       method: "GET",
       headers: {
         Authorization: `Bearer ${accessToken}`,
         Accept: "application/json",
-        "User-Agent": `claude-cli/${getClaudeCodeVersion()} (external, cli)`,
+        "Content-Type": "application/json",
+        "User-Agent": `claude-code/${getClaudeCodeVersion()}`,
         "anthropic-beta": "oauth-2025-04-20",
       },
       signal: ctrl.signal,
@@ -417,7 +424,6 @@ export function selectBetaFlags(
   const isFullAgent = hasTools && hasSystem;
   const effectiveModel = model ?? (typeof b.model === "string" ? b.model : "");
   const isHeavyAgent = isFullAgent && isHeavyAgentModel(effectiveModel);
-  const isOpusAgent = shouldUseMidConversationSystem(b, effectiveModel);
   const isContext1m = isFullAgent && isContext1mModel(effectiveModel);
   // Message-level output_config (per-message effort directive, #14746): Anthropic
   // rejects it with 400 `messages.N.output_config: Extra inputs are not permitted`
@@ -431,14 +437,22 @@ export function selectBetaFlags(
   // `speed` parameter with '<model>', send the `anthropic-beta: fast-mode-2026-02-01`
   // header" unless its gating beta ships on the same request.
   const hasSpeed = b.speed !== undefined && b.speed !== null;
+  const hasThread = b.thread !== undefined && b.thread !== null;
+  const hasFallbacks = b.fallbacks !== undefined && b.fallbacks !== null;
+  const hasSafeguards = b.safeguards !== undefined && b.safeguards !== null;
+  const thinkingObj =
+    b.thinking && typeof b.thinking === "object" ? (b.thinking as Record<string, unknown>) : null;
+  const hasThinkingDisplay = !!thinkingObj && "display" in thinkingObj;
+  const hasThinkingBinding = !!thinkingObj && "block_binding" in thinkingObj;
 
   const flags: string[] = [];
   if (isFullAgent) flags.push("claude-code-20250219");
   flags.push("oauth-2025-04-20");
   if (isContext1m) flags.push("context-1m-2025-08-07");
-  if (isOpusAgent) flags.push("mid-conversation-system-2026-04-07");
+  // Note: mid-conversation-system-2026-04-07 is GA in Claude Code 2.1.330
+  // (`header: null` — explicitly omitted from anthropic-beta).
   // Derive the per-message effort beta from the body shape — same rule as
-  // mid-conversation-system above — so a directive-carrying body is valid even
+  // above — so a directive-carrying body is valid even
   // when the client negotiated no anthropic-beta of its own (#14746). The
   // token is Anthropic's documented beta for the feature ("requires the beta
   // header mid-conversation-output-config-2026-07-01",
@@ -449,6 +463,11 @@ export function selectBetaFlags(
   // `/fast off`, and the field is valid only with its beta. A body without the field
   // never gains it (fingerprint: shape-matched sets only).
   if (hasSpeed) flags.push("fast-mode-2026-02-01");
+  if (hasThread) flags.push("message-threads-2026-08-12");
+  if (hasFallbacks) flags.push("server-side-fallback-2026-06-01");
+  if (hasSafeguards) flags.push("dangerous-tool-use-2026-09-03");
+  if (hasThinkingBinding) flags.push("thinking-binding-controls-2026-08-01");
+  if (hasThinkingDisplay) flags.push("thinking-display-updates-2026-08-18");
   // Thinking betas: gated on the client header (#3415). interleaved-thinking forces
   // interleaved-thinking semantics that conflict with a tool_choice-forced turn,
   // producing malformed opus tool_use streams when the client never asked for it.

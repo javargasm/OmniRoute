@@ -37,6 +37,7 @@ const BOOTSTRAP_URL = "https://api.anthropic.com/api/claude_cli/bootstrap";
 const claimUrl = (org: string) =>
   `https://api.anthropic.com/api/organizations/${org}/reset_rate_limits`;
 const CLI_UA = `claude-cli/${getClaudeCodeVersion()} (external, cli)`;
+const BOOTSTRAP_UA = `claude-code/${getClaudeCodeVersion()}`;
 
 type Recorded = {
   url: string;
@@ -404,7 +405,7 @@ test("redeem: without a persisted organization the bootstrap supplies it (CLI UA
   const bootAt = requests.findIndex((r) => r.url === BOOTSTRAP_URL);
   assert.ok(bootAt >= 0 && bootAt < postAt, "the bootstrap is read before the claim");
   assert.equal(requests[bootAt].headers.Authorization, `Bearer access-${noOrg.n}`);
-  assert.equal(requests[bootAt].headers["User-Agent"], CLI_UA);
+  assert.equal(requests[bootAt].headers["User-Agent"], BOOTSTRAP_UA);
 
   // Bootstrap refused: the redeem stops before any POST. (A fresh connection — the first
   // redeem's usage refresh may already have persisted the organization on `noOrg`.)

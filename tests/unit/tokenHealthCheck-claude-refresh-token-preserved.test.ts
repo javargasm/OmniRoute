@@ -34,7 +34,7 @@ const core = await import("../../src/lib/db/core.ts");
 const providersDb = await import("../../src/lib/db/providers.ts");
 const tokenHealthCheck = await import("../../src/lib/tokenHealthCheck.ts");
 
-const ANTHROPIC_TOKEN_URL = "https://api.anthropic.com/v1/oauth/token";
+const ANTHROPIC_TOKEN_URL = "https://platform.claude.com/v1/oauth/token";
 const CODEX_TOKEN_URL = "https://auth.openai.com/oauth/token";
 
 async function resetStorage() {

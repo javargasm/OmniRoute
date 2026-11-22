@@ -20,7 +20,6 @@ import {
   CONTEXT_1M_BETA_HEADER,
 } from "../../open-sse/services/claudeCodeCompatible.ts";
 import { runWithCapture } from "../../open-sse/utils/providerRequestLogging.ts";
-import { CLAUDE_CODE_CLIENT_BILLING_VERSION } from "../../src/shared/constants/claudeCodeClient.ts";
 
 class TestExecutor extends BaseExecutor {
   constructor(config = {}) {
@@ -1624,14 +1623,15 @@ test("DefaultExecutor.execute does not produce duplicate anthropic-version heade
   );
   assert.equal(versionKeys.length, 1, "Duplicate anthropic-version header keys found");
   assert.equal(capturedHeaders[versionKeys[0]], "2023-06-01");
-  assert.equal(capturedHeaders["X-Stainless-Runtime-Version"], "v26.3.0");
-  assert.equal(capturedHeaders["X-Stainless-Package-Version"], "0.112.1");
+  assert.equal(capturedHeaders["X-Stainless-Runtime-Version"], "v26.12.1");
+  assert.equal(capturedHeaders["X-Stainless-Package-Version"], "0.128.0");
 
   const sentBody = JSON.parse(capturedBody) as { system?: Array<{ text?: string }> };
-  const cc = `x-anthropic-billing-header: cc_version=${CLAUDE_CODE_CLIENT_BILLING_VERSION}; `;
   const billing = sentBody.system?.[0]?.text ?? "";
-  assert.equal(billing.slice(0, cc.length), cc, "cc_version tracks the constant (#14627)");
-  assert.match(billing.slice(cc.length), /^cc_entrypoint=cli; cch=[0-9a-f]{5};$/);
+  assert.match(
+    billing,
+    /^x-anthropic-billing-header: cc_version=2\.1\.330\.[0-9a-f]{3}; cc_entrypoint=cli; cch=[0-9a-f]{5};$/
+  );
 });
 
 test('shouldForceResponsesUpstream respects explicit apiType="chat" even when namespace tools are present', () => {

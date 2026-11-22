@@ -85,7 +85,7 @@ describe("OAuthModal Claude Code setup-token", () => {
           headers: { "Content-Type": "application/json" },
         });
       }
-      return new Response(JSON.stringify({ authUrl: "https://claude.ai/oauth/authorize" }), {
+      return new Response(JSON.stringify({ authUrl: "https://claude.com/cai/oauth/authorize" }), {
         status: 200,
         headers: { "Content-Type": "application/json" },
       });

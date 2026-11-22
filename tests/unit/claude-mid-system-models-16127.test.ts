@@ -96,16 +96,18 @@ test("null or missing request bodies do not enable the feature", () => {
   assert.equal(shouldUseMidConversationSystem(undefined, "claude-haiku-5-5"), false);
 });
 
-test("Sonnet 5.5 adds the existing mid-system beta without enabling context-1m", () => {
+test("Sonnet 5.5 enables in-place mid-system turns without emitting GA beta or context-1m", () => {
+  assert.equal(shouldUseMidConversationSystem(agentBody("claude-sonnet-5-5")), true);
   const flags = selectBetaFlags(agentBody("claude-sonnet-5-5"));
-  assert.ok(flags.includes("mid-conversation-system-2026-04-07"));
+  assert.ok(!flags.includes("mid-conversation-system-2026-04-07"));
   assert.ok(!flags.includes("context-1m-2025-08-07"));
   assert.ok(flags.includes("advanced-tool-use-2025-11-20"));
 });
 
-test("Haiku 5.5 adds the existing mid-system beta without heavy-agent flags", () => {
+test("Haiku 5.5 enables in-place mid-system turns without emitting GA beta or heavy-agent flags", () => {
+  assert.equal(shouldUseMidConversationSystem(agentBody("claude-haiku-5-5")), true);
   const flags = selectBetaFlags(agentBody("claude-haiku-5-5"));
-  assert.ok(flags.includes("mid-conversation-system-2026-04-07"));
+  assert.ok(!flags.includes("mid-conversation-system-2026-04-07"));
   for (const excluded of [
     "context-1m-2025-08-07",
     "advanced-tool-use-2025-11-20",

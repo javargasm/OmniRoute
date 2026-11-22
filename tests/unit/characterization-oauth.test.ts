@@ -215,8 +215,8 @@ test("CLAUDE_CONFIG shape", () => {
     "scopes",
     "tokenUrl",
   ]);
-  assert.equal(cfg.authorizeUrl, "https://claude.ai/oauth/authorize");
-  assert.equal(cfg.tokenUrl, "https://api.anthropic.com/v1/oauth/token");
+  assert.equal(cfg.authorizeUrl, "https://claude.com/cai/oauth/authorize");
+  assert.equal(cfg.tokenUrl, "https://platform.claude.com/v1/oauth/token");
   assert.equal(cfg.codeChallengeMethod, "S256");
   assert.ok(cfg.scopes.includes("user:inference"));
 });

@@ -47,19 +47,19 @@ test("#2454 Sonnet full-agent includes heavy-agent flags but omits context-1m", 
   );
 });
 
-test("#2454 Opus full-agent includes context-1m and mid-conversation-system", () => {
+test("#2454 Opus full-agent includes context-1m and omits GA mid-conversation-system", () => {
   const flags = selectBetaFlags(fullAgentBody("claude-opus-4-7"));
   assert.ok(flags.includes("context-1m-2025-08-07"), "Opus should receive context-1m");
   assert.ok(
-    flags.includes("mid-conversation-system-2026-04-07"),
-    "Opus should receive mid-conversation-system"
+    !flags.includes("mid-conversation-system-2026-04-07"),
+    "mid-conversation-system is GA in Claude Code 2.1.330 and must not be sent"
   );
 });
 
-test("Opus 5 full-agent omits the legacy context-1m beta", () => {
+test("Opus 5 full-agent omits the legacy context-1m beta and GA mid-conversation-system", () => {
   const flags = selectBetaFlags(fullAgentBody("claude-opus-5"));
   assert.ok(!flags.includes("context-1m-2025-08-07"));
-  assert.ok(flags.includes("mid-conversation-system-2026-04-07"));
+  assert.ok(!flags.includes("mid-conversation-system-2026-04-07"));
 });
 
 test("#2454 explicit model arg overrides body.model for tiering", () => {

@@ -21,11 +21,11 @@ import {
   type CliVersionSource,
 } from "@omniroute/open-sse/config/cliVersions.ts";
 
-export const CLAUDE_CODE_CLIENT_VERSION = "2.1.280";
+export const CLAUDE_CODE_CLIENT_VERSION = "2.1.330";
 export const CLAUDE_CODE_CLIENT_BUILD_REVISION = "1e2";
 export const CLAUDE_CODE_CLIENT_BILLING_VERSION = `${CLAUDE_CODE_CLIENT_VERSION}.${CLAUDE_CODE_CLIENT_BUILD_REVISION}`;
-export const CLAUDE_CODE_SDK_PACKAGE_VERSION = "0.112.1";
-export const CLAUDE_CODE_RUNTIME_VERSION = "v26.3.0";
+export const CLAUDE_CODE_SDK_PACKAGE_VERSION = "0.128.0";
+export const CLAUDE_CODE_RUNTIME_VERSION = "v26.12.1";
 
 export type ClaudeCodeEntrypoint = "cli" | "sdk-cli";
 
@@ -193,11 +193,12 @@ export function resetClaudeCodeClientVersionCache(): void {
  * the version above: it is captured alongside the version, so bumping only the
  * version advertises a `version.revision` pair no real binary emits.
  */
+export function getExplicitClaudeCodeBuildRevisionOverride(): string | null {
+  return getSafeEnvValue(CLAUDE_BUILD_REVISION_OVERRIDE_ENV, SAFE_HEADER_TOKEN_PATTERN);
+}
+
 export function getClaudeCodeClientBuildRevision(): string {
-  return (
-    getSafeEnvValue(CLAUDE_BUILD_REVISION_OVERRIDE_ENV, SAFE_HEADER_TOKEN_PATTERN) ||
-    CLAUDE_CODE_CLIENT_BUILD_REVISION
-  );
+  return getExplicitClaudeCodeBuildRevisionOverride() || CLAUDE_CODE_CLIENT_BUILD_REVISION;
 }
 
 export function getClaudeCodeClientBillingVersion(): string {

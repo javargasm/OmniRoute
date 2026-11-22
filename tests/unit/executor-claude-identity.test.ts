@@ -169,14 +169,14 @@ describe("claudeIdentity — selectBetaFlags", () => {
     assert.ok(flags.includes("claude-code-20250219"));
   });
 
-  it("includes context-1m for opus full agent", () => {
+  it("includes context-1m for opus full agent and omits GA mid-conversation-system", () => {
     const body = {
       system: "test",
       tools: [{ name: "test_tool" }],
     };
     const flags = mod.selectBetaFlags(body, "claude-opus-4");
     assert.ok(flags.includes("context-1m-2025-08-07"));
-    assert.ok(flags.includes("mid-conversation-system-2026-04-07"));
+    assert.ok(!flags.includes("mid-conversation-system-2026-04-07"));
   });
 
   it("omits the legacy context-1m beta for Opus 5", () => {
@@ -198,14 +198,15 @@ describe("claudeIdentity — selectBetaFlags", () => {
     assert.ok(!flags.includes("mid-conversation-system"));
   });
 
-  it("includes mid-conversation-system without context-1m for Fable", () => {
+  it("enables shouldUseMidConversationSystem without context-1m or GA beta for Fable", () => {
     const body = {
       system: "test",
       tools: [{ name: "test_tool" }],
     };
     for (const model of ["claude-fable-5", "claude-fable-5-1"]) {
+      assert.equal(mod.shouldUseMidConversationSystem(body, model), true);
       const flags = mod.selectBetaFlags(body, model);
-      assert.ok(flags.includes("mid-conversation-system-2026-04-07"));
+      assert.ok(!flags.includes("mid-conversation-system-2026-04-07"));
       assert.ok(!flags.includes("context-1m"));
     }
   });

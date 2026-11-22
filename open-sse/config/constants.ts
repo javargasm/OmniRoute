@@ -154,8 +154,8 @@ export const OAUTH_ENDPOINTS = {
     auth: "https://auth.openai.com/oauth/authorize",
   },
   anthropic: {
-    token: "https://api.anthropic.com/v1/oauth/token",
-    auth: "https://api.anthropic.com/v1/oauth/authorize",
+    token: "https://platform.claude.com/v1/oauth/token",
+    auth: "https://platform.claude.com/oauth/authorize",
   },
   qoder: {
     token: process.env.QODER_OAUTH_TOKEN_URL || "",

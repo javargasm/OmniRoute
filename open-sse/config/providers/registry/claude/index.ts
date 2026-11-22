@@ -24,7 +24,7 @@ export const claudeProvider: RegistryEntry = {
   oauth: {
     clientIdEnv: "CLAUDE_OAUTH_CLIENT_ID",
     clientIdDefault: resolvePublicCred("claude_id"),
-    tokenUrl: "https://api.anthropic.com/v1/oauth/token",
+    tokenUrl: "https://platform.claude.com/v1/oauth/token",
   },
   models: [
     {
