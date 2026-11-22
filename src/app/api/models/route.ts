@@ -23,6 +23,9 @@ import {
   isModelInLiveCatalog,
   loadAuthoritativeLiveCatalogs,
 } from "@/app/api/models/liveCatalogAvailability";
+import { getHiddenModelsByProvider } from "@/lib/db/models";
+import { getCachedProviderNodes } from "@/lib/db/readCache";
+import { createHiddenModelLookup } from "@/lib/hiddenModelLookup";
 import { buildAliasMaps } from "@/app/api/v1/models/catalogProviderMaps";
 import { resolveCanonicalProviderId as resolveCanonicalProviderIdFromMaps } from "@/app/api/v1/models/catalogProviderMaps";
 
@@ -33,6 +36,10 @@ interface GetModelsDependencies {
 // `withLimits=1` opts into per-model token limits plus their provenance (`capsSource`).
 const getModelsQuerySchema = z.object({
   withLimits: z
+    .enum(["1", "true", "0", "false"])
+    .optional()
+    .transform((value) => value === "1" || value === "true"),
+  includeHidden: z
     .enum(["1", "true", "0", "false"])
     .optional()
     .transform((value) => value === "1" || value === "true"),
@@ -69,11 +76,12 @@ export async function handleGetModels(request: Request, dependencies: GetModelsD
     const showAll = searchParams.get("all") === "true";
     const query = validateBody(getModelsQuerySchema, {
       withLimits: searchParams.get("withLimits") ?? undefined,
+      includeHidden: searchParams.get("includeHidden") ?? undefined,
     });
     if (isValidationFailure(query)) {
       return NextResponse.json({ error: query.error }, { status: 400 });
     }
-    const { withLimits } = query.data;
+    const { withLimits, includeHidden } = query.data;
 
     const modelAliases = await getModelAliases();
 
@@ -148,15 +156,50 @@ export async function handleGetModels(request: Request, dependencies: GetModelsD
       hidePaid = settings?.hidePaidModels === true;
     } catch {}
 
-    // Filter before capability resolution so unavailable/paid rows cannot trigger
+    const { aliasToProviderId, providerIdToAlias } = buildAliasMaps();
+    const resolveCanonicalProviderIdForStatic = (alias: string) =>
+      resolveCanonicalProviderIdFromMaps(aliasToProviderId, alias);
+
+    let isHiddenModel: (provider: string | null | undefined, model: string) => boolean = () =>
+      false;
+    if (!includeHidden) {
+      try {
+        const hiddenModels = getHiddenModelsByProvider("chat");
+        if (hiddenModels.size > 0) {
+          let providerNodes: Awaited<ReturnType<typeof getCachedProviderNodes>> = [];
+          try {
+            providerNodes = await getCachedProviderNodes();
+          } catch {
+            // Node metadata optional for static provider visibility checks
+          }
+          isHiddenModel = createHiddenModelLookup(hiddenModels, providerNodes, "chat");
+        }
+      } catch {
+        // Hidden-model lookup fails open if DB is unavailable
+      }
+    }
+
+    // Filter before capability resolution so unavailable/paid/hidden rows cannot trigger
     // needless capability work. One request-local snapshot supplies all persisted
     // capability and custom-vision rows to the remaining resolutions.
     const candidates = AI_MODELS.filter((model: any) => {
       if (!showAll && activeProviders && !activeProviders.has(model.provider)) return false;
-      return (
-        !hidePaid ||
-        (providerHasFreeModels(model.provider) && isFreeModel(model.provider, { id: model.model }))
-      );
+      if (
+        hidePaid &&
+        !(providerHasFreeModels(model.provider) && isFreeModel(model.provider, { id: model.model }))
+      ) {
+        return false;
+      }
+      if (!includeHidden) {
+        const canonicalProviderId = resolveCanonicalProviderIdForStatic(model.provider);
+        if (
+          isHiddenModel(model.provider, model.model) ||
+          isHiddenModel(canonicalProviderId, model.model)
+        ) {
+          return false;
+        }
+      }
+      return true;
     });
     const capabilitySnapshot = (
       dependencies.createCapabilitySnapshot ?? createModelCapabilityResolutionSnapshot
@@ -167,15 +210,12 @@ export async function handleGetModels(request: Request, dependencies: GetModelsD
     // exclusive-listing providers like Cursor, replaces the static list entirely).
     // Recompute the same suppression /v1/models applies so the two endpoints agree.
     let syncedModelIdsByCanonicalProvider = new Map<string, Set<string>>();
-    let resolveCanonicalProviderIdForStatic: (alias: string) => string = (alias) => alias;
     try {
       const syncedModelsByProvider = await getAllActiveSyncedModels({
         customModelsByProvider: capabilitySnapshot.customModelsByProvider,
       });
-      const { aliasToProviderId, providerIdToAlias } = buildAliasMaps();
       const resolve = (aliasOrId: string, fallbackProviderId?: string) =>
         resolveCanonicalProviderIdFromMaps(aliasToProviderId, aliasOrId, fallbackProviderId);
-      resolveCanonicalProviderIdForStatic = (alias: string) => resolve(alias);
       syncedModelIdsByCanonicalProvider = buildSyncedModelIdsByCanonicalProvider(
         syncedModelsByProvider,
         resolve,

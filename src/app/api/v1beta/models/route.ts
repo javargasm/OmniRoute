@@ -3,8 +3,10 @@ import { sanitizeErrorMessage } from "@omniroute/open-sse/utils/error";
 import {
   getAllCustomModels,
   getAllSyncedAvailableModels,
+  getHiddenModelsByProvider,
   getSyncedAvailableModels,
 } from "@/lib/db/models";
+import { createHiddenModelLookup } from "@/lib/hiddenModelLookup";
 import { getProviderConnections } from "@/lib/db/providers";
 import { getCachedProviderNodes } from "@/lib/db/readCache";
 import { getSettings } from "@/lib/db/settings";
@@ -119,10 +121,32 @@ export async function GET(request: Request) {
     const isUnadvertisedNode = (providerId: string) =>
       compatibleNodeIds.has(providerId) && !eligibleNodeIds.has(providerId);
 
+    let isHiddenModel: (provider: string | null | undefined, model: string) => boolean = () =>
+      false;
+    try {
+      const hiddenModels = getHiddenModelsByProvider("chat");
+      if (hiddenModels.size > 0) {
+        let providerNodes: Array<Record<string, unknown>> = [];
+        try {
+          providerNodes = (await getCachedProviderNodes()) as Array<Record<string, unknown>>;
+        } catch {
+          // Optional node list
+        }
+        isHiddenModel = createHiddenModelLookup(
+          hiddenModels,
+          providerNodes as Parameters<typeof createHiddenModelLookup>[1],
+          "chat"
+        );
+      }
+    } catch {
+      // Fail open if hidden-model overrides cannot be read
+    }
+
     // Built-in models (hardcoded defaults)
     for (const [provider, providerModels] of Object.entries(PROVIDER_MODELS)) {
       if (!activeKeys.has(provider)) continue;
       for (const model of providerModels) {
+        if (isHiddenModel(provider, model.id)) continue;
         const name = `models/${provider}/${model.id}`;
         if (existingNames.has(name)) continue;
         const resolved = getResolvedModelCapabilities({ provider, model: model.id });
@@ -183,6 +207,7 @@ export async function GET(request: Request) {
         if (!Array.isArray(syncedModels)) continue;
         for (const m of syncedModels) {
           if (!m || typeof m.id !== "string") continue;
+          if (isHiddenModel(providerId, m.id)) continue;
           const name = `models/${resolvePublicProviderId(providerId)}/${m.id}`;
           if (existingNames.has(name)) continue;
           const resolved = getResolvedModelCapabilities({
@@ -228,7 +253,7 @@ export async function GET(request: Request) {
           if (!model || typeof model !== "object" || typeof (model as any).id !== "string")
             continue;
           const m = model as Record<string, unknown>;
-          if (m.isHidden === true) continue;
+          if (m.isHidden === true || isHiddenModel(providerId, String(m.id))) continue;
           const resolved = getResolvedModelCapabilities({
             provider: providerId,
             model: String(m.id),

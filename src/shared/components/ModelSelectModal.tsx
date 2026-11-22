@@ -32,6 +32,7 @@ import {
 import { getModelsByProviderId, PROVIDER_ID_TO_ALIAS } from "@/shared/constants/models";
 import { getCompatibleFallbackModels } from "@/lib/providers/managedAvailableModels";
 import { getWebComboTargets } from "@/shared/utils/webComboTargets";
+import { providerUsesAuthoritativeLiveCatalog } from "@omniroute/open-sse/config/providerRegistry.ts";
 import {
   getModelCatalogSourceLabel,
   matchesModelCatalogQuery,
@@ -153,6 +154,7 @@ export default function ModelSelectModal({
   const [hiddenModelsByProvider, setHiddenModelsByProvider] = useState<Map<string, Set<string>>>(
     new Map()
   );
+  const [syncedModelsByProvider, setSyncedModelsByProvider] = useState<Record<string, any[]>>({});
   // Models discovered live from a custom provider's upstream `/models` endpoint,
   // keyed by provider id. Merged into the alias/custom/fallback list below and
   // tagged with the `auto` source badge. Ported from upstream PR
@@ -237,7 +239,20 @@ export default function ModelSelectModal({
         setCustomModels({});
       }
     };
+    const fetchSyncedModels = async () => {
+      try {
+        const res = await fetch("/api/synced-available-models");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data && typeof data === "object" && !Array.isArray(data)) {
+          setSyncedModelsByProvider(data as Record<string, any[]>);
+        }
+      } catch {
+        // Synced catalog is optional; fall back to bundled static list.
+      }
+    };
     fetchCustomModels();
+    fetchSyncedModels();
   }, [isOpen]);
 
   // When the modal opens, dynamically load models for every connected custom
@@ -337,7 +352,7 @@ export default function ModelSelectModal({
       // auto-fetched model is filtered exactly like a hidden custom row.
       const providerCustomModels = (customModels[providerId] || []).filter((cm) => !cm.isHidden);
       const isHiddenForProvider = (modelId: string) =>
-        isProviderModelHidden(hiddenModelsByProvider, providerId, modelId);
+        isProviderModelHidden(hiddenModelsByProvider, providerId, modelId, alias);
 
       if (providerInfo.passthroughModels) {
         // Passthrough aliases are stored prefixed by the canonical providerId
@@ -441,25 +456,48 @@ export default function ModelSelectModal({
         }
       } else {
         const webTargets = includeWebTargets ? getWebComboTargets(providerId) : [];
-        const systemModels = [
+        const rawSynced = syncedModelsByProvider[providerId];
+        const hasSynced = Array.isArray(rawSynced) && rawSynced.length > 0;
+        const authoritativeSynced = hasSynced && providerUsesAuthoritativeLiveCatalog(providerId);
+        const bundledModels = [
           ...getModelsByProviderId(providerId).filter(
             (model) => !webTargets.some((target) => target.id === model.id)
           ),
           ...webTargets,
         ];
+        const bundledById = new Map(bundledModels.map((m) => [m.id, m]));
+        const syncedEntries = hasSynced
+          ? rawSynced
+              .filter((sm) => typeof sm?.id === "string" && sm.id.length > 0)
+              .map((sm) => ({
+                id: sm.id as string,
+                name:
+                  (typeof sm.name === "string" && sm.name) || bundledById.get(sm.id)?.name || sm.id,
+                value: `${alias}/${sm.id}`,
+                source: bundledById.has(sm.id) ? "system" : "imported",
+              }))
+              .filter((sm) => !isHiddenForProvider(sm.id))
+          : [];
+        const syncedIdSet = new Set(syncedEntries.map((sm) => sm.id));
 
-        // Merge system models with user-added custom models
-        const systemEntries = systemModels
-          .map((m) => ({
-            id: m.id,
-            name: m.name,
-            value: `${alias}/${m.id}`,
-            source: "system",
-          }))
-          .filter((sm) => !isHiddenForProvider(sm.id));
+        // Merge system models with user-added custom models (skipping un-synced static rows
+        // when an authoritative live catalog is present for this provider).
+        const systemEntries = authoritativeSynced
+          ? syncedEntries
+          : [
+              ...bundledModels
+                .map((m) => ({
+                  id: m.id,
+                  name: m.name,
+                  value: `${alias}/${m.id}`,
+                  source: "system",
+                }))
+                .filter((sm) => !syncedIdSet.has(sm.id) && !isHiddenForProvider(sm.id)),
+              ...syncedEntries,
+            ];
 
         const customEntries = providerCustomModels
-          .filter((cm) => !systemModels.some((sm) => sm.id === cm.id))
+          .filter((cm) => !systemEntries.some((sm) => sm.id === cm.id))
           .filter((cm) => !isHiddenForProvider(cm.id))
           .map((cm) => ({
             id: cm.id,
@@ -501,6 +539,7 @@ export default function ModelSelectModal({
     providerNodes,
     customModels,
     fetchedModels,
+    syncedModelsByProvider,
     includeWebTargets,
     hiddenModelsByProvider,
   ]);

@@ -10,6 +10,10 @@ import Icon from "@/shared/components/Icon";
 import { CLI_TOOLS } from "@/shared/constants/cliTools";
 import { PROVIDER_ID_TO_ALIAS, getModelsByProviderId } from "@/shared/constants/models";
 import {
+  isProviderModelHidden,
+  parseHiddenModelsByProvider,
+} from "@/shared/components/modelSelectModalHelpers";
+import {
   AntigravityToolCard,
   ClaudeToolCard,
   ClineToolCard,
@@ -40,6 +44,9 @@ export default function ToolDetailClient({ toolId, category }: ToolDetailClientP
   const [apiKeys, setApiKeys] = useState<any[]>([]);
   const [cloudEnabled, setCloudEnabled] = useState(false);
   const [dynamicModels, setDynamicModels] = useState<any[]>([]);
+  const [hiddenModelsByProvider, setHiddenModelsByProvider] = useState<Map<string, Set<string>>>(
+    () => new Map()
+  );
   const [modelMappings, setModelMappings] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
 
@@ -91,6 +98,18 @@ export default function ToolDetailClient({ toolId, category }: ToolDetailClientP
     }
   }, []);
 
+  const fetchHiddenModels = useCallback(async () => {
+    try {
+      const res = await fetch("/api/provider-models");
+      if (res.ok) {
+        const data = await res.json();
+        setHiddenModelsByProvider(parseHiddenModelsByProvider(data?.hiddenModelsByProvider));
+      }
+    } catch {
+      // Optional visibility filter — dynamic /v1/models already excludes hidden models.
+    }
+  }, []);
+
   useEffect(() => {
     let cancelled = false;
     // "Load data on mount" pattern: fetch* callbacks call setState internally
@@ -104,6 +123,7 @@ export default function ToolDetailClient({ toolId, category }: ToolDetailClientP
       fetchApiKeys(),
       fetchCloudSettings(),
       fetchDynamicModels(),
+      fetchHiddenModels(),
     ]).finally(() => {
       if (!cancelled) setLoading(false);
     });
@@ -111,7 +131,7 @@ export default function ToolDetailClient({ toolId, category }: ToolDetailClientP
     return () => {
       cancelled = true;
     };
-  }, [fetchConnections, fetchApiKeys, fetchCloudSettings, fetchDynamicModels]);
+  }, [fetchConnections, fetchApiKeys, fetchCloudSettings, fetchDynamicModels, fetchHiddenModels]);
 
   const getActiveProviders = useCallback(() => {
     return connections.filter((c) => c.isActive !== false);
@@ -121,24 +141,30 @@ export default function ToolDetailClient({ toolId, category }: ToolDetailClientP
     const activeProviders = getActiveProviders();
     const models: any[] = [];
     const seenModels = new Set<string>();
+    const hasDynamicCatalog = Array.isArray(dynamicModels) && dynamicModels.length > 0;
+    const isHidden = (provider: string, alias: string, modelId: string) =>
+      isProviderModelHidden(hiddenModelsByProvider, provider, modelId, alias);
 
     activeProviders.forEach((conn) => {
       const alias = PROVIDER_ID_TO_ALIAS[conn.provider] || conn.provider;
       const providerModels = getModelsByProviderId(conn.provider);
-      providerModels.forEach((m: any) => {
-        const modelValue = `${alias}/${m.id}`;
-        if (!seenModels.has(modelValue)) {
-          seenModels.add(modelValue);
-          models.push({
-            value: modelValue,
-            label: `${alias}/${m.id}`,
-            provider: conn.provider,
-            alias,
-            connectionName: conn.name,
-            modelId: m.id,
-          });
-        }
-      });
+      if (!hasDynamicCatalog) {
+        providerModels.forEach((m: any) => {
+          if (isHidden(conn.provider, alias, m.id)) return;
+          const modelValue = `${alias}/${m.id}`;
+          if (!seenModels.has(modelValue)) {
+            seenModels.add(modelValue);
+            models.push({
+              value: modelValue,
+              label: `${alias}/${m.id}`,
+              provider: conn.provider,
+              alias,
+              connectionName: conn.name,
+              modelId: m.id,
+            });
+          }
+        });
+      }
 
       if (providerModels.length === 0) {
         const prefix =
@@ -150,6 +176,7 @@ export default function ToolDetailClient({ toolId, category }: ToolDetailClientP
         const addFallbackModel = (model: any) => {
           const id = typeof model?.id === "string" ? model.id.trim() : "";
           if (!id || fallbackModels.some((candidate) => candidate.id === id)) return;
+          if (isHidden(conn.provider, prefix, id)) return;
           fallbackModels.push({
             id,
             name: typeof model?.name === "string" && model.name.trim() ? model.name.trim() : id,
@@ -190,6 +217,10 @@ export default function ToolDetailClient({ toolId, category }: ToolDetailClientP
       })
     );
     const activeProviderIds = new Set(activeProviders.map((c) => c.provider));
+    const aliasToProvider = new Map<string, string>();
+    for (const [providerId, alias] of Object.entries(PROVIDER_ID_TO_ALIAS)) {
+      aliasToProvider.set(alias, providerId);
+    }
     dynamicModels.forEach((dm) => {
       const rawId = dm?.id ?? dm;
       const modelId = typeof rawId === "string" ? rawId : "";
@@ -199,6 +230,9 @@ export default function ToolDetailClient({ toolId, category }: ToolDetailClientP
       const alias = modelId.substring(0, slashIdx);
       const bareModel = modelId.substring(slashIdx + 1);
       if (!activeAliases.has(alias) && !activeProviderIds.has(alias)) return;
+      const ownerProvider =
+        (typeof dm?.owned_by === "string" && dm.owned_by) || aliasToProvider.get(alias) || alias;
+      if (isHidden(ownerProvider, alias, bareModel)) return;
       seenModels.add(modelId);
       models.push({
         value: modelId,
@@ -211,7 +245,7 @@ export default function ToolDetailClient({ toolId, category }: ToolDetailClientP
     });
 
     return models;
-  }, [getActiveProviders, dynamicModels]);
+  }, [getActiveProviders, dynamicModels, hiddenModelsByProvider]);
 
   const handleModelMappingChange = useCallback((alias: string, targetModel: string) => {
     setModelMappings((prev) => {

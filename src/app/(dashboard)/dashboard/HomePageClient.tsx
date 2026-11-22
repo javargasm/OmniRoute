@@ -445,7 +445,9 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
       ).length;
 
       const providerKeys = new Set([providerId, providerInfo.alias].filter(Boolean));
-      const providerModels = models.filter((m) => providerKeys.has(m.provider));
+      const providerModels = models.filter(
+        (m) => providerKeys.has(m.provider) && m.available !== false
+      );
 
       const authType = NOAUTH_PROVIDERS[providerId]
         ? "no-auth"
@@ -470,7 +472,7 @@ export default function HomePageClient({ machineId }: HomePageClientProps) {
     const providerKeys = new Set(
       [selectedProvider.id, selectedProvider.provider?.alias].filter(Boolean)
     );
-    return models.filter((m) => providerKeys.has(m.provider));
+    return models.filter((m) => providerKeys.has(m.provider) && m.available !== false);
   }, [selectedProvider, models]);
 
   const topologyProviders = useMemo(() => {

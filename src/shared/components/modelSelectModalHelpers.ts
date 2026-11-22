@@ -131,12 +131,17 @@ export function parseHiddenModelsByProvider(raw: unknown): Map<string, Set<strin
 export function isProviderModelHidden(
   hiddenModelsByProvider: Map<string, Set<string>>,
   providerId: string,
-  modelId: string
+  modelId: string,
+  alias?: string | null
 ): boolean {
   if (typeof providerId !== "string" || typeof modelId !== "string" || modelId.length === 0) {
     return false;
   }
-  return hiddenModelsByProvider.get(providerId)?.has(modelId) ?? false;
+  if (hiddenModelsByProvider.get(providerId)?.has(modelId)) return true;
+  if (typeof alias === "string" && alias.length > 0 && alias !== providerId) {
+    return hiddenModelsByProvider.get(alias)?.has(modelId) ?? false;
+  }
+  return false;
 }
 
 /** Matches the provider-page "Test All Models" concurrency (#chunks of 3). */
